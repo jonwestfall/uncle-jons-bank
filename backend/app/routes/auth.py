@@ -11,7 +11,7 @@ from app.database import get_session
 from app.models import User
 
 from sqlmodel import select
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserLogin
 from datetime import timedelta
 
 router = APIRouter()
@@ -33,6 +33,21 @@ async def login_for_access_token(
         data={"sub": user.email}, expires_delta=timedelta(minutes=60)
     )
     return {"access_token": access_token, "token_type": "bearer"}
+@router.post("/token")
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_session),
+):
+    return await authenticate_user(
+        email=form_data.username, password=form_data.password, db=db
+    )
+
+
+@router.post("/login")
+async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
+    return await authenticate_user(
+        email=user_in.email, password=user_in.password, db=db
+    )
 
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
