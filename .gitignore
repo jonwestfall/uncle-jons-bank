@@ -20,5 +20,6 @@ dist/
 # Misc
 *.sqlite3
 to-do.txt
+*.patch
 
 *.db
