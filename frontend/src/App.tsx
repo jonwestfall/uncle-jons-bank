@@ -156,13 +156,13 @@ function App() {
 
   if (isChildAccount && childId !== null) {
     return (
-      <div id="app">
+      <div id="app" className="container">
         <h1>Uncle Jon's Bank</h1>
         <h3>Your Ledger</h3>
         {ledger && (
           <div>
             <p>Balance: {ledger.balance.toFixed(2)}</p>
-            <ul>
+            <ul className="list">
               {ledger.transactions.map(tx => (
                 <li key={tx.id}>
                   {new Date(tx.timestamp).toLocaleString()} - {tx.type} {tx.amount}
@@ -186,7 +186,7 @@ function App() {
           setWithdrawAmount('')
           setWithdrawMemo('')
           fetchMyWithdrawals()
-        }} style={{ marginTop: '1em' }}>
+        }} className="form">
           <h4>Request Withdrawal</h4>
           <input type="number" step="0.01" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} required />
           <input placeholder="Memo" value={withdrawMemo} onChange={e => setWithdrawMemo(e.target.value)} />
@@ -195,7 +195,7 @@ function App() {
         {withdrawals.length > 0 && (
           <div>
             <h4>Your Requests</h4>
-            <ul>
+            <ul className="list">
               {withdrawals.map(w => (
                 <li key={w.id}>
                   {w.amount} - {w.status}
@@ -211,19 +211,19 @@ function App() {
   }
 
   return (
-    <div id="app">
+    <div id="app" className="container">
       <h1>Uncle Jon's Bank</h1>
       <p>You are logged in.</p>
       <div>
         <h3>Your Children</h3>
-        <ul>
+        <ul className="list">
           {children.map(c => (
             <li key={c.id}>
               {c.first_name} {c.frozen && '(Frozen)'}
-              <button onClick={() => toggleFreeze(c.id, c.frozen)} style={{ marginLeft: '1em' }}>
+              <button onClick={() => toggleFreeze(c.id, c.frozen)} className="ml-1">
                 {c.frozen ? 'Unfreeze' : 'Freeze'}
               </button>
-              <button onClick={() => fetchLedger(c.id)} style={{ marginLeft: '1em' }}>
+              <button onClick={() => fetchLedger(c.id)} className="ml-1">
                 View Ledger
               </button>
             </li>
@@ -233,7 +233,7 @@ function App() {
           <div>
             <h4>Ledger for child #{selectedChild}</h4>
             <p>Balance: {ledger.balance.toFixed(2)}</p>
-            <ul>
+            <ul className="list">
               {ledger.transactions.map(tx => (
                 <li key={tx.id}>
                   {new Date(tx.timestamp).toLocaleString()} - {tx.type} {tx.amount}
@@ -258,7 +258,7 @@ function App() {
                       })
                       fetchLedger(selectedChild)
                     }}
-                    style={{ marginLeft: '1em' }}
+                    className="ml-1"
                   >
                     Edit
                   </button>
@@ -271,7 +271,7 @@ function App() {
                       })
                       fetchLedger(selectedChild)
                     }}
-                    style={{ marginLeft: '0.5em' }}
+                    className="ml-05"
                   >
                     Delete
                   </button>
@@ -302,7 +302,7 @@ function App() {
                 setTxType('credit')
                 fetchLedger(selectedChild)
               }}
-              style={{ marginTop: '1em' }}
+              className="form"
             >
               <h4>Add Transaction</h4>
               <select value={txType} onChange={e => setTxType(e.target.value)}>
@@ -328,7 +328,7 @@ function App() {
         {pendingWithdrawals.length > 0 && (
           <div>
             <h4>Pending Withdrawal Requests</h4>
-            <ul>
+            <ul className="list">
               {pendingWithdrawals.map(w => (
                 <li key={w.id}>
                   Child {w.child_id}: {w.amount} {w.memo ? `(${w.memo})` : ''}
@@ -339,7 +339,7 @@ function App() {
                     })
                     fetchPendingWithdrawals()
                     if (selectedChild === w.child_id) fetchLedger(w.child_id)
-                  }} style={{ marginLeft: '1em' }}>Approve</button>
+                  }} className="ml-1">Approve</button>
                   <button onClick={async () => {
                     const reason = window.prompt('Reason for denial?') || ''
                     await fetch(`${apiUrl}/withdrawals/${w.id}/deny`, {
@@ -348,7 +348,7 @@ function App() {
                       body: JSON.stringify({ reason })
                     })
                     fetchPendingWithdrawals()
-                  }} style={{ marginLeft: '0.5em' }}>Deny</button>
+                  }} className="ml-05">Deny</button>
                 </li>
               ))}
             </ul>
@@ -378,7 +378,7 @@ function App() {
             console.error(error)
             setErrorMessage('An unexpected error occurred. Please try again.')
           }
-        }}>
+        }} className="form">
           <h4>Add Child</h4>
           {errorMessage && <p className="error">{errorMessage}</p>}
           <input placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)} required />

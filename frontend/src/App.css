@@ -5,6 +5,49 @@
   text-align: center;
 }
 
+#app,
+.container {
+  background: #ffffff;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 100%;
+  text-align: left;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-top: 1em;
+}
+
+.list {
+  list-style: none;
+  padding-left: 0;
+  text-align: left;
+}
+
+.ml-1 {
+  margin-left: 1em;
+}
+
+.ml-05 {
+  margin-left: 0.5em;
+}
+
+.mb-1 {
+  margin-bottom: 1em;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;

@@ -40,24 +40,24 @@ export default function LoginPage({ onLogin }: Props) {
   }
 
   return (
-    <div>
+    <div className="container">
       <h2>Login</h2>
-      <button onClick={() => setIsChild(!isChild)} style={{ marginBottom: '1em' }}>
+      <button onClick={() => setIsChild(!isChild)} className="mb-1">
         {isChild ? 'Switch to Parent Login' : 'Switch to Child Login'}
       </button>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="form">
         {isChild ? (
-          <div>
+          <div className="form-group">
             <label>Access Code:</label>
             <input value={accessCode} onChange={e => setAccessCode(e.target.value)} required />
           </div>
         ) : (
           <>
-            <div>
+            <div className="form-group">
               <label>Email:</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
-            <div>
+            <div className="form-group">
               <label>Password:</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
