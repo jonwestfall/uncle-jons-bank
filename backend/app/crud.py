@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from app.models import User, Child, ChildUserLink
+from app.models import User, Child, ChildUserLink, Transaction
 from app.auth import get_password_hash, get_child_by_id
 
 async def create_user(db: AsyncSession, user: User):
@@ -57,3 +57,29 @@ async def set_child_frozen(db: AsyncSession, child_id: int, frozen: bool) -> Chi
     await db.commit()
     await db.refresh(child)
     return child
+
+
+async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
+    """Persist a ledger transaction."""
+    db.add(tx)
+    await db.commit()
+    await db.refresh(tx)
+    return tx
+
+
+async def get_transactions_by_child(db: AsyncSession, child_id: int) -> list[Transaction]:
+    result = await db.execute(
+        select(Transaction).where(Transaction.child_id == child_id).order_by(Transaction.timestamp)
+    )
+    return result.scalars().all()
+
+
+async def calculate_balance(db: AsyncSession, child_id: int) -> float:
+    transactions = await get_transactions_by_child(db, child_id)
+    balance = 0.0
+    for tx in transactions:
+        if tx.type == "credit":
+            balance += tx.amount
+        else:
+            balance -= tx.amount
+    return balance

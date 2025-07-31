@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 interface Props {
-  onLogin: (token: string) => void
+  onLogin: (token: string, isChild: boolean) => void
 }
 
 export default function LoginPage({ onLogin }: Props) {
@@ -29,8 +29,7 @@ export default function LoginPage({ onLogin }: Props) {
         throw new Error('Login failed')
       }
       const data = await resp.json()
-      onLogin(data.access_token)
-      localStorage.setItem('token', data.access_token)
+      onLogin(data.access_token, isChild)
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message)

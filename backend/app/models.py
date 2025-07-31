@@ -22,6 +22,7 @@ class Child(SQLModel, table=True):
 
     parents: List["ChildUserLink"] = Relationship(back_populates="child")
     account: Optional["Account"] = Relationship(back_populates="child")
+    transactions: List["Transaction"] = Relationship(back_populates="child")
 
 
 class ChildUserLink(SQLModel, table=True):
@@ -40,19 +41,18 @@ class Account(SQLModel, table=True):
     last_interest_applied: Optional[date] = None
 
     child: Child = Relationship(back_populates="account")
-    transactions: List["Transaction"] = Relationship(back_populates="account")
 
 
 class Transaction(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    account_id: int = Field(foreign_key="account.id")
-    amount: float
-    type: str  # deposit, withdrawal, interest, penalty, bonus
-    memo: Optional[str] = None
-    created_by: Optional[int] = Field(default=None, foreign_key="user.id")
-    date: datetime = Field(default_factory=datetime.utcnow)
-    promotion_id: Optional[int] = Field(default=None)
-    status: str = "approved"  # pending, approved, denied
-    denial_reason: Optional[str] = None
+    """Ledger transaction representing credits and debits on a child's account."""
 
-    account: Account = Relationship(back_populates="transactions")
+    id: Optional[int] = Field(default=None, primary_key=True, alias="transaction_id")
+    child_id: int = Field(foreign_key="child.id")
+    type: str  # "credit" or "debit"
+    amount: float
+    memo: Optional[str] = None
+    initiated_by: str  # "child" or "parent"
+    initiator_id: int
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    child: Child = Relationship(back_populates="transactions")
