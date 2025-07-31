@@ -13,3 +13,7 @@ class ChildRead(BaseModel):
 
     class Config:
         model_config = {"from_attributes": True}
+
+
+class ChildLogin(BaseModel):
+    access_code: str

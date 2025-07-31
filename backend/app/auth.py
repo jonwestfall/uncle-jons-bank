@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app.models import User
+from app.models import User, Child
 from app.database import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
@@ -77,3 +77,25 @@ def require_role(*roles: str):
         return current_user
 
     return role_dependency
+
+
+async def get_current_child(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_session),
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub: str = payload.get("sub")
+        if not sub or not sub.startswith("child:"):
+            raise credentials_exception
+        child_id = int(sub.split(":", 1)[1])
+    except (JWTError, ValueError):
+        raise credentials_exception
+    child = await get_child_by_id(db, child_id)
+    if child is None:
+        raise credentials_exception
+    return child
