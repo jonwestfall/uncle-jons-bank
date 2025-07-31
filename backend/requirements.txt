@@ -1,5 +1,6 @@
 passlib[bcrypt]
 python-jose[cryptography]
+pydantic
 # Framework and server
 fastapi
 uvicorn
@@ -7,3 +8,4 @@ uvicorn
 # Database layer
 sqlmodel
 sqlalchemy
+aiosqlite
