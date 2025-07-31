@@ -1,8 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from app.models import User, Child
+from app.auth import get_password_hash
 
 async def create_user(db: AsyncSession, user: User):
+    if not user.password_hash.startswith("$2b$"):
+        user.password_hash = get_password_hash(user.password_hash)
     db.add(user)
     await db.commit()
     await db.refresh(user)
