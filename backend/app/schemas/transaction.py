@@ -16,6 +16,12 @@ class TransactionCreate(TransactionBase):
     pass
 
 
+class TransactionUpdate(BaseModel):
+    type: Optional[str] = None
+    amount: Optional[float] = None
+    memo: Optional[str] = None
+
+
 class TransactionRead(TransactionBase):
     transaction_id: int = Field(alias="id")
     timestamp: datetime

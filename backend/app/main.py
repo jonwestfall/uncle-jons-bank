@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import users, children, auth, transactions
+from app.routes import users, children, auth, transactions, withdrawals
 from app.database import create_db_and_tables
 
 app = FastAPI()
@@ -24,6 +24,7 @@ app.include_router(users.router)
 app.include_router(children.router)
 app.include_router(auth.router)
 app.include_router(transactions.router)
+app.include_router(withdrawals.router)
 
 
 @app.get("/")

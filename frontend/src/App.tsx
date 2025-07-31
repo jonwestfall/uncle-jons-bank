@@ -18,6 +18,17 @@ interface LedgerResponse {
   transactions: Transaction[]
 }
 
+interface WithdrawalRequest {
+  id: number
+  child_id: number
+  amount: number
+  memo?: string | null
+  status: string
+  requested_at: string
+  responded_at?: string | null
+  denial_reason?: string | null
+}
+
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [isChildAccount, setIsChildAccount] = useState<boolean>(() => localStorage.getItem('isChild') === 'true')
@@ -31,6 +42,13 @@ function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [ledger, setLedger] = useState<LedgerResponse | null>(null)
   const [selectedChild, setSelectedChild] = useState<number | null>(null)
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<WithdrawalRequest[]>([])
+  const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [withdrawMemo, setWithdrawMemo] = useState('')
+  const [txType, setTxType] = useState('credit')
+  const [txAmount, setTxAmount] = useState('')
+  const [txMemo, setTxMemo] = useState('')
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -55,6 +73,26 @@ function App() {
     }
   }, [token, apiUrl])
 
+  const fetchMyWithdrawals = useCallback(async () => {
+    if (!token) return
+    const resp = await fetch(`${apiUrl}/withdrawals/mine`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (resp.ok) {
+      setWithdrawals(await resp.json())
+    }
+  }, [token, apiUrl])
+
+  const fetchPendingWithdrawals = useCallback(async () => {
+    if (!token) return
+    const resp = await fetch(`${apiUrl}/withdrawals`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (resp.ok) {
+      setPendingWithdrawals(await resp.json())
+    }
+  }, [token, apiUrl])
+
   const toggleFreeze = async (childId: number, frozen: boolean) => {
     if (!token) return
     const endpoint = frozen ? 'unfreeze' : 'freeze'
@@ -76,8 +114,10 @@ function App() {
       setChildId(cid)
       localStorage.setItem('childId', String(cid))
       fetchLedger(cid)
+      fetchMyWithdrawals()
     } else {
       fetchChildren()
+      fetchPendingWithdrawals()
     }
   }
 
@@ -87,6 +127,13 @@ function App() {
     setChildId(null)
     setLedger(null)
     setSelectedChild(null)
+    setWithdrawals([])
+    setPendingWithdrawals([])
+    setWithdrawAmount('')
+    setWithdrawMemo('')
+    setTxType('credit')
+    setTxAmount('')
+    setTxMemo('')
     localStorage.removeItem('token')
     localStorage.removeItem('isChild')
     localStorage.removeItem('childId')
@@ -96,10 +143,12 @@ function App() {
     if (!token) return
     if (isChildAccount && childId !== null) {
       fetchLedger(childId)
+      fetchMyWithdrawals()
     } else if (!isChildAccount) {
       fetchChildren()
+      fetchPendingWithdrawals()
     }
-  }, [token, isChildAccount, childId, fetchChildren, fetchLedger])
+  }, [token, isChildAccount, childId, fetchChildren, fetchLedger, fetchMyWithdrawals, fetchPendingWithdrawals])
 
   if (!token) {
     return <LoginPage onLogin={handleLogin} />
@@ -118,6 +167,39 @@ function App() {
                 <li key={tx.id}>
                   {new Date(tx.timestamp).toLocaleString()} - {tx.type} {tx.amount}
                   {tx.memo ? ` (${tx.memo})` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <form onSubmit={async e => {
+          e.preventDefault()
+          if (!withdrawAmount) return
+          await fetch(`${apiUrl}/withdrawals/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ amount: Number(withdrawAmount), memo: withdrawMemo || null })
+          })
+          setWithdrawAmount('')
+          setWithdrawMemo('')
+          fetchMyWithdrawals()
+        }} style={{ marginTop: '1em' }}>
+          <h4>Request Withdrawal</h4>
+          <input type="number" step="0.01" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} required />
+          <input placeholder="Memo" value={withdrawMemo} onChange={e => setWithdrawMemo(e.target.value)} />
+          <button type="submit">Submit</button>
+        </form>
+        {withdrawals.length > 0 && (
+          <div>
+            <h4>Your Requests</h4>
+            <ul>
+              {withdrawals.map(w => (
+                <li key={w.id}>
+                  {w.amount} - {w.status}
+                  {w.denial_reason ? ` (Reason: ${w.denial_reason})` : ''}
                 </li>
               ))}
             </ul>
@@ -156,6 +238,117 @@ function App() {
                 <li key={tx.id}>
                   {new Date(tx.timestamp).toLocaleString()} - {tx.type} {tx.amount}
                   {tx.memo ? ` (${tx.memo})` : ''}
+                  <button
+                    onClick={async () => {
+                      const amount = window.prompt('Amount', String(tx.amount))
+                      if (amount === null) return
+                      const memo = window.prompt('Memo', tx.memo || '')
+                      const type = window.prompt('Type (credit/debit)', tx.type)
+                      await fetch(`${apiUrl}/transactions/${tx.id}`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                          amount: Number(amount),
+                          memo: memo || null,
+                          type: type || tx.type
+                        })
+                      })
+                      fetchLedger(selectedChild)
+                    }}
+                    style={{ marginLeft: '1em' }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Delete transaction?')) return
+                      await fetch(`${apiUrl}/transactions/${tx.id}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${token}` }
+                      })
+                      fetchLedger(selectedChild)
+                    }}
+                    style={{ marginLeft: '0.5em' }}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <form
+              onSubmit={async e => {
+                e.preventDefault()
+                if (!selectedChild) return
+                await fetch(`${apiUrl}/transactions/`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    child_id: selectedChild,
+                    type: txType,
+                    amount: Number(txAmount),
+                    memo: txMemo || null,
+                    initiated_by: 'parent',
+                    initiator_id: 0
+                  })
+                })
+                setTxAmount('')
+                setTxMemo('')
+                setTxType('credit')
+                fetchLedger(selectedChild)
+              }}
+              style={{ marginTop: '1em' }}
+            >
+              <h4>Add Transaction</h4>
+              <select value={txType} onChange={e => setTxType(e.target.value)}>
+                <option value="credit">Credit</option>
+                <option value="debit">Debit</option>
+              </select>
+              <input
+                type="number"
+                step="0.01"
+                value={txAmount}
+                onChange={e => setTxAmount(e.target.value)}
+                required
+              />
+              <input
+                placeholder="Memo"
+                value={txMemo}
+                onChange={e => setTxMemo(e.target.value)}
+              />
+              <button type="submit">Add</button>
+            </form>
+          </div>
+        )}
+        {pendingWithdrawals.length > 0 && (
+          <div>
+            <h4>Pending Withdrawal Requests</h4>
+            <ul>
+              {pendingWithdrawals.map(w => (
+                <li key={w.id}>
+                  Child {w.child_id}: {w.amount} {w.memo ? `(${w.memo})` : ''}
+                  <button onClick={async () => {
+                    await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${token}` }
+                    })
+                    fetchPendingWithdrawals()
+                    if (selectedChild === w.child_id) fetchLedger(w.child_id)
+                  }} style={{ marginLeft: '1em' }}>Approve</button>
+                  <button onClick={async () => {
+                    const reason = window.prompt('Reason for denial?') || ''
+                    await fetch(`${apiUrl}/withdrawals/${w.id}/deny`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ reason })
+                    })
+                    fetchPendingWithdrawals()
+                  }} style={{ marginLeft: '0.5em' }}>Deny</button>
                 </li>
               ))}
             </ul>

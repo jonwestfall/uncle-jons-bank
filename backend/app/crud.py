@@ -1,6 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from app.models import User, Child, ChildUserLink, Transaction
+from app.models import (
+    User,
+    Child,
+    ChildUserLink,
+    Transaction,
+    WithdrawalRequest,
+)
 from app.auth import get_password_hash, get_child_by_id
 
 async def create_user(db: AsyncSession, user: User):
@@ -67,6 +73,23 @@ async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
     return tx
 
 
+async def get_transaction(db: AsyncSession, transaction_id: int) -> Transaction | None:
+    result = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    return result.scalar_one_or_none()
+
+
+async def save_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
+    db.add(tx)
+    await db.commit()
+    await db.refresh(tx)
+    return tx
+
+
+async def delete_transaction(db: AsyncSession, tx: Transaction) -> None:
+    await db.delete(tx)
+    await db.commit()
+
+
 async def get_transactions_by_child(db: AsyncSession, child_id: int) -> list[Transaction]:
     result = await db.execute(
         select(Transaction).where(Transaction.child_id == child_id).order_by(Transaction.timestamp)
@@ -83,3 +106,41 @@ async def calculate_balance(db: AsyncSession, child_id: int) -> float:
         else:
             balance -= tx.amount
     return balance
+
+
+async def create_withdrawal_request(db: AsyncSession, req: WithdrawalRequest) -> WithdrawalRequest:
+    db.add(req)
+    await db.commit()
+    await db.refresh(req)
+    return req
+
+
+async def get_pending_withdrawals_for_parent(db: AsyncSession, parent_id: int) -> list[WithdrawalRequest]:
+    query = (
+        select(WithdrawalRequest)
+        .join(Child)
+        .join(ChildUserLink)
+        .where(ChildUserLink.user_id == parent_id, WithdrawalRequest.status == "pending")
+        .order_by(WithdrawalRequest.requested_at)
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_withdrawal_requests_by_child(db: AsyncSession, child_id: int) -> list[WithdrawalRequest]:
+    result = await db.execute(
+        select(WithdrawalRequest).where(WithdrawalRequest.child_id == child_id).order_by(WithdrawalRequest.requested_at.desc())
+    )
+    return result.scalars().all()
+
+
+async def get_withdrawal_request(db: AsyncSession, request_id: int) -> WithdrawalRequest | None:
+    result = await db.execute(select(WithdrawalRequest).where(WithdrawalRequest.id == request_id))
+    return result.scalar_one_or_none()
+
+
+async def save_withdrawal_request(db: AsyncSession, req: WithdrawalRequest) -> WithdrawalRequest:
+    db.add(req)
+    await db.commit()
+    await db.refresh(req)
+    return req

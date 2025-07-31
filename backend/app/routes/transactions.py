@@ -1,11 +1,23 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from app.database import get_session
 from app.models import Transaction
-from app.schemas import TransactionCreate, TransactionRead, LedgerResponse
-from app.crud import create_transaction, get_transactions_by_child, calculate_balance
+from app.schemas import (
+    TransactionCreate,
+    TransactionRead,
+    TransactionUpdate,
+    LedgerResponse,
+)
+from app.crud import (
+    create_transaction,
+    get_transactions_by_child,
+    calculate_balance,
+    get_transaction,
+    save_transaction,
+    delete_transaction,
+)
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -21,6 +33,32 @@ async def add_transaction(transaction: TransactionCreate, db: AsyncSession = Dep
         initiator_id=transaction.initiator_id,
     )
     return await create_transaction(db, tx_model)
+
+
+@router.put("/{transaction_id}", response_model=TransactionRead)
+async def update_transaction_route(
+    transaction_id: int,
+    data: TransactionUpdate,
+    db: AsyncSession = Depends(get_session),
+):
+    tx = await get_transaction(db, transaction_id)
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(tx, field, value)
+    updated = await save_transaction(db, tx)
+    return updated
+
+
+@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction_route(
+    transaction_id: int,
+    db: AsyncSession = Depends(get_session),
+):
+    tx = await get_transaction(db, transaction_id)
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    await delete_transaction(db, tx)
 
 
 @router.get("/child/{child_id}", response_model=LedgerResponse)
