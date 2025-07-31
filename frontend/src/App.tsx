@@ -1,34 +1,29 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import LoginPage from './LoginPage'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+
+  const handleLogin = (tok: string) => {
+    setToken(tok)
+  }
+
+  const handleLogout = () => {
+    setToken(null)
+    localStorage.removeItem('token')
+  }
+
+  if (!token) {
+    return <LoginPage onLogin={handleLogin} />
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div id="app">
+      <h1>Uncle Jon's Bank</h1>
+      <p>You are logged in.</p>
+      <button onClick={handleLogout}>Logout</button>
+    </div>
   )
 }
 
