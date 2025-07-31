@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 class ChildCreate(BaseModel):
@@ -9,5 +9,7 @@ class ChildCreate(BaseModel):
 class ChildRead(BaseModel):
     id: int
     first_name: str
-    frozen: bool
-    user_id: int
+    frozen: bool = Field(alias="account_frozen")
+
+    class Config:
+        model_config = {"from_attributes": True}

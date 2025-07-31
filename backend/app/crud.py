@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from app.models import User, Child
+from app.models import User, Child, ChildUserLink
 from app.auth import get_password_hash
 
 async def create_user(db: AsyncSession, user: User):
@@ -21,6 +21,22 @@ async def create_child(db: AsyncSession, child: Child):
     await db.refresh(child)
     return child
 
+
+async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
+    db.add(child)
+    await db.commit()
+    await db.refresh(child)
+
+    link = ChildUserLink(user_id=user_id, child_id=child.id)
+    db.add(link)
+    await db.commit()
+    return child
+
 async def get_children_by_user(db: AsyncSession, user_id: int):
-    result = await db.execute(select(Child).where(Child.user_id == user_id))
+    query = (
+        select(Child)
+        .join(ChildUserLink)
+        .where(ChildUserLink.user_id == user_id)
+    )
+    result = await db.execute(query)
     return result.scalars().all()
