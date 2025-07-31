@@ -33,21 +33,21 @@ async def login_for_access_token(
         data={"sub": user.email}, expires_delta=timedelta(minutes=60)
     )
     return {"access_token": access_token, "token_type": "bearer"}
+@router.post("/token")
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_session),
+):
+    return await authenticate_user(
+        email=form_data.username, password=form_data.password, db=db
+    )
 
 
 @router.post("/login")
 async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
-    result = await db.execute(select(User).where(User.email == user_in.email))
-    user = result.scalar_one_or_none()
-    if not user or not verify_password(user_in.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-        )
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=timedelta(minutes=60)
+    return await authenticate_user(
+        email=user_in.email, password=user_in.password, db=db
     )
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
