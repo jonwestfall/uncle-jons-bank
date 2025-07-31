@@ -23,6 +23,7 @@ class Child(SQLModel, table=True):
     parents: List["ChildUserLink"] = Relationship(back_populates="child")
     account: Optional["Account"] = Relationship(back_populates="child")
     transactions: List["Transaction"] = Relationship(back_populates="child")
+    withdrawal_requests: List["WithdrawalRequest"] = Relationship(back_populates="child")
 
 
 class ChildUserLink(SQLModel, table=True):
@@ -56,3 +57,18 @@ class Transaction(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
     child: Child = Relationship(back_populates="transactions")
+
+
+class WithdrawalRequest(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="child.id")
+    amount: float
+    memo: Optional[str] = None
+    status: str = "pending"  # pending, approved, denied
+    requested_at: datetime = Field(default_factory=datetime.utcnow)
+    responded_at: Optional[datetime] = None
+    approver_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    denial_reason: Optional[str] = None
+
+    child: Child = Relationship(back_populates="withdrawal_requests")
+    approver: Optional[User] = Relationship()
