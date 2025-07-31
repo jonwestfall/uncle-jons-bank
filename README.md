@@ -56,6 +56,7 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - `LedgerEntry`: Internal transaction record
 - `AccessCode`: For child login
 - `AccountSettings`: Interest rates, lock flags, etc.
+- `ChildUserLink`: Associates guardians and children (many-to-many)
 
 ### 📡 API Endpoints (sample MVP endpoints)
 - `POST /register`: Create parent account

@@ -1,13 +1,22 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import ChildCreate, ChildRead
-from app.models import Child
+from app.models import Child, User
 from app.database import get_session
-from app.crud import create_child
+from app.crud import create_child_for_user
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/children", tags=["children"])
 
 @router.post("/", response_model=ChildRead)
-async def create_child_route(child: ChildCreate, db: AsyncSession = Depends(get_session)):
-    child_model = Child(**child.dict(), user_id=1)  # TODO: use real user_id later
-    return await create_child(db, child_model)
+async def create_child_route(
+    child: ChildCreate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    child_model = Child(
+        first_name=child.first_name,
+        access_code=child.access_code,
+        account_frozen=child.frozen,
+    )
+    return await create_child_for_user(db, child_model, current_user.id)
