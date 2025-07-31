@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.models import User, Child
 from app.database import get_session
+from app.crud import get_child_by_id
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
 
