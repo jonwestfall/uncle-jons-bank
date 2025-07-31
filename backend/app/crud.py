@@ -40,3 +40,13 @@ async def get_children_by_user(db: AsyncSession, user_id: int):
     )
     result = await db.execute(query)
     return result.scalars().all()
+
+
+async def get_child_by_id(db: AsyncSession, child_id: int):
+    result = await db.execute(select(Child).where(Child.id == child_id))
+    return result.scalar_one_or_none()
+
+
+async def get_child_by_access_code(db: AsyncSession, access_code: str):
+    result = await db.execute(select(Child).where(Child.access_code == access_code))
+    return result.scalar_one_or_none()
