@@ -22,12 +22,21 @@ export default function LoginPage({ onLogin }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
-      if (!resp.ok) throw new Error('Login failed')
+      if (!resp.ok) {
+        if (resp.status === 403) {
+          throw new Error('Account frozen')
+        }
+        throw new Error('Login failed')
+      }
       const data = await resp.json()
       onLogin(data.access_token)
       localStorage.setItem('token', data.access_token)
-    } catch {
-      setError('Invalid credentials')
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError('Invalid credentials')
+      }
     }
   }
 
