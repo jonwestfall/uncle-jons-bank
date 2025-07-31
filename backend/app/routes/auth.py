@@ -2,10 +2,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.auth import authenticate_user, create_access_token
+from app.auth import authenticate_user, create_access_token, get_password_hash
 from app.database import get_session
 from app.models import User
-from app.database import get_db
+
+from sqlmodel import select
 from app.schemas.user import UserCreate, UserResponse
 from datetime import timedelta
 
@@ -29,7 +30,7 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=UserResponse)
-async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
     result = await db.execute(select(User).where(User.email == user_in.email))
     existing_user = result.scalar_one_or_none()
 
@@ -44,7 +45,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     new_user = User(
         name=user_in.name,
         email=user_in.email,
-        hashed_password=hashed_pw,
+        password_hash=hashed_pw,
         role="parent"
     )
     db.add(new_user)
