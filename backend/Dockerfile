@@ -1,10 +1,14 @@
 FROM python:3.11-slim
 
 WORKDIR /app
+
+# Install dependencies first
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt fastapi[all] sqlmodel uvicorn
+
+# Copy application code
 COPY ./app ./app
 
-RUN pip install fastapi[all] sqlmodel uvicorn
-
 ENV PYTHONPATH=/app
-RUN echo "Listing /app:" && ls /app && echo "Listing /app/app:" && ls /app/app
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
