@@ -19,5 +19,6 @@ dist/
 
 # Misc
 *.sqlite3
+to-do.txt
 
 *.db
