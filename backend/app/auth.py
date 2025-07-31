@@ -6,7 +6,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.models import User, Child
 from app.database import get_session
-from app.crud import get_child_by_id
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
 
@@ -79,6 +78,9 @@ def require_role(*roles: str):
 
     return role_dependency
 
+async def get_child_by_id(db: AsyncSession, child_id: int):
+    result = await db.execute(select(Child).where(Child.id == child_id))
+    return result.scalar_one_or_none()
 
 async def get_current_child(
     token: str = Depends(oauth2_scheme),
