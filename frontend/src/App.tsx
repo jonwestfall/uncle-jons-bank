@@ -4,7 +4,7 @@ import './App.css'
 
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
-  const [children, setChildren] = useState<Array<{id:number, first_name:string}>>([])
+  const [children, setChildren] = useState<Array<{id:number, first_name:string, frozen:boolean}>>([])
   const [firstName, setFirstName] = useState('')
   const [accessCode, setAccessCode] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -20,6 +20,16 @@ function App() {
       setChildren(await resp.json())
     }
   }, [token, apiUrl])
+
+  const toggleFreeze = async (childId: number, frozen: boolean) => {
+    if (!token) return
+    const endpoint = frozen ? 'unfreeze' : 'freeze'
+    await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    fetchChildren()
+  }
 
   const handleLogin = (tok: string) => {
     setToken(tok)
@@ -46,7 +56,12 @@ function App() {
         <h3>Your Children</h3>
         <ul>
           {children.map(c => (
-            <li key={c.id}>{c.first_name}</li>
+            <li key={c.id}>
+              {c.first_name} {c.frozen && '(Frozen)'}
+              <button onClick={() => toggleFreeze(c.id, c.frozen)} style={{ marginLeft: '1em' }}>
+                {c.frozen ? 'Unfreeze' : 'Freeze'}
+              </button>
+            </li>
           ))}
         </ul>
         <form onSubmit={async e => {
