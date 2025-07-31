@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import users, children
+from app.routes import users, children, auth
 from app.database import create_db_and_tables
 
 app = FastAPI()
@@ -20,6 +20,8 @@ def on_startup():
 
 app.include_router(users.router)
 app.include_router(children.router)
+app.include_router(auth.router)
+
 
 @app.get("/")
 def read_root():
