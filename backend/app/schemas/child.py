@@ -1,15 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
-
-class UserCreate(BaseModel):
-    name: str
-    email: str
-    password: str
-
-class UserRead(BaseModel):
-    id: int
-    name: str
-    email: str
+from typing import Optional
 
 class ChildCreate(BaseModel):
     first_name: str
