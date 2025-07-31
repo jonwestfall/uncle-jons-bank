@@ -7,6 +7,7 @@ function App() {
   const [children, setChildren] = useState<Array<{id:number, first_name:string}>>([])
   const [firstName, setFirstName] = useState('')
   const [accessCode, setAccessCode] = useState('')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -64,14 +65,15 @@ function App() {
               setFirstName('')
               setAccessCode('')
               fetchChildren()
-            } else {
-              const errorData = await resp.json()
-              setErrorMessage(errorData.message || 'Failed to add child. Please try again.')
-            }
-          } catch (error) {
-            setErrorMessage('An unexpected error occurred. Please try again.')
+          } else {
+            const errorData = await resp.json()
+            setErrorMessage(errorData.message || 'Failed to add child. Please try again.')
           }
-        }}>
+        } catch (error) {
+          console.error(error)
+          setErrorMessage('An unexpected error occurred. Please try again.')
+        }
+      }}>
           <h4>Add Child</h4>
           {errorMessage && <p className="error">{errorMessage}</p>}
           <input placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)} required />
