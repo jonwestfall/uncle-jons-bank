@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routes import users, children
 from app.database import create_db_and_tables
 
 app = FastAPI()
@@ -16,6 +17,9 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+
+app.include_router(users.router)
+app.include_router(children.router)
 
 @app.get("/")
 def read_root():
