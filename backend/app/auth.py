@@ -95,8 +95,7 @@ async def get_current_child(
         child_id = int(sub.split(":", 1)[1])
     except (JWTError, ValueError):
         raise credentials_exception
-    result = await db.execute(select(Child).where(Child.id == child_id))
-    child = result.scalar_one_or_none()
+    child = await get_child_by_id(db, child_id)
     if child is None:
         raise credentials_exception
     return child
