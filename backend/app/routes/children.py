@@ -4,7 +4,7 @@ from app.schemas import ChildCreate, ChildRead
 from app.models import Child, User
 from app.database import get_session
 from app.crud import create_child_for_user
-from app.auth import get_current_user
+from app.auth import get_current_user, require_role
 
 router = APIRouter(prefix="/children", tags=["children"])
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/children", tags=["children"])
 async def create_child_route(
     child: ChildCreate,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role("parent", "admin")),
 ):
     child_model = Child(
         first_name=child.first_name,
