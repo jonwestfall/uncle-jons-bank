@@ -20,3 +20,4 @@ dist/
 # Misc
 *.sqlite3
 
+*.db
