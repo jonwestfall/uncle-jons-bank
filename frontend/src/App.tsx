@@ -50,21 +50,30 @@ function App() {
         </ul>
         <form onSubmit={async e => {
           e.preventDefault()
-          const resp = await fetch(`${apiUrl}/children`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({ first_name: firstName, access_code: accessCode })
-          })
-          if (resp.ok) {
-            setFirstName('')
-            setAccessCode('')
-            fetchChildren()
+          setErrorMessage(null) // Clear any previous error message
+          try {
+            const resp = await fetch(`${apiUrl}/children`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ first_name: firstName, access_code: accessCode })
+            })
+            if (resp.ok) {
+              setFirstName('')
+              setAccessCode('')
+              fetchChildren()
+            } else {
+              const errorData = await resp.json()
+              setErrorMessage(errorData.message || 'Failed to add child. Please try again.')
+            }
+          } catch (error) {
+            setErrorMessage('An unexpected error occurred. Please try again.')
           }
         }}>
           <h4>Add Child</h4>
+          {errorMessage && <p className="error">{errorMessage}</p>}
           <input placeholder="First name" value={firstName} onChange={e => setFirstName(e.target.value)} required />
           <input placeholder="Access code" value={accessCode} onChange={e => setAccessCode(e.target.value)} required />
           <button type="submit">Add</button>
