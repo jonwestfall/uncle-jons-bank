@@ -50,3 +50,15 @@ async def get_child_by_id(db: AsyncSession, child_id: int):
 async def get_child_by_access_code(db: AsyncSession, access_code: str):
     result = await db.execute(select(Child).where(Child.access_code == access_code))
     return result.scalar_one_or_none()
+
+
+async def set_child_frozen(db: AsyncSession, child_id: int, frozen: bool) -> Child | None:
+    result = await db.execute(select(Child).where(Child.id == child_id))
+    child = result.scalar_one_or_none()
+    if not child:
+        return None
+    child.account_frozen = frozen
+    db.add(child)
+    await db.commit()
+    await db.refresh(child)
+    return child

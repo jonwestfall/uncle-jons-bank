@@ -9,6 +9,7 @@ from app.crud import (
     get_children_by_user,
     get_child_by_id,
     get_child_by_access_code,
+    set_child_frozen,
 )
 from app.auth import (
     get_current_user,
@@ -59,6 +60,40 @@ async def get_child_route(
     return child
 
 
+@router.post("/{child_id}/freeze", response_model=ChildRead)
+async def freeze_child(
+    child_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        children = await get_children_by_user(db, current_user.id)
+        if child_id not in [c.id for c in children]:
+            raise HTTPException(status_code=404, detail="Child not found")
+    updated = await set_child_frozen(db, child_id, True)
+    return updated
+
+
+@router.post("/{child_id}/unfreeze", response_model=ChildRead)
+async def unfreeze_child(
+    child_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        children = await get_children_by_user(db, current_user.id)
+        if child_id not in [c.id for c in children]:
+            raise HTTPException(status_code=404, detail="Child not found")
+    updated = await set_child_frozen(db, child_id, False)
+    return updated
+
+
 @router.post("/login")
 async def child_login(
     credentials: ChildLogin,
@@ -67,6 +102,8 @@ async def child_login(
     child = await get_child_by_access_code(db, credentials.access_code)
     if not child:
         raise HTTPException(status_code=401, detail="Invalid access code")
+    if child.account_frozen:
+        raise HTTPException(status_code=403, detail="Account is frozen")
     token = create_access_token(
         data={"sub": f"child:{child.id}"}, expires_delta=timedelta(minutes=60)
     )
