@@ -106,6 +106,8 @@ function App() {
   const [txType, setTxType] = useState('credit')
   const [txAmount, setTxAmount] = useState('')
   const [txMemo, setTxMemo] = useState('')
+  const [whatIfDays, setWhatIfDays] = useState('')
+  const [whatIfRate, setWhatIfRate] = useState('')
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -213,6 +215,8 @@ function App() {
     setTxType('credit')
     setTxAmount('')
     setTxMemo('')
+    setWhatIfDays('')
+    setWhatIfRate('')
     localStorage.removeItem('token')
     localStorage.removeItem('isChild')
     localStorage.removeItem('childId')
@@ -251,6 +255,40 @@ function App() {
           <div>
             <p>Balance: {ledger.balance.toFixed(2)}</p>
             <LedgerTable transactions={ledger.transactions} />
+            <div className="form what-if">
+              <h4>What If</h4>
+              <input
+                type="number"
+                placeholder="Days"
+                value={whatIfDays}
+                onChange={e => setWhatIfDays(e.target.value)}
+              />
+              <input
+                type="number"
+                step="0.0001"
+                placeholder="Daily interest rate"
+                value={whatIfRate}
+                onChange={e => setWhatIfRate(e.target.value)}
+              />
+              {whatIfDays && whatIfRate && (
+                <>
+                  <p>
+                    Interest:{' '}
+                    {(
+                      ledger.balance *
+                      (Math.pow(1 + parseFloat(whatIfRate), Number(whatIfDays)) - 1)
+                    ).toFixed(2)}
+                  </p>
+                  <p>
+                    Total Balance:{' '}
+                    {(
+                      ledger.balance *
+                      Math.pow(1 + parseFloat(whatIfRate), Number(whatIfDays))
+                    ).toFixed(2)}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         )}
         <form onSubmit={async e => {
@@ -395,6 +433,39 @@ function App() {
                 </>
               )}
             />
+            <div className="form what-if">
+              <h4>What If</h4>
+              <input
+                type="number"
+                placeholder="Days"
+                value={whatIfDays}
+                onChange={e => setWhatIfDays(e.target.value)}
+              />
+              {whatIfDays && (
+                <>
+                  <p>
+                    Interest:{' '}
+                    {(
+                      ledger.balance *
+                      (Math.pow(
+                        1 + (children.find(c => c.id === selectedChild)?.interest_rate || 0),
+                        Number(whatIfDays)
+                      ) - 1)
+                    ).toFixed(2)}
+                  </p>
+                  <p>
+                    Total Balance:{' '}
+                    {(
+                      ledger.balance *
+                      Math.pow(
+                        1 + (children.find(c => c.id === selectedChild)?.interest_rate || 0),
+                        Number(whatIfDays)
+                      )
+                    ).toFixed(2)}
+                  </p>
+                </>
+              )}
+            </div>
             <form
               onSubmit={async e => {
                 e.preventDefault()

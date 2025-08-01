@@ -24,6 +24,16 @@
   margin-top: 1em;
 }
 
+.form input,
+.form select,
+.form button {
+  width: 100%;
+}
+
+.what-if {
+  margin-top: 1em;
+}
+
 .list {
   list-style: none;
   padding-left: 0;
