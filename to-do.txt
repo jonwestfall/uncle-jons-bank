@@ -1,10 +1,12 @@
 MVP Development Tasks
 
- Define user roles: parent, child, admin
- Enforce permissions based on roles across endpoints
- Standardize all API responses
- Implement exception handling for friendly errors
- Handle edge cases for permissions and invalid actions
+Standardize all API responses
+Implement exception handling for friendly errors
+Handle edge cases for permissions and invalid actions
+Add bucket-based budgeting system
+Add notifications when withdrawals are denied
+Implement token expiry and refresh handling
+Build automated test suite
 MVP Testing Tasks
 
  Test registration and login flow
