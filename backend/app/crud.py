@@ -303,6 +303,7 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
         delete(Transaction).where(
             Transaction.child_id == child_id,
             Transaction.initiated_by == "system",
+            Transaction.memo == "Interest",
         )
     )
     await db.commit()
@@ -480,7 +481,7 @@ async def redeem_cd(
         matured = matured or datetime.utcnow() >= cd.matures_at
 
     if matured:
-        payout = cd.amount * (1 + cd.interest_rate)
+        payout = round(cd.amount * (1 + cd.interest_rate), 2)
         await create_transaction(
             db,
             Transaction(

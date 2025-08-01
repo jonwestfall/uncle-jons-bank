@@ -98,10 +98,17 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
         <div>
           <h4>CD Offers</h4>
           <ul className="list">
-            {cds.map(cd => (
-              <li key={cd.id}>
-                {cd.amount} for {cd.term_days} days at {(cd.interest_rate * 100).toFixed(2)}% - {cd.status}
-                {cd.status === 'offered' && (
+            {cds.map(cd => {
+              const daysLeft = cd.matures_at
+                ? Math.ceil((new Date(cd.matures_at).getTime() - Date.now()) / 86400000)
+                : null
+              return (
+                <li key={cd.id}>
+                  {cd.amount} for {cd.term_days} days at {(cd.interest_rate * 100).toFixed(2)}% - {cd.status}
+                  {cd.status === 'accepted' && daysLeft !== null && (
+                    <span> (redeems in {daysLeft} days)</span>
+                  )}
+                  {cd.status === 'offered' && (
                   <>
                     <button
                       onClick={async () => {
@@ -130,8 +137,9 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
                     </button>
                   </>
                 )}
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}
