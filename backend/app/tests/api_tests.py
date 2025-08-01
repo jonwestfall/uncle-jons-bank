@@ -260,6 +260,21 @@ async def run_all_tests(persist: bool = False) -> dict:
             results.append(f"Child ACL test failed: {e}")
             success = False
 
+        try:
+            # Child1 attempts to request withdrawal for Child2A
+            resp = await client.post(
+                "/withdrawals/",
+                headers=child_headers,
+                json={"amount": 5, "memo": "Test", "child_id": c3},
+            )
+            assert resp.status_code == 200
+            if resp.json()["child_id"] != c1:
+                raise AssertionError("Child request applied to wrong account")
+            results.append("Child withdrawal restricted to own account")
+        except Exception as e:
+            results.append(f"Child withdrawal ACL test failed: {e}")
+            success = False
+
     if not persist:
         app.dependency_overrides.pop(get_session, None)
 

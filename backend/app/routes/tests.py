@@ -11,8 +11,13 @@ async def run_tests_route(persist: bool = False):
 
 
 @router.post("/interest-test")
-async def interest_test_route(persist: bool = False):
-    """Run interest calculation test."""
+async def interest_test_route(persist: bool = False, days: int = 5):
+    """Run interest calculation test.
+
+    ``days`` controls how far from today the initial transaction is dated. A
+    positive value backdates the starting transaction, while a negative value sets
+    it in the future.
+    """
     from app.tests.interest_tests import run_interest_test
 
-    return await run_interest_test(persist=persist)
+    return await run_interest_test(persist=persist, days=days)

@@ -1,5 +1,5 @@
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlmodel import SQLModel
@@ -20,8 +20,12 @@ from app.auth import get_password_hash
 from app.acl import ALL_PERMISSIONS
 
 
-async def run_interest_test(persist: bool = False) -> dict:
-    """Create backdated transactions and verify interest calculations."""
+async def run_interest_test(persist: bool = False, days: int = 5) -> dict:
+    """Create backdated transactions and verify interest calculations.
+
+    ``days`` specifies how many days from today the initial transactions are
+    backdated (positive) or postdated (negative).
+    """
     results: List[str] = []
     success = True
 
@@ -53,7 +57,10 @@ async def run_interest_test(persist: bool = False) -> dict:
             session, Child(first_name="Spender", access_code="SPN"), parent.id
         )
 
-        five_days = datetime.utcnow() - timedelta(days=5)
+        if days >= 0:
+            start_time = datetime.utcnow() - timedelta(days=days)
+        else:
+            start_time = datetime.utcnow() + timedelta(days=-days)
 
         await create_transaction(
             session,
@@ -64,13 +71,17 @@ async def run_interest_test(persist: bool = False) -> dict:
                 memo="Initial Deposit",
                 initiated_by="parent",
                 initiator_id=parent.id,
-                timestamp=five_days,
+                timestamp=start_time,
             ),
         )
         await recalc_interest(session, child_pos.id)
         txs = await get_transactions_by_child(session, child_pos.id)
-        if any(tx.memo == "Interest" and tx.type == "credit" for tx in txs):
+        expected_days = max(0, (date.today() - start_time.date()).days)
+        interest_txs = [t for t in txs if t.memo == "Interest" and t.type == "credit"]
+        if len(interest_txs) == expected_days and expected_days > 0:
             results.append("Interest applied to positive balance")
+        elif expected_days == 0 and not interest_txs:
+            results.append("No interest due yet")
         else:
             results.append("Interest missing for positive balance")
             success = False
@@ -84,13 +95,14 @@ async def run_interest_test(persist: bool = False) -> dict:
                 memo="Initial Debit",
                 initiated_by="parent",
                 initiator_id=parent.id,
-                timestamp=five_days,
+                timestamp=start_time,
             ),
         )
         await recalc_interest(session, child_neg.id)
         txs2 = await get_transactions_by_child(session, child_neg.id)
-        if any(tx.memo == "Interest" and tx.type == "debit" for tx in txs2):
-            results.append("Penalty interest applied")
+        interest_txs2 = [t for t in txs2 if t.memo == "Interest" and t.type == "debit"]
+        if len(interest_txs2) == expected_days and (expected_days > 0 or not interest_txs2):
+            results.append("Penalty interest applied" if expected_days > 0 else "No penalty interest due yet")
         else:
             results.append("Penalty interest missing")
             success = False
