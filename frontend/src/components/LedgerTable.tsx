@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react'
+import React, { useLayoutEffect, useRef, useState, useMemo } from 'react'
 
 export interface Transaction {
   id: number
@@ -15,52 +15,191 @@ export default function LedgerTable({
   transactions,
   renderActions,
   onWidth,
+  allowDownload,
 }: {
   transactions: Transaction[]
   renderActions?: (tx: Transaction) => React.ReactNode
   onWidth?: (width: number) => void
+  allowDownload?: boolean
 }) {
   const tableRef = useRef<HTMLTableElement>(null)
+  const [pageSize, setPageSize] = useState(15)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [sortColumn, setSortColumn] = useState<keyof Transaction>('timestamp')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   useLayoutEffect(() => {
     if (tableRef.current && onWidth) {
       onWidth(tableRef.current.scrollWidth)
     }
   }, [transactions, onWidth])
 
+  const sorted = useMemo(() => {
+    const arr = [...transactions]
+    arr.sort((a, b) => {
+      let av: number | string = ''
+      let bv: number | string = ''
+      switch (sortColumn) {
+        case 'timestamp':
+          av = new Date(a.timestamp).getTime()
+          bv = new Date(b.timestamp).getTime()
+          break
+        case 'memo':
+          av = a.memo || ''
+          bv = b.memo || ''
+          break
+        case 'type':
+          av = a.type
+          bv = b.type
+          break
+        case 'amount':
+        default:
+          av = a.amount
+          bv = b.amount
+      }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+    return arr
+  }, [transactions, sortColumn, sortDir])
+
+  const pageCount = Math.ceil(sorted.length / pageSize) || 1
+  const currentItems = sorted.slice(
+    currentPage * pageSize,
+    currentPage * pageSize + pageSize,
+  )
+
   let runningBalance = 0
+  const displayRows = currentItems.map(tx => {
+    if (tx.type === 'credit') {
+      runningBalance += tx.amount
+    } else {
+      runningBalance -= tx.amount
+    }
+    return (
+      <tr key={tx.id}>
+        <td>{new Date(tx.timestamp).toLocaleDateString()}</td>
+        <td>{tx.type}</td>
+        <td>{tx.memo || ''}</td>
+        <td>{tx.type === 'debit' ? tx.amount.toFixed(2) : ''}</td>
+        <td>{tx.type === 'credit' ? tx.amount.toFixed(2) : ''}</td>
+        <td>{runningBalance.toFixed(2)}</td>
+        {renderActions && <td>{renderActions(tx)}</td>}
+      </tr>
+    )
+  })
+
+  const handleHeaderClick = (col: keyof Transaction | 'amount') => {
+    if (sortColumn === col) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(col as keyof Transaction)
+      setSortDir('asc')
+    }
+  }
+
+  const exportCsv = () => {
+    const rows = [
+      ['Date', 'Type', 'Description / Payee', 'Payment (-)', 'Deposit (+)', 'Balance'],
+    ]
+    let bal = 0
+    sorted.forEach(tx => {
+      if (tx.type === 'credit') bal += tx.amount
+      else bal -= tx.amount
+      rows.push([
+        new Date(tx.timestamp).toLocaleDateString(),
+        tx.type,
+        tx.memo || '',
+        tx.type === 'debit' ? tx.amount.toFixed(2) : '',
+        tx.type === 'credit' ? tx.amount.toFixed(2) : '',
+        bal.toFixed(2),
+      ])
+    })
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'ledger.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <table ref={tableRef} className="ledger-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Description / Payee</th>
-          <th>Payment (-)</th>
-          <th>Deposit (+)</th>
-          <th>Balance</th>
-          {renderActions && <th>Actions</th>}
-        </tr>
-      </thead>
-      <tbody>
-        {transactions.map(tx => {
-          if (tx.type === 'credit') {
-            runningBalance += tx.amount
-          } else {
-            runningBalance -= tx.amount
-          }
-          return (
-            <tr key={tx.id}>
-              <td>{new Date(tx.timestamp).toLocaleDateString()}</td>
-              <td>{tx.type}</td>
-              <td>{tx.memo || ''}</td>
-              <td>{tx.type === 'debit' ? tx.amount.toFixed(2) : ''}</td>
-              <td>{tx.type === 'credit' ? tx.amount.toFixed(2) : ''}</td>
-              <td>{runningBalance.toFixed(2)}</td>
-              {renderActions && <td>{renderActions(tx)}</td>}
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <>
+      <table ref={tableRef} className="ledger-table">
+        <thead>
+          <tr>
+            <th className="sortable" onClick={() => handleHeaderClick('timestamp')}>
+              Date {sortColumn === 'timestamp' && (sortDir === 'asc' ? '▲' : '▼')}
+            </th>
+            <th className="sortable" onClick={() => handleHeaderClick('type')}>
+              Type {sortColumn === 'type' && (sortDir === 'asc' ? '▲' : '▼')}
+            </th>
+            <th className="sortable" onClick={() => handleHeaderClick('memo')}>
+              Description / Payee{' '}
+              {sortColumn === 'memo' && (sortDir === 'asc' ? '▲' : '▼')}
+            </th>
+            <th className="sortable" onClick={() => handleHeaderClick('amount')}>
+              Payment (-){' '}
+              {sortColumn === 'amount' && (sortDir === 'asc' ? '▲' : '▼')}
+            </th>
+            <th className="sortable" onClick={() => handleHeaderClick('amount')}>
+              Deposit (+){' '}
+              {sortColumn === 'amount' && (sortDir === 'asc' ? '▲' : '▼')}
+            </th>
+            <th>Balance</th>
+            {renderActions && <th>Actions</th>}
+          </tr>
+        </thead>
+        <tbody>{displayRows}</tbody>
+      </table>
+      <div className="table-controls">
+        <div>
+          <label>
+            Show
+            <select
+              value={pageSize}
+              onChange={e => {
+                setPageSize(Number(e.target.value))
+                setCurrentPage(0)
+              }}
+            >
+              {[15, 30, 60, 90].map(n => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            entries
+          </label>
+        </div>
+        <div>
+          <button
+            onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
+            disabled={currentPage === 0}
+          >
+            Prev
+          </button>
+          <span className="ml-05">
+            Page {currentPage + 1} of {pageCount}
+          </span>
+          <button
+            className="ml-05"
+            onClick={() =>
+              setCurrentPage(p => (p + 1 < pageCount ? p + 1 : p))
+            }
+            disabled={currentPage + 1 >= pageCount}
+          >
+            Next
+          </button>
+          {allowDownload && (
+            <button className="ml-1" onClick={exportCsv}>
+              Download CSV
+            </button>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
