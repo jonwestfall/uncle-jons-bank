@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import AdminPanel from './AdminPanel'
 import './App.css'
 import LoginPage from './LoginPage'
@@ -37,6 +37,51 @@ interface ChildApi {
   frozen?: boolean
   interest_rate?: number
   total_interest_earned?: number
+}
+
+function LedgerTable({
+  transactions,
+  renderActions
+}: {
+  transactions: Transaction[]
+  renderActions?: (tx: Transaction) => React.ReactNode
+}) {
+  let runningBalance = 0
+  return (
+    <table className="ledger-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Description / Payee</th>
+          <th>Payment (-)</th>
+          <th>Deposit (+)</th>
+          <th>Balance</th>
+          {renderActions && <th>Actions</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {transactions.map(tx => {
+          if (tx.type === 'credit') {
+            runningBalance += tx.amount
+          } else {
+            runningBalance -= tx.amount
+          }
+          return (
+            <tr key={tx.id}>
+              <td>{new Date(tx.timestamp).toLocaleDateString()}</td>
+              <td>{tx.type}</td>
+              <td>{tx.memo || ''}</td>
+              <td>{tx.type === 'debit' ? tx.amount.toFixed(2) : ''}</td>
+              <td>{tx.type === 'credit' ? tx.amount.toFixed(2) : ''}</td>
+              <td>{runningBalance.toFixed(2)}</td>
+              {renderActions && <td>{renderActions(tx)}</td>}
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
 }
 
 function App() {
@@ -205,14 +250,7 @@ function App() {
         {ledger && (
           <div>
             <p>Balance: {ledger.balance.toFixed(2)}</p>
-            <ul className="list">
-              {ledger.transactions.map(tx => (
-                <li key={tx.id}>
-                  {new Date(tx.timestamp).toLocaleString()} - {tx.type} {tx.amount}
-                  {tx.memo ? ` (${tx.memo})` : ''}
-                </li>
-              ))}
-            </ul>
+            <LedgerTable transactions={ledger.transactions} />
           </div>
         )}
         <form onSubmit={async e => {
@@ -313,11 +351,10 @@ function App() {
                 </form>
               </>
             )}
-            <ul className="list">
-              {ledger.transactions.map(tx => (
-                <li key={tx.id}>
-                  {new Date(tx.timestamp).toLocaleString()} - {tx.type} {tx.amount}
-                  {tx.memo ? ` (${tx.memo})` : ''}
+            <LedgerTable
+              transactions={ledger.transactions}
+              renderActions={tx => (
+                <>
                   <button
                     onClick={async () => {
                       const amount = window.prompt('Amount', String(tx.amount))
@@ -355,9 +392,9 @@ function App() {
                   >
                     Delete
                   </button>
-                </li>
-              ))}
-            </ul>
+                </>
+              )}
+            />
             <form
               onSubmit={async e => {
                 e.preventDefault()
