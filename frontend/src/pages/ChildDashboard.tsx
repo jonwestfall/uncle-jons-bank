@@ -109,34 +109,34 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
                     <span> (redeems in {daysLeft} days)</span>
                   )}
                   {cd.status === 'offered' && (
-                  <>
-                    <button
-                      onClick={async () => {
-                        await fetch(`${apiUrl}/cds/${cd.id}/accept`, {
-                          method: 'POST',
-                          headers: { Authorization: `Bearer ${token}` },
-                        })
-                        fetchCds()
-                        fetchLedger()
-                      }}
-                      className="ml-1"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await fetch(`${apiUrl}/cds/${cd.id}/reject`, {
-                          method: 'POST',
-                          headers: { Authorization: `Bearer ${token}` },
-                        })
-                        fetchCds()
-                      }}
-                      className="ml-05"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
+                    <>
+                      <button
+                        onClick={async () => {
+                          await fetch(`${apiUrl}/cds/${cd.id}/accept`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` },
+                          })
+                          fetchCds()
+                          fetchLedger()
+                        }}
+                        className="ml-1"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await fetch(`${apiUrl}/cds/${cd.id}/reject`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` },
+                          })
+                          fetchCds()
+                        }}
+                        className="ml-05"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
                 </li>
               )
             })}
