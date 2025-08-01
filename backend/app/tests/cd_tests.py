@@ -21,6 +21,7 @@ from app.crud import (
     recalc_interest,
     create_cd,
     redeem_cd,
+    get_transactions_by_child,
 )
 from app.auth import get_password_hash
 from app.acl import ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS
@@ -93,6 +94,7 @@ async def run_cd_issue_test(
 
 
 async def run_cd_redeem_test(cd_id: int, persist: bool = False) -> dict:
+    """Redeem the given CD as if it matured today."""
     if persist:
         TestSession = async_session
         await create_db_and_tables()
@@ -106,6 +108,12 @@ async def run_cd_redeem_test(cd_id: int, persist: bool = False) -> dict:
         cd = await session.get(CertificateDeposit, cd_id)
         if not cd:
             return {"success": False, "error": "CD not found"}
-        await redeem_cd(session, cd)
+        await redeem_cd(session, cd, treat_as_mature=True)
+        txs = await get_transactions_by_child(session, cd.child_id)
+        payout = round(cd.amount * (1 + cd.interest_rate), 2)
+        paid = any(
+            tx.type == "credit" and tx.amount == payout and tx.memo.startswith("CD")
+            for tx in txs
+        )
 
-    return {"success": True}
+    return {"success": paid}

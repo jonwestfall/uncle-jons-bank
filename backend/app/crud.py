@@ -461,22 +461,61 @@ async def get_cds_by_child(
 
 
 async def redeem_cd(
-    db: AsyncSession, cd: CertificateDeposit
+    db: AsyncSession, cd: CertificateDeposit, treat_as_mature: bool = False
 ) -> CertificateDeposit:
+    """Redeem a CD either at maturity or early.
+
+    When ``treat_as_mature`` is ``True`` the CD pays out as though it reached
+    maturity even if the ``matures_at`` date is in the future. This is used by
+    the testing helper.
+    """
+
     from .crud import create_transaction, recalc_interest  # avoid circular
 
     if cd.status != "accepted":
         return cd
-    payout = cd.amount * (1 + cd.interest_rate)
-    tx = Transaction(
-        child_id=cd.child_id,
-        type="credit",
-        amount=payout,
-        memo=f"CD #{cd.id} maturity",
-        initiated_by="system",
-        initiator_id=0,
-    )
-    await create_transaction(db, tx)
+
+    matured = treat_as_mature
+    if cd.matures_at:
+        matured = matured or datetime.utcnow() >= cd.matures_at
+
+    if matured:
+        payout = cd.amount * (1 + cd.interest_rate)
+        await create_transaction(
+            db,
+            Transaction(
+                child_id=cd.child_id,
+                type="credit",
+                amount=payout,
+                memo=f"CD #{cd.id} maturity",
+                initiated_by="system",
+                initiator_id=0,
+            ),
+        )
+    else:
+        await create_transaction(
+            db,
+            Transaction(
+                child_id=cd.child_id,
+                type="credit",
+                amount=cd.amount,
+                memo=f"CD #{cd.id} early withdrawal",
+                initiated_by="system",
+                initiator_id=0,
+            ),
+        )
+        await create_transaction(
+            db,
+            Transaction(
+                child_id=cd.child_id,
+                type="debit",
+                amount=round(cd.amount * 0.1, 2),
+                memo=f"CD #{cd.id} early withdrawal penalty",
+                initiated_by="system",
+                initiator_id=0,
+            ),
+        )
+
     cd.status = "redeemed"
     cd.redeemed_at = datetime.utcnow()
     await save_cd(db, cd)

@@ -28,6 +28,15 @@ The goal is to teach kids about money through experience — without handing ove
 - Daily **compound interest**, with optional **bonus tiers** or promotions
 - Full ledger of transactions: amount, memo, date, creator, type, promo ID (optional)
 
+### 💰 Certificate Deposits
+Parents can offer time-locked certificates with a custom term and interest rate.
+Children can review these offers and choose to accept or reject them. Accepting
+debits the CD amount from the child’s balance and locks it until maturity. When
+the term ends the principal plus interest is automatically deposited. Admins may
+force a redemption early via `POST /cds/{cd_id}/redeem`; early redemptions return
+the principal and charge a 10% penalty. The `/tests/cd-issue` and
+`/tests/cd-redeem` endpoints help generate and redeem CDs for integration tests.
+
 ### 🔐 Permissions & Controls
 - Withdrawals are **requested** by the child, and **approved/denied** by guardians
 - Accounts can be **frozen** or have **limits**
