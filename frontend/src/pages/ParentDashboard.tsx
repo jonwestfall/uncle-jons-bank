@@ -100,7 +100,50 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
         <div>
           <h4>Ledger for child #{selectedChild}</h4>
           <p>Balance: {ledger.balance.toFixed(2)}</p>
-          <LedgerTable transactions={ledger.transactions} />
+          <LedgerTable
+            transactions={ledger.transactions}
+            renderActions={tx => (
+              <>
+                <button
+                  onClick={async () => {
+                    const amount = window.prompt('Amount', String(tx.amount))
+                    if (amount === null) return
+                    const memo = window.prompt('Memo', tx.memo || '')
+                    const type = window.prompt('Type (credit/debit)', tx.type)
+                    await fetch(`${apiUrl}/transactions/${tx.id}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        amount: Number(amount),
+                        memo: memo || null,
+                        type: type || tx.type,
+                      }),
+                    })
+                    fetchLedger(selectedChild)
+                  }}
+                  className="ml-1"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm('Delete transaction?')) return
+                    await fetch(`${apiUrl}/transactions/${tx.id}`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${token}` },
+                    })
+                    fetchLedger(selectedChild)
+                  }}
+                  className="ml-05"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          />
           <form
             onSubmit={async e => {
               e.preventDefault()
