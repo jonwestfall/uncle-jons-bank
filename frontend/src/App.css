@@ -11,8 +11,9 @@
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 600px;
+  max-width: 800px;
   width: 100%;
+  min-height: 60vh;
   text-align: left;
 }
 
@@ -38,6 +39,15 @@
   list-style: none;
   padding-left: 0;
   text-align: left;
+}
+
+.child-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.child-row span:first-child {
+  flex: 1;
 }
 
 .ml-1 {
@@ -89,8 +99,16 @@
   }
 }
 
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
 .card {
-  padding: 2em;
+  background: var(--container-bg);
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .read-the-docs {
