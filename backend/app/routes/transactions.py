@@ -24,6 +24,7 @@ from app.acl import (
     PERM_ADD_TRANSACTION,
     PERM_VIEW_TRANSACTIONS,
     PERM_DELETE_TRANSACTION,
+    PERM_EDIT_TRANSACTION,
     PERM_DEPOSIT,
     PERM_DEBIT,
 )
@@ -73,7 +74,7 @@ async def update_transaction_route(
     transaction_id: int,
     data: TransactionUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_permissions(PERM_ADD_TRANSACTION)),
+    current_user: User = Depends(require_permissions(PERM_EDIT_TRANSACTION)),
 ):
     tx = await get_transaction(db, transaction_id)
     if not tx:

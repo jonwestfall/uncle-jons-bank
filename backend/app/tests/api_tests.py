@@ -102,15 +102,9 @@ async def run_all_tests(persist: bool = False) -> dict:
                     },
                 )
                 uid = me.json()["id"]
-            perms = [
-                "add_transaction",
-                "view_transactions",
-                "deposit",
-                "debit",
-                "add_child",
-                "remove_child",
-                "freeze_child",
-            ]
+            from app.acl import ROLE_DEFAULT_PERMISSIONS
+
+            perms = ROLE_DEFAULT_PERMISSIONS["parent"]
             async with TestSession() as session:
                 for name in perms:
                     result = await session.execute(

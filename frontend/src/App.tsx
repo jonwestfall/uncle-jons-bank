@@ -15,6 +15,7 @@ function App() {
     return stored ? Number(stored) : null
   })
   const [isAdmin, setIsAdmin] = useState(false)
+  const [permissions, setPermissions] = useState<string[]>([])
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   const handleLogin = (tok: string, child: boolean) => {
@@ -49,6 +50,7 @@ function App() {
     if (resp.ok) {
       const data = await resp.json()
       setIsAdmin(data.role === 'admin')
+      setPermissions(data.permissions || [])
     }
   }, [token, apiUrl])
 
@@ -68,7 +70,10 @@ function App() {
           <Route path="/child" element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} />} />
         )}
         {!isChildAccount && (
-          <Route path="/" element={<ParentDashboard token={token} apiUrl={apiUrl} onLogout={handleLogout} />} />
+          <Route
+            path="/"
+            element={<ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} />}
+          />
         )}
         {isAdmin && <Route path="/admin" element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} />} />}
         <Route path="*" element={<Navigate to={isChildAccount ? '/child' : '/'} replace />} />

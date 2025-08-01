@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas import UserCreate, UserResponse
+from app.schemas import UserCreate, UserResponse, UserMeResponse
 from app.models import User
 from app.database import get_session
 from app.crud import create_user, get_user_by_email
@@ -22,7 +22,13 @@ async def create_user_route(
     return await create_user(db, user_model)
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserMeResponse)
 async def read_current_user(current_user: User = Depends(get_current_user)):
     """Return details for the authenticated user."""
-    return current_user
+    return UserMeResponse(
+        id=current_user.id,
+        name=current_user.name,
+        email=current_user.email,
+        role=current_user.role,
+        permissions=[p.name for p in current_user.permissions],
+    )

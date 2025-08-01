@@ -17,6 +17,10 @@ class UserResponse(BaseModel):
         model_config = {"from_attributes": True}
 
 
+class UserMeResponse(UserResponse):
+    permissions: list[str]
+
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
