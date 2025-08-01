@@ -34,6 +34,8 @@ interface ChildApi {
   first_name: string
   account_frozen?: boolean
   frozen?: boolean
+  interest_rate?: number
+  total_interest_earned?: number
 }
 
 function App() {
@@ -43,7 +45,7 @@ function App() {
     const stored = localStorage.getItem('childId')
     return stored ? Number(stored) : null
   })
-  const [children, setChildren] = useState<Array<{id:number, first_name:string, frozen:boolean}>>([])
+  const [children, setChildren] = useState<Array<{id:number, first_name:string, frozen:boolean, interest_rate?:number, total_interest_earned?:number}>>([])
   const [firstName, setFirstName] = useState('')
   const [accessCode, setAccessCode] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -70,7 +72,9 @@ function App() {
         data.map(c => ({
           id: c.id,
           first_name: c.first_name,
-          frozen: c.frozen ?? c.account_frozen ?? false
+          frozen: c.frozen ?? c.account_frozen ?? false,
+          interest_rate: c.interest_rate,
+          total_interest_earned: c.total_interest_earned
         }))
       )
     }
@@ -247,6 +251,42 @@ function App() {
           <div>
             <h4>Ledger for child #{selectedChild}</h4>
             <p>Balance: {ledger.balance.toFixed(2)}</p>
+            {children.find(c => c.id === selectedChild) && (
+              <>
+                <p>
+                  Interest Rate:{' '}
+                  {(
+                    children.find(c => c.id === selectedChild)?.interest_rate ??
+                    0
+                  ).toFixed(4)}
+                </p>
+                <p>
+                  Total Interest Earned:{' '}
+                  {(
+                    children.find(c => c.id === selectedChild)?.total_interest_earned ??
+                    0
+                  ).toFixed(2)}
+                </p>
+                <form
+                  onSubmit={async e => {
+                    e.preventDefault()
+                    const rate = window.prompt('New daily interest rate (e.g. 0.01 for 1%)')
+                    if (!rate) return
+                    await fetch(`${apiUrl}/children/${selectedChild}/interest-rate`, {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ interest_rate: Number(rate) })
+                    })
+                    fetchChildren()
+                  }}
+                >
+                  <button type="submit" className="mb-1">Set Interest Rate</button>
+                </form>
+              </>
+            )}
             <ul className="list">
               {ledger.transactions.map(tx => (
                 <li key={tx.id}>

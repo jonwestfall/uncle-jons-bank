@@ -1,13 +1,16 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, delete
+from datetime import datetime, date, timedelta, time
 from app.models import (
     User,
     Child,
     ChildUserLink,
     Transaction,
     WithdrawalRequest,
+    Account,
 )
 from app.auth import get_password_hash, get_child_by_id
+
 
 async def create_user(db: AsyncSession, user: User):
     if not user.password_hash.startswith("$2b$"):
@@ -17,9 +20,11 @@ async def create_user(db: AsyncSession, user: User):
     await db.refresh(user)
     return user
 
+
 async def get_user_by_email(db: AsyncSession, email: str):
     result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
+
 
 async def create_child(db: AsyncSession, child: Child):
     db.add(child)
@@ -33,17 +38,20 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
     await db.commit()
     await db.refresh(child)
 
+    # Create an associated account with default interest settings
+    account = Account(child_id=child.id)
+    db.add(account)
+    await db.commit()
+    await db.refresh(account)
+
     link = ChildUserLink(user_id=user_id, child_id=child.id)
     db.add(link)
     await db.commit()
     return child
 
+
 async def get_children_by_user(db: AsyncSession, user_id: int):
-    query = (
-        select(Child)
-        .join(ChildUserLink)
-        .where(ChildUserLink.user_id == user_id)
-    )
+    query = select(Child).join(ChildUserLink).where(ChildUserLink.user_id == user_id)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -53,7 +61,9 @@ async def get_child_by_access_code(db: AsyncSession, access_code: str):
     return result.scalar_one_or_none()
 
 
-async def set_child_frozen(db: AsyncSession, child_id: int, frozen: bool) -> Child | None:
+async def set_child_frozen(
+    db: AsyncSession, child_id: int, frozen: bool
+) -> Child | None:
     result = await db.execute(select(Child).where(Child.id == child_id))
     child = result.scalar_one_or_none()
     if not child:
@@ -65,6 +75,24 @@ async def set_child_frozen(db: AsyncSession, child_id: int, frozen: bool) -> Chi
     return child
 
 
+async def get_account_by_child(db: AsyncSession, child_id: int) -> Account | None:
+    result = await db.execute(select(Account).where(Account.child_id == child_id))
+    return result.scalar_one_or_none()
+
+
+async def set_interest_rate(
+    db: AsyncSession, child_id: int, rate: float
+) -> Account | None:
+    account = await get_account_by_child(db, child_id)
+    if not account:
+        return None
+    account.interest_rate = rate
+    db.add(account)
+    await db.commit()
+    await db.refresh(account)
+    return account
+
+
 async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
     """Persist a ledger transaction."""
     db.add(tx)
@@ -74,7 +102,9 @@ async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
 
 
 async def get_transaction(db: AsyncSession, transaction_id: int) -> Transaction | None:
-    result = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    result = await db.execute(
+        select(Transaction).where(Transaction.id == transaction_id)
+    )
     return result.scalar_one_or_none()
 
 
@@ -90,9 +120,13 @@ async def delete_transaction(db: AsyncSession, tx: Transaction) -> None:
     await db.commit()
 
 
-async def get_transactions_by_child(db: AsyncSession, child_id: int) -> list[Transaction]:
+async def get_transactions_by_child(
+    db: AsyncSession, child_id: int
+) -> list[Transaction]:
     result = await db.execute(
-        select(Transaction).where(Transaction.child_id == child_id).order_by(Transaction.timestamp)
+        select(Transaction)
+        .where(Transaction.child_id == child_id)
+        .order_by(Transaction.timestamp)
     )
     return result.scalars().all()
 
@@ -108,38 +142,120 @@ async def calculate_balance(db: AsyncSession, child_id: int) -> float:
     return balance
 
 
-async def create_withdrawal_request(db: AsyncSession, req: WithdrawalRequest) -> WithdrawalRequest:
+async def recalc_interest(db: AsyncSession, child_id: int) -> None:
+    account = await get_account_by_child(db, child_id)
+    if not account:
+        return
+
+    # Remove previously generated interest transactions
+    await db.execute(
+        delete(Transaction).where(
+            Transaction.child_id == child_id,
+            Transaction.initiated_by == "system",
+        )
+    )
+    await db.commit()
+
+    transactions = await db.execute(
+        select(Transaction)
+        .where(Transaction.child_id == child_id, Transaction.initiated_by != "system")
+        .order_by(Transaction.timestamp)
+    )
+    base_txs = list(transactions.scalars().all())
+
+    if not base_txs:
+        account.total_interest_earned = 0.0
+        await db.commit()
+        return
+
+    start_date = base_txs[0].timestamp.date()
+    current_balance = 0.0
+    tx_idx = 0
+    today = date.today()
+    total_interest = 0.0
+    day = start_date
+
+    while day < today:
+        while tx_idx < len(base_txs) and base_txs[tx_idx].timestamp.date() == day:
+            tx = base_txs[tx_idx]
+            if tx.type == "credit":
+                current_balance += tx.amount
+            else:
+                current_balance -= tx.amount
+            tx_idx += 1
+
+        interest = current_balance * account.interest_rate
+        if interest != 0:
+            tx_time = datetime.combine(day + timedelta(days=1), time.min)
+            interest_tx = Transaction(
+                child_id=child_id,
+                type="credit" if interest >= 0 else "debit",
+                amount=abs(interest),
+                memo="Interest",
+                initiated_by="system",
+                initiator_id=0,
+                timestamp=tx_time,
+            )
+            db.add(interest_tx)
+            current_balance += interest
+            total_interest += interest
+
+        day += timedelta(days=1)
+
+    account.total_interest_earned = total_interest
+    account.last_interest_applied = today
+    db.add(account)
+    await db.commit()
+
+
+async def create_withdrawal_request(
+    db: AsyncSession, req: WithdrawalRequest
+) -> WithdrawalRequest:
     db.add(req)
     await db.commit()
     await db.refresh(req)
     return req
 
 
-async def get_pending_withdrawals_for_parent(db: AsyncSession, parent_id: int) -> list[WithdrawalRequest]:
+async def get_pending_withdrawals_for_parent(
+    db: AsyncSession, parent_id: int
+) -> list[WithdrawalRequest]:
     query = (
         select(WithdrawalRequest)
         .join(Child)
         .join(ChildUserLink)
-        .where(ChildUserLink.user_id == parent_id, WithdrawalRequest.status == "pending")
+        .where(
+            ChildUserLink.user_id == parent_id, WithdrawalRequest.status == "pending"
+        )
         .order_by(WithdrawalRequest.requested_at)
     )
     result = await db.execute(query)
     return result.scalars().all()
 
 
-async def get_withdrawal_requests_by_child(db: AsyncSession, child_id: int) -> list[WithdrawalRequest]:
+async def get_withdrawal_requests_by_child(
+    db: AsyncSession, child_id: int
+) -> list[WithdrawalRequest]:
     result = await db.execute(
-        select(WithdrawalRequest).where(WithdrawalRequest.child_id == child_id).order_by(WithdrawalRequest.requested_at.desc())
+        select(WithdrawalRequest)
+        .where(WithdrawalRequest.child_id == child_id)
+        .order_by(WithdrawalRequest.requested_at.desc())
     )
     return result.scalars().all()
 
 
-async def get_withdrawal_request(db: AsyncSession, request_id: int) -> WithdrawalRequest | None:
-    result = await db.execute(select(WithdrawalRequest).where(WithdrawalRequest.id == request_id))
+async def get_withdrawal_request(
+    db: AsyncSession, request_id: int
+) -> WithdrawalRequest | None:
+    result = await db.execute(
+        select(WithdrawalRequest).where(WithdrawalRequest.id == request_id)
+    )
     return result.scalar_one_or_none()
 
 
-async def save_withdrawal_request(db: AsyncSession, req: WithdrawalRequest) -> WithdrawalRequest:
+async def save_withdrawal_request(
+    db: AsyncSession, req: WithdrawalRequest
+) -> WithdrawalRequest:
     db.add(req)
     await db.commit()
     await db.refresh(req)

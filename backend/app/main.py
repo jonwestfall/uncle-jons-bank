@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import users, children, auth, transactions, withdrawals
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, async_session
+from app.crud import recalc_interest
+from app.models import Child
+from sqlmodel import select
+import asyncio
 
 app = FastAPI()
 
@@ -18,6 +22,17 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     await create_db_and_tables()
+    asyncio.create_task(daily_interest_task())
+
+
+async def daily_interest_task():
+    while True:
+        async with async_session() as session:
+            result = await session.execute(select(Child.id))
+            child_ids = result.scalars().all()
+            for cid in child_ids:
+                await recalc_interest(session, cid)
+        await asyncio.sleep(60 * 60 * 24)
 
 
 app.include_router(users.router)
