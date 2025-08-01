@@ -91,3 +91,33 @@
   color: red;
   margin-top: 0.5em;
 }
+
+.ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1em;
+  font-size: 0.9em;
+}
+
+.ledger-table th,
+.ledger-table td {
+  border: 1px solid var(--text-color);
+  padding: 0.25em 0.5em;
+  text-align: left;
+}
+
+.ledger-table th {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.ledger-table tbody tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.dark .ledger-table th {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .ledger-table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
