@@ -19,6 +19,7 @@ from app.auth import (
     require_role,
     create_access_token,
     require_permissions,
+    get_current_identity,
 )
 from app.acl import (
     PERM_ADD_CHILD,
@@ -28,6 +29,26 @@ from app.acl import (
 )
 
 router = APIRouter(prefix="/children", tags=["children"])
+
+
+@router.get("/me", response_model=ChildRead)
+async def read_current_child(
+    identity: tuple[str, Child | User] = Depends(get_current_identity),
+    db: AsyncSession = Depends(get_session),
+):
+    kind, obj = identity
+    if kind == "child":
+        child = obj
+    else:
+        raise HTTPException(status_code=403, detail="Not a child token")
+    account = await get_account_by_child(db, child.id)
+    return ChildRead(
+        id=child.id,
+        first_name=child.first_name,
+        account_frozen=child.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
 
 
 @router.post("/", response_model=ChildRead)
@@ -82,14 +103,24 @@ async def list_children(
 async def get_child_route(
     child_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_permissions(PERM_VIEW_TRANSACTIONS)),
+    identity: tuple[str, Child | User] = Depends(get_current_identity),
 ):
-    child = await get_child_by_id(db, child_id)
-    if not child:
-        raise HTTPException(status_code=404, detail="Child not found")
-    if current_user.role != "admin":
-        children = await get_children_by_user(db, current_user.id)
-        if child_id not in [c.id for c in children]:
+    kind, obj = identity
+    if kind == "child":
+        child = obj
+        if child.id != child_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    else:
+        user: User = obj
+        if user.role != "admin":
+            user_perms = {p.name for p in user.permissions}
+            if PERM_VIEW_TRANSACTIONS not in user_perms:
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
+            children = await get_children_by_user(db, user.id)
+            if child_id not in [c.id for c in children]:
+                raise HTTPException(status_code=404, detail="Child not found")
+        child = await get_child_by_id(db, child_id)
+        if not child:
             raise HTTPException(status_code=404, detail="Child not found")
     account = await get_account_by_child(db, child_id)
     return ChildRead(

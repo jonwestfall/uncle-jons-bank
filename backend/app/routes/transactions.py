@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from app.database import get_session
-from app.models import Transaction, User
+from app.models import Transaction, User, Child
 from app.schemas import (
     TransactionCreate,
     TransactionRead,
@@ -19,7 +19,7 @@ from app.crud import (
     delete_transaction,
     recalc_interest,
 )
-from app.auth import require_permissions, get_current_user
+from app.auth import require_permissions, get_current_user, get_current_identity
 from app.acl import (
     PERM_ADD_TRANSACTION,
     PERM_VIEW_TRANSACTIONS,
@@ -102,14 +102,24 @@ async def delete_transaction_route(
 async def get_ledger(
     child_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_permissions(PERM_VIEW_TRANSACTIONS)),
+    identity: tuple[str, Child | User] = Depends(get_current_identity),
 ):
-    if current_user.role != "admin":
-        from app.crud import get_children_by_user
+    kind, obj = identity
+    if kind == "child":
+        child = obj
+        if child.id != child_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    else:
+        user: User = obj
+        if user.role != "admin":
+            user_perms = {p.name for p in user.permissions}
+            if PERM_VIEW_TRANSACTIONS not in user_perms:
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
+            from app.crud import get_children_by_user
 
-        children = await get_children_by_user(db, current_user.id)
-        if child_id not in [c.id for c in children]:
-            raise HTTPException(status_code=404, detail="Child not found")
+            children = await get_children_by_user(db, user.id)
+            if child_id not in [c.id for c in children]:
+                raise HTTPException(status_code=404, detail="Child not found")
     transactions = await get_transactions_by_child(db, child_id)
     balance = await calculate_balance(db, child_id)
     return {"balance": balance, "transactions": transactions}

@@ -107,6 +107,40 @@ def require_permissions(*perms: str):
     return perm_dependency
 
 
+async def get_current_identity(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_session),
+) -> tuple[str, User | Child]:
+    """Return ("user", User) or ("child", Child) based on token subject."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        sub: str = payload.get("sub")
+        if not sub:
+            raise credentials_exception
+        if sub.startswith("child:"):
+            child_id = int(sub.split(":", 1)[1])
+            child = await get_child_by_id(db, child_id)
+            if child is None:
+                raise credentials_exception
+            return "child", child
+        else:
+            result = await db.execute(
+                select(User)
+                .where(User.email == sub)
+                .options(selectinload(User.permissions))
+            )
+            user = result.scalar_one_or_none()
+            if user is None:
+                raise credentials_exception
+            return "user", user
+    except (JWTError, ValueError):
+        raise credentials_exception
+
+
 async def get_child_by_id(db: AsyncSession, child_id: int):
     result = await db.execute(select(Child).where(Child.id == child_id))
     return result.scalar_one_or_none()
