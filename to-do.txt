@@ -1,26 +1,5 @@
 MVP Development Tasks
 
- Implement /register endpoint with role assignment (parent/admin)
- Implement /login endpoint (JWT-based)
- Add logout or token expiry handling
- Protect routes using role-based permissions
- Create POST /children/ endpoint to add a child account
- Create GET /children/ endpoint to list all children for current parent
- Create GET /children/{id} to view a specific child account
- Implement child login using access code (PIN-style)
- Add freeze/unfreeze child account functionality
- Design and implement transaction model
- Create POST /transactions/ to add a transaction
- Create GET /transactions/child/{child_id} to view ledger
- Implement balance calculation from ledger
- Schedule daily interest compounding job
- Support per-child customizable interest rates
- Implement withdrawal request model
- Create POST /withdrawals/ for child to request withdrawal
- Create GET /withdrawals/ for parent to view pending requests
- Create POST /withdrawals/{id}/approve for parent approval
- Create POST /withdrawals/{id}/deny for parent denial (with reason)
- Convert approved withdrawal to a ledger transaction
  Define user roles: parent, child, admin
  Enforce permissions based on roles across endpoints
  Standardize all API responses
