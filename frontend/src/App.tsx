@@ -199,6 +199,7 @@ function App() {
   if (isChildAccount && childId !== null) {
     return (
       <div id="app" className="container">
+        <img src="/uncle-jon-trans.png" alt="Uncle Jon's Bank Logo" className="logo" />
         <h1>Uncle Jon's Bank</h1>
         <h3>Your Ledger</h3>
         {ledger && (
@@ -254,6 +255,7 @@ function App() {
 
   return (
     <div id="app" className="container">
+      <img src="/uncle-jon-trans.png" alt="Uncle Jon's Bank Logo" className="logo" />
       <h1>Uncle Jon's Bank</h1>
       <p>You are logged in.</p>
       <div>
