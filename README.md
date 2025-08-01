@@ -111,8 +111,8 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 ### Clone the Repo
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/uncles-bank.git
-cd uncles-bank
+git clone https://github.com/jonwestfall/uncle-jons-bank.git
+cd uncle-jons-bank
 ```
 
 ### Start the App
