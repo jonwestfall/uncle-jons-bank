@@ -1,3 +1,4 @@
+<img src="frontend/public/unclejon.jpg" width="200" height="400">
 # 💰 Uncle Jon's Bank
 
 **Uncle Jon’s Bank** is a web-based financial education platform for kids, designed to simulate real-world money management in a safe, gamified environment. Parents act as the bank tellers and regulators, while kids build budgeting, saving, and delayed gratification habits.
