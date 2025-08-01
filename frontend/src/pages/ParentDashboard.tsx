@@ -11,6 +11,16 @@ interface Child {
   total_interest_earned?: number
 }
 
+interface ChildApi {
+  id: number
+  first_name: string
+  account_frozen?: boolean
+  frozen?: boolean
+  interest_rate?: number
+  penalty_interest_rate?: number
+  total_interest_earned?: number
+}
+
 interface LedgerResponse {
   balance: number
   transactions: Transaction[]
@@ -49,7 +59,19 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
     const resp = await fetch(`${apiUrl}/children`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-    if (resp.ok) setChildren(await resp.json())
+    if (resp.ok) {
+      const data: ChildApi[] = await resp.json()
+      setChildren(
+        data.map(c => ({
+          id: c.id,
+          first_name: c.first_name,
+          frozen: c.frozen ?? c.account_frozen ?? false,
+          interest_rate: c.interest_rate,
+          penalty_interest_rate: c.penalty_interest_rate,
+          total_interest_earned: c.total_interest_earned,
+        }))
+      )
+    }
   }, [apiUrl, token])
 
   const fetchLedger = useCallback(async (cid: number) => {
@@ -85,14 +107,18 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
       <h2>Your Children</h2>
       <ul className="list">
         {children.map(c => (
-          <li key={c.id}>
-            {c.first_name} {c.frozen && '(Frozen)'}
-            <button onClick={() => toggleFreeze(c.id, c.frozen)} className="ml-1">
-              {c.frozen ? 'Unfreeze' : 'Freeze'}
-            </button>
-            <button onClick={() => { fetchLedger(c.id); setSelectedChild(c.id) }} className="ml-1">
-              View Ledger
-            </button>
+          <li key={c.id} className="child-row">
+            <span>
+              {c.first_name} {c.frozen && '(Frozen)'}
+            </span>
+            <span>
+              <button onClick={() => toggleFreeze(c.id, c.frozen)} className="ml-1">
+                {c.frozen ? 'Unfreeze' : 'Freeze'}
+              </button>
+              <button onClick={() => { fetchLedger(c.id); setSelectedChild(c.id) }} className="ml-1">
+                View Ledger
+              </button>
+            </span>
           </li>
         ))}
       </ul>

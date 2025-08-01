@@ -40,6 +40,15 @@
   text-align: left;
 }
 
+.child-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.child-row span:first-child {
+  flex: 1;
+}
+
 .ml-1 {
   color: white;
   margin-left: 1em;
