@@ -1,5 +1,12 @@
 from .user import UserCreate, UserResponse, UserUpdate
-from .child import ChildCreate, ChildRead, ChildLogin, InterestRateUpdate, ChildUpdate
+from .child import (
+    ChildCreate,
+    ChildRead,
+    ChildLogin,
+    InterestRateUpdate,
+    PenaltyRateUpdate,
+    ChildUpdate,
+)
 from .transaction import (
     TransactionCreate,
     TransactionRead,
@@ -22,6 +29,7 @@ __all__ = [
     "ChildUpdate",
     "ChildLogin",
     "InterestRateUpdate",
+    "PenaltyRateUpdate",
     "TransactionCreate",
     "TransactionRead",
     "TransactionUpdate",

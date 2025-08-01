@@ -198,6 +198,19 @@ async def set_interest_rate(
     return account
 
 
+async def set_penalty_interest_rate(
+    db: AsyncSession, child_id: int, rate: float
+) -> Account | None:
+    account = await get_account_by_child(db, child_id)
+    if not account:
+        return None
+    account.penalty_interest_rate = rate
+    db.add(account)
+    await db.commit()
+    await db.refresh(account)
+    return account
+
+
 async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
     """Persist a ledger transaction."""
     db.add(tx)
@@ -294,7 +307,12 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
                 current_balance -= tx.amount
             tx_idx += 1
 
-        interest = current_balance * account.interest_rate
+        rate = (
+            account.interest_rate
+            if current_balance >= 0
+            else account.penalty_interest_rate
+        )
+        interest = current_balance * rate
         if interest != 0:
             tx_time = datetime.combine(day + timedelta(days=1), time.min)
             interest_tx = Transaction(

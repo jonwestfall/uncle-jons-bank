@@ -36,6 +36,7 @@ interface ChildApi {
   account_frozen?: boolean
   frozen?: boolean
   interest_rate?: number
+  penalty_interest_rate?: number
   total_interest_earned?: number
 }
 
@@ -93,7 +94,14 @@ function App() {
     return stored ? Number(stored) : null
   })
   const path = window.location.pathname
-  const [children, setChildren] = useState<Array<{id:number, first_name:string, frozen:boolean, interest_rate?:number, total_interest_earned?:number}>>([])
+  const [children, setChildren] = useState<Array<{
+    id: number
+    first_name: string
+    frozen: boolean
+    interest_rate?: number
+    penalty_interest_rate?: number
+    total_interest_earned?: number
+  }>>([])
   const [firstName, setFirstName] = useState('')
   const [accessCode, setAccessCode] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -108,6 +116,8 @@ function App() {
   const [txMemo, setTxMemo] = useState('')
   const [whatIfDays, setWhatIfDays] = useState('')
   const [whatIfRate, setWhatIfRate] = useState('')
+  const [borrowDays, setBorrowDays] = useState('')
+  const [borrowRate, setBorrowRate] = useState('')
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -135,6 +145,7 @@ function App() {
           first_name: c.first_name,
           frozen: c.frozen ?? c.account_frozen ?? false,
           interest_rate: c.interest_rate,
+          penalty_interest_rate: c.penalty_interest_rate,
           total_interest_earned: c.total_interest_earned
         }))
       )
@@ -217,6 +228,8 @@ function App() {
     setTxMemo('')
     setWhatIfDays('')
     setWhatIfRate('')
+    setBorrowDays('')
+    setBorrowRate('')
     localStorage.removeItem('token')
     localStorage.removeItem('isChild')
     localStorage.removeItem('childId')
@@ -270,27 +283,61 @@ function App() {
                 value={whatIfRate}
                 onChange={e => setWhatIfRate(e.target.value)}
               />
-              {whatIfDays && whatIfRate && (
-                <>
-                  <p>
-                    Interest:{' '}
-                    {(
-                      ledger.balance *
-                      (Math.pow(1 + parseFloat(whatIfRate), Number(whatIfDays)) - 1)
-                    ).toFixed(2)}
-                  </p>
-                  <p>
-                    Total Balance:{' '}
-                    {(
-                      ledger.balance *
-                      Math.pow(1 + parseFloat(whatIfRate), Number(whatIfDays))
-                    ).toFixed(2)}
-                  </p>
-                </>
-              )}
-            </div>
+            {whatIfDays && whatIfRate && (
+              <>
+                <p>
+                  Interest:{' '}
+                  {(
+                    ledger.balance *
+                    (Math.pow(1 + parseFloat(whatIfRate), Number(whatIfDays)) - 1)
+                  ).toFixed(2)}
+                </p>
+                <p>
+                  Total Balance:{' '}
+                  {(
+                    ledger.balance *
+                    Math.pow(1 + parseFloat(whatIfRate), Number(whatIfDays))
+                  ).toFixed(2)}
+                </p>
+              </>
+            )}
           </div>
-        )}
+          <div className="form what-if">
+            <h4>Borrowing</h4>
+            <input
+              type="number"
+              placeholder="Days"
+              value={borrowDays}
+              onChange={e => setBorrowDays(e.target.value)}
+            />
+            <input
+              type="number"
+              step="0.0001"
+              placeholder="Daily penalty rate"
+              value={borrowRate}
+              onChange={e => setBorrowRate(e.target.value)}
+            />
+            {borrowDays && borrowRate && (
+              <>
+                <p>
+                  Interest Charged:{' '}
+                  {(
+                    Math.abs(ledger.balance) *
+                    (Math.pow(1 + parseFloat(borrowRate), Number(borrowDays)) - 1)
+                  ).toFixed(2)}
+                </p>
+                <p>
+                  Total Debt:{' '}
+                  {(
+                    Math.abs(ledger.balance) *
+                    Math.pow(1 + parseFloat(borrowRate), Number(borrowDays))
+                  ).toFixed(2)}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
         <form onSubmit={async e => {
           e.preventDefault()
           if (!withdrawAmount) return
@@ -363,6 +410,13 @@ function App() {
                   ).toFixed(4)}
                 </p>
                 <p>
+                  Penalty Interest Rate:{' '}
+                  {(
+                    children.find(c => c.id === selectedChild)?.penalty_interest_rate ??
+                    0
+                  ).toFixed(4)}
+                </p>
+                <p>
                   Total Interest Earned:{' '}
                   {(
                     children.find(c => c.id === selectedChild)?.total_interest_earned ??
@@ -386,6 +440,24 @@ function App() {
                   }}
                 >
                   <button type="submit" className="mb-1">Set Interest Rate</button>
+                </form>
+                <form
+                  onSubmit={async e => {
+                    e.preventDefault()
+                    const rate = window.prompt('New daily penalty rate (e.g. 0.02 for 2%)')
+                    if (!rate) return
+                    await fetch(`${apiUrl}/children/${selectedChild}/penalty-interest-rate`, {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ penalty_interest_rate: Number(rate) })
+                    })
+                    fetchChildren()
+                  }}
+                >
+                  <button type="submit" className="mb-1">Set Penalty Rate</button>
                 </form>
               </>
             )}
@@ -460,6 +532,39 @@ function App() {
                       Math.pow(
                         1 + (children.find(c => c.id === selectedChild)?.interest_rate || 0),
                         Number(whatIfDays)
+                      )
+                    ).toFixed(2)}
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="form what-if">
+              <h4>Borrowing</h4>
+              <input
+                type="number"
+                placeholder="Days"
+                value={borrowDays}
+                onChange={e => setBorrowDays(e.target.value)}
+              />
+              {borrowDays && (
+                <>
+                  <p>
+                    Interest Charged:{' '}
+                    {(
+                      Math.abs(ledger.balance) *
+                      (Math.pow(
+                        1 + (children.find(c => c.id === selectedChild)?.penalty_interest_rate || 0),
+                        Number(borrowDays)
+                      ) - 1)
+                    ).toFixed(2)}
+                  </p>
+                  <p>
+                    Total Debt:{' '}
+                    {(
+                      Math.abs(ledger.balance) *
+                      Math.pow(
+                        1 + (children.find(c => c.id === selectedChild)?.penalty_interest_rate || 0),
+                        Number(borrowDays)
                       )
                     ).toFixed(2)}
                   </p>
