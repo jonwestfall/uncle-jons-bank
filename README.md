@@ -158,6 +158,13 @@ tests in two ways:
    The endpoint will initialize the sample users and transactions and return a
    JSON summary of the tests.
 
+   Add the query parameter `persist=true` to store the sample accounts in the
+   running database and receive their login credentials for manual testing:
+
+   ```bash
+   curl -X POST "http://localhost:8000/tests/run?persist=true"
+   ```
+
 ---
 
 ## 🔐 Environment Variables

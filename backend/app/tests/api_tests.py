@@ -6,40 +6,65 @@ from sqlmodel import SQLModel, select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from app.main import app
-from app.database import get_session
+from app.database import get_session, async_session, create_db_and_tables
 from app.models import User, Permission, UserPermissionLink
 from app.auth import get_password_hash
-from app.crud import ensure_permissions_exist
+from app.crud import ensure_permissions_exist, get_user_by_email
 from app.acl import ALL_PERMISSIONS
 
 
-async def run_all_tests() -> dict:
-    """Run integration tests against the API and return a summary."""
+async def run_all_tests(persist: bool = False) -> dict:
+    """Run integration tests against the API and return a summary.
+
+    When ``persist`` is ``True`` the test users and children are written to the
+    live database so developers can log in with the returned credentials.
+    """
+
     results: List[str] = []
     success = True
 
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    TestSession = async_sessionmaker(engine, expire_on_commit=False)
+    credentials = {
+        "admin": {"email": "admin@example.com", "password": "adminpass"},
+        "parents": [
+            {"email": "parent1@example.com", "password": "parentpass"},
+            {"email": "parent2@example.com", "password": "parentpass"},
+        ],
+        "children": [
+            {"name": "Child1A", "access_code": "C1A"},
+            {"name": "Child1B", "access_code": "C1B"},
+            {"name": "Child2A", "access_code": "C2A"},
+            {"name": "Child2B", "access_code": "C2B"},
+        ],
+    }
 
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    if persist:
+        TestSession = async_session
+        await create_db_and_tables()
+    else:
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        TestSession = async_sessionmaker(engine, expire_on_commit=False)
+
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+
+        async def override_get_session() -> AsyncSession:
+            async with TestSession() as session:
+                yield session
+
+        app.dependency_overrides[get_session] = override_get_session
 
     async with TestSession() as session:
         await ensure_permissions_exist(session, ALL_PERMISSIONS)
-        admin = User(
-            name="Test Admin",
-            email="admin@example.com",
-            password_hash=get_password_hash("adminpass"),
-            role="admin",
-        )
-        session.add(admin)
-        await session.commit()
-
-    async def override_get_session() -> AsyncSession:
-        async with TestSession() as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_get_session
+        existing_admin = await get_user_by_email(session, "admin@example.com")
+        if not existing_admin:
+            admin = User(
+                name="Test Admin",
+                email="admin@example.com",
+                password_hash=get_password_hash("adminpass"),
+                role="admin",
+            )
+            session.add(admin)
+            await session.commit()
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -61,8 +86,22 @@ async def run_all_tests() -> dict:
                 "/register",
                 json={"name": name, "email": email, "password": "parentpass"},
             )
-            assert resp.status_code == 200
-            uid = resp.json()["id"]
+            if resp.status_code == 200:
+                uid = resp.json()["id"]
+            else:
+                assert resp.status_code == 400
+                login_resp = await client.post(
+                    "/login",
+                    json={"email": email, "password": "parentpass"},
+                )
+                assert login_resp.status_code == 200
+                me = await client.get(
+                    "/users/me",
+                    headers={
+                        "Authorization": f"Bearer {login_resp.json()['access_token']}"
+                    },
+                )
+                uid = me.json()["id"]
             perms = [
                 "add_transaction",
                 "view_transactions",
@@ -78,8 +117,15 @@ async def run_all_tests() -> dict:
                         select(Permission).where(Permission.name == name)
                     )
                     perm = result.scalar_one()
-                    link = UserPermissionLink(user_id=uid, permission_id=perm.id)
-                    session.add(link)
+                    link_exists = await session.execute(
+                        select(UserPermissionLink).where(
+                            UserPermissionLink.user_id == uid,
+                            UserPermissionLink.permission_id == perm.id,
+                        )
+                    )
+                    if not link_exists.first():
+                        link = UserPermissionLink(user_id=uid, permission_id=perm.id)
+                        session.add(link)
                 await session.commit()
             resp = await client.post(
                 "/login",
@@ -173,7 +219,10 @@ async def run_all_tests() -> dict:
             results.append(f"Admin endpoint test failed: {e}")
             return {"success": False, "details": results}
 
-    return {"success": success, "details": results}
+    if not persist:
+        app.dependency_overrides.pop(get_session, None)
+
+    return {"success": success, "details": results, "credentials": credentials}
 
 
 if __name__ == "__main__":
