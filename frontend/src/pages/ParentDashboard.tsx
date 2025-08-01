@@ -8,6 +8,7 @@ interface Child {
   frozen: boolean;
   interest_rate?: number;
   penalty_interest_rate?: number;
+  cd_penalty_rate?: number;
   total_interest_earned?: number;
 }
 
@@ -18,6 +19,7 @@ interface ChildApi {
   frozen?: boolean;
   interest_rate?: number;
   penalty_interest_rate?: number;
+  cd_penalty_rate?: number;
   total_interest_earned?: number;
 }
 
@@ -82,6 +84,7 @@ export default function ParentDashboard({
           frozen: c.frozen ?? c.account_frozen ?? false,
           interest_rate: c.interest_rate,
           penalty_interest_rate: c.penalty_interest_rate,
+          cd_penalty_rate: c.cd_penalty_rate,
           total_interest_earned: c.total_interest_earned,
         })),
       );
@@ -110,6 +113,38 @@ export default function ParentDashboard({
     fetchPendingWithdrawals();
   }, [fetchChildren, fetchPendingWithdrawals]);
 
+  const editRates = async (childId: number) => {
+    const child = children.find((c) => c.id === childId);
+    const i = window.prompt("Interest rate", String(child?.interest_rate ?? ""));
+    if (i === null) return;
+    const p = window.prompt(
+      "Penalty interest rate",
+      String(child?.penalty_interest_rate ?? ""),
+    );
+    if (p === null) return;
+    const cdr = window.prompt(
+      "CD early withdrawal penalty rate",
+      String(child?.cd_penalty_rate ?? "0.1"),
+    );
+    if (cdr === null) return;
+    await fetch(`${apiUrl}/children/${childId}/interest-rate`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ interest_rate: Number(i) }),
+    });
+    await fetch(`${apiUrl}/children/${childId}/penalty-interest-rate`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ penalty_interest_rate: Number(p) }),
+    });
+    await fetch(`${apiUrl}/children/${childId}/cd-penalty-rate`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ cd_penalty_rate: Number(cdr) }),
+    });
+    fetchChildren();
+  };
+
   const toggleFreeze = async (childId: number, frozen: boolean) => {
     const endpoint = frozen ? "unfreeze" : "freeze";
     await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
@@ -132,6 +167,7 @@ export default function ParentDashboard({
               {c.first_name} {c.frozen && "(Frozen)"}
             </span>
             <span>
+              <button onClick={() => editRates(c.id)}>Rates</button>
               <button
                 onClick={() => toggleFreeze(c.id, c.frozen)}
                 className="ml-1"

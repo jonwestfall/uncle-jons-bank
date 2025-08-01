@@ -9,6 +9,7 @@ from app.routes import (
     admin,
     tests,
     cds,
+    settings,
 )
 from app.database import create_db_and_tables, async_session
 from app.crud import recalc_interest, ensure_permissions_exist
@@ -58,8 +59,14 @@ app.include_router(withdrawals.router)
 app.include_router(cds.router)
 app.include_router(admin.router)
 app.include_router(tests.router)
+app.include_router(settings.router)
 
 
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to Uncle Jon's Bank API"}
+async def read_root():
+    from app.crud import get_settings
+
+    async with async_session() as session:
+        s = await get_settings(session)
+        name = s.site_name
+    return {"message": f"Welcome to {name} API"}

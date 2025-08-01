@@ -149,6 +149,8 @@ async def admin_list_children(
                 first_name=c.first_name,
                 account_frozen=c.account_frozen,
                 interest_rate=account.interest_rate if account else None,
+                penalty_interest_rate=account.penalty_interest_rate if account else None,
+                cd_penalty_rate=account.cd_penalty_rate if account else None,
                 total_interest_earned=(
                     account.total_interest_earned if account else None
                 ),
@@ -172,6 +174,8 @@ async def admin_get_child(
         first_name=child.first_name,
         account_frozen=child.account_frozen,
         interest_rate=account.interest_rate if account else None,
+        penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 
@@ -198,6 +202,8 @@ async def admin_update_child(
         first_name=updated.first_name,
         account_frozen=updated.account_frozen,
         interest_rate=account.interest_rate if account else None,
+        penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 

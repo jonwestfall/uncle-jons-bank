@@ -14,6 +14,7 @@ class ChildRead(BaseModel):
     frozen: bool = Field(alias="account_frozen")
     interest_rate: float | None = None
     penalty_interest_rate: float | None = None
+    cd_penalty_rate: float | None = None
     total_interest_earned: float | None = None
 
     class Config:
@@ -30,6 +31,10 @@ class InterestRateUpdate(BaseModel):
 
 class PenaltyRateUpdate(BaseModel):
     penalty_interest_rate: float
+
+
+class CDPenaltyRateUpdate(BaseModel):
+    cd_penalty_rate: float
 
 
 class ChildUpdate(BaseModel):

@@ -2,9 +2,10 @@ import { useState } from 'react'
 
 interface Props {
   onLogin: (token: string, isChild: boolean) => void
+  siteName: string
 }
 
-export default function LoginPage({ onLogin }: Props) {
+export default function LoginPage({ onLogin, siteName }: Props) {
   const [isChild, setIsChild] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,7 +42,7 @@ export default function LoginPage({ onLogin }: Props) {
 
   return (
     <div className="container">
-      <center><img src="/unclejon.jpg" alt="Uncle Jon's Bank Logo" className="logo" /></center>
+      <center><img src="/unclejon.jpg" alt={siteName + ' Logo'} className="logo" /></center>
       <h2>Login</h2>
       <button onClick={() => setIsChild(!isChild)} className="mb-1">
         {isChild ? 'Switch to Parent Login' : 'Switch to Child Login'}

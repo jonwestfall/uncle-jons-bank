@@ -7,6 +7,7 @@ from app.schemas import (
     ChildLogin,
     InterestRateUpdate,
     PenaltyRateUpdate,
+    CDPenaltyRateUpdate,
 )
 from app.models import Child, User
 from app.database import get_session
@@ -18,6 +19,7 @@ from app.crud import (
     set_child_frozen,
     set_interest_rate,
     set_penalty_interest_rate,
+    set_cd_penalty_rate,
     get_account_by_child,
     recalc_interest,
 )
@@ -55,6 +57,7 @@ async def read_current_child(
         account_frozen=child.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 
@@ -81,6 +84,7 @@ async def create_child_route(
         account_frozen=new_child.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 
@@ -101,6 +105,7 @@ async def list_children(
                 account_frozen=c.account_frozen,
                 interest_rate=account.interest_rate if account else None,
                 penalty_interest_rate=account.penalty_interest_rate if account else None,
+                cd_penalty_rate=account.cd_penalty_rate if account else None,
                 total_interest_earned=(
                     account.total_interest_earned if account else None
                 ),
@@ -139,6 +144,7 @@ async def get_child_route(
         account_frozen=child.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 
@@ -164,6 +170,7 @@ async def freeze_child(
         account_frozen=updated.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 
@@ -189,6 +196,7 @@ async def unfreeze_child(
         account_frozen=updated.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 
@@ -215,6 +223,7 @@ async def update_interest_rate(
         account_frozen=child.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 
@@ -241,6 +250,33 @@ async def update_penalty_interest_rate(
         account_frozen=child.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
+
+
+@router.put("/{child_id}/cd-penalty-rate", response_model=ChildRead)
+async def update_cd_penalty_rate(
+    child_id: int,
+    data: CDPenaltyRateUpdate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        children = await get_children_by_user(db, current_user.id)
+        if child_id not in [c.id for c in children]:
+            raise HTTPException(status_code=404, detail="Child not found")
+    account = await set_cd_penalty_rate(db, child_id, data.cd_penalty_rate)
+    return ChildRead(
+        id=child.id,
+        first_name=child.first_name,
+        account_frozen=child.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
         total_interest_earned=account.total_interest_earned if account else None,
     )
 

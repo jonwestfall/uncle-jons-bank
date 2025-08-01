@@ -4,6 +4,7 @@ interface Props {
   token: string
   apiUrl: string
   onLogout: () => void
+  siteName: string
 }
 
 interface User {
@@ -32,10 +33,11 @@ interface Transaction {
   timestamp: string
 }
 
-export default function AdminPanel({ token, apiUrl, onLogout }: Props) {
+export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props) {
   const [users, setUsers] = useState<User[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [settings, setSettings] = useState<any>(null)
 
   const fetchData = async () => {
     const uh = { Authorization: `Bearer ${token}` }
@@ -45,6 +47,8 @@ export default function AdminPanel({ token, apiUrl, onLogout }: Props) {
     if (c.ok) setChildren(await c.json())
     const t = await fetch(`${apiUrl}/admin/transactions`, { headers: uh })
     if (t.ok) setTransactions(await t.json())
+    const s = await fetch(`${apiUrl}/settings`)
+    if (s.ok) setSettings(await s.json())
   }
 
   useEffect(() => {
@@ -53,8 +57,40 @@ export default function AdminPanel({ token, apiUrl, onLogout }: Props) {
 
   return (
     <div className="container">
-      <center><img src="/unclejon.jpg" alt="Uncle Jon's Bank Logo" className="logo" /></center>
+      <center><img src="/unclejon.jpg" alt={`${siteName} Logo`} className="logo" /></center>
       <h1>Admin Panel</h1>
+      {settings && (
+        <div>
+          <h2>Site Settings</h2>
+          <p>Name: {settings.site_name}</p>
+          <p>Default Interest Rate: {settings.default_interest_rate}</p>
+          <p>Penalty Interest Rate: {settings.default_penalty_interest_rate}</p>
+          <p>CD Penalty Rate: {settings.default_cd_penalty_rate}</p>
+          <button
+            onClick={async () => {
+              const name = window.prompt('Site name', settings.site_name)
+              if (name === null) return
+              const ir = window.prompt('Interest rate', settings.default_interest_rate)
+              if (ir === null) return
+              const pr = window.prompt('Penalty rate', settings.default_penalty_interest_rate)
+              if (pr === null) return
+              const cd = window.prompt('CD penalty rate', settings.default_cd_penalty_rate)
+              if (cd === null) return
+              await fetch(`${apiUrl}/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                  site_name: name,
+                  default_interest_rate: Number(ir),
+                  default_penalty_interest_rate: Number(pr),
+                  default_cd_penalty_rate: Number(cd),
+                })
+              })
+              fetchData()
+            }}
+          >Edit</button>
+        </div>
+      )}
       <h2>Users</h2>
       <ul className="list">
         {users.map(u => (

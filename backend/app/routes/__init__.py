@@ -1,4 +1,4 @@
-from . import auth, users, children, transactions, withdrawals, admin, tests, cds
+from . import auth, users, children, transactions, withdrawals, admin, tests, cds, settings
 
 __all__ = [
     "auth",
@@ -7,6 +7,7 @@ __all__ = [
     "transactions",
     "withdrawals",
     "cds",
+    "settings",
     "admin",
     "tests",
 ]

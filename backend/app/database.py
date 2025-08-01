@@ -23,6 +23,7 @@ async def create_db_and_tables() -> None:
         WithdrawalRequest,
         Permission,
         UserPermissionLink,
+        Settings,
     )
 
     async with engine.begin() as conn:

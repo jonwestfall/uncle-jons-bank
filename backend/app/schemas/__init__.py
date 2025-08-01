@@ -5,6 +5,7 @@ from .child import (
     ChildLogin,
     InterestRateUpdate,
     PenaltyRateUpdate,
+    CDPenaltyRateUpdate,
     ChildUpdate,
 )
 from .transaction import (
@@ -20,6 +21,7 @@ from .withdrawal import (
 )
 from .permission import PermissionRead, PermissionsUpdate
 from .cd import CDCreate, CDRead
+from .settings import SettingsRead, SettingsUpdate
 
 __all__ = [
     "UserCreate",
@@ -32,6 +34,7 @@ __all__ = [
     "ChildLogin",
     "InterestRateUpdate",
     "PenaltyRateUpdate",
+    "CDPenaltyRateUpdate",
     "TransactionCreate",
     "TransactionRead",
     "TransactionUpdate",
@@ -43,4 +46,6 @@ __all__ = [
     "PermissionsUpdate",
     "CDCreate",
     "CDRead",
+    "SettingsRead",
+    "SettingsUpdate",
 ]
