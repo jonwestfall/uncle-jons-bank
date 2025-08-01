@@ -61,7 +61,8 @@ class Account(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     balance: float = 0.0
-    interest_rate: float = 0.01  # Daily rate (e.g., 0.01 = 1%)
+    interest_rate: float = 0.01  # Daily rate for positive balances
+    penalty_interest_rate: float = 0.02  # Daily rate applied when balance < 0
     last_interest_applied: Optional[date] = None
     total_interest_earned: float = 0.0
 
