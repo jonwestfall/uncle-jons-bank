@@ -115,6 +115,14 @@ docker compose exec backend alembic revision --autogenerate -m "Your message"
 docker compose exec backend alembic upgrade head
 ```
 
+## Admin Login
+
+Admin users sign in using the regular parent login form with their email address
+and password. Once logged in, visiting `/admin` will attempt to load the admin
+interface. The React app checks your role by calling the `/users/me` endpoint in
+`frontend/src/App.tsx`; if it returns an account with the `admin` role, the
+admin panel is displayed.
+
 ---
 
 ## 🔐 Environment Variables
