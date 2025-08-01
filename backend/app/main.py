@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import users, children, auth, transactions, withdrawals
+from app.routes import users, children, auth, transactions, withdrawals, admin
 from app.database import create_db_and_tables, async_session
 from app.crud import recalc_interest
 from app.models import Child
@@ -40,6 +40,7 @@ app.include_router(children.router)
 app.include_router(auth.router)
 app.include_router(transactions.router)
 app.include_router(withdrawals.router)
+app.include_router(admin.router)
 
 
 @app.get("/")

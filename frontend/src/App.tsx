@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import LoginPage from './LoginPage'
+import AdminPanel from './AdminPanel'
 import './App.css'
 
 interface Transaction {
@@ -41,10 +42,12 @@ interface ChildApi {
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [isChildAccount, setIsChildAccount] = useState<boolean>(() => localStorage.getItem('isChild') === 'true')
+  const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const [childId, setChildId] = useState<number | null>(() => {
     const stored = localStorage.getItem('childId')
     return stored ? Number(stored) : null
   })
+  const path = window.location.pathname
   const [children, setChildren] = useState<Array<{id:number, first_name:string, frozen:boolean, interest_rate?:number, total_interest_earned?:number}>>([])
   const [firstName, setFirstName] = useState('')
   const [accessCode, setAccessCode] = useState('')
@@ -60,6 +63,17 @@ function App() {
   const [txMemo, setTxMemo] = useState('')
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+  const fetchMe = useCallback(async () => {
+    if (!token) return
+    const resp = await fetch(`${apiUrl}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (resp.ok) {
+      const data = await resp.json()
+      setIsAdmin(data.role === 'admin')
+    }
+  }, [token, apiUrl])
 
   const fetchChildren = useCallback(async () => {
     if (!token) return
@@ -126,6 +140,7 @@ function App() {
     setIsChildAccount(child)
     localStorage.setItem('token', tok)
     localStorage.setItem('isChild', String(child))
+    setIsAdmin(false)
     if (child) {
       const payload = JSON.parse(atob(tok.split('.')[1]))
       const cid = parseInt(payload.sub.split(':')[1])
@@ -136,6 +151,7 @@ function App() {
     } else {
       fetchChildren()
       fetchPendingWithdrawals()
+      fetchMe()
     }
   }
 
@@ -159,6 +175,7 @@ function App() {
 
   useEffect(() => {
     if (!token) return
+    fetchMe()
     if (isChildAccount && childId !== null) {
       fetchLedger(childId)
       fetchMyWithdrawals()
@@ -166,10 +183,17 @@ function App() {
       fetchChildren()
       fetchPendingWithdrawals()
     }
-  }, [token, isChildAccount, childId, fetchChildren, fetchLedger, fetchMyWithdrawals, fetchPendingWithdrawals])
+  }, [token, isChildAccount, childId, fetchChildren, fetchLedger, fetchMyWithdrawals, fetchPendingWithdrawals, fetchMe])
 
   if (!token) {
     return <LoginPage onLogin={handleLogin} />
+  }
+
+  if (path === '/admin') {
+    if (!isAdmin) {
+      return <div className="container">Access denied.</div>
+    }
+    return <AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} />
   }
 
   if (isChildAccount && childId !== null) {
