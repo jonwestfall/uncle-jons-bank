@@ -1,6 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import users, children, auth, transactions, withdrawals, admin, tests
+from app.routes import (
+    users,
+    children,
+    auth,
+    transactions,
+    withdrawals,
+    admin,
+    tests,
+    cds,
+)
 from app.database import create_db_and_tables, async_session
 from app.crud import recalc_interest, ensure_permissions_exist
 from app.models import Child
@@ -35,6 +44,9 @@ async def daily_interest_task():
             child_ids = result.scalars().all()
             for cid in child_ids:
                 await recalc_interest(session, cid)
+            from app.crud import redeem_matured_cds
+
+            await redeem_matured_cds(session)
         await asyncio.sleep(60 * 60 * 24)
 
 
@@ -43,6 +55,7 @@ app.include_router(children.router)
 app.include_router(auth.router)
 app.include_router(transactions.router)
 app.include_router(withdrawals.router)
+app.include_router(cds.router)
 app.include_router(admin.router)
 app.include_router(tests.router)
 

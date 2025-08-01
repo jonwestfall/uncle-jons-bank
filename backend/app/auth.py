@@ -143,7 +143,7 @@ async def get_current_identity(
 
 async def get_child_by_id(db: AsyncSession, child_id: int):
     result = await db.execute(select(Child).where(Child.id == child_id))
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def get_current_child(

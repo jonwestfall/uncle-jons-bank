@@ -14,7 +14,9 @@ class UserPermissionLink(SQLModel, table=True):
 class Permission(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    user_links: List["UserPermissionLink"] = Relationship(back_populates="permission")
+    user_links: List["UserPermissionLink"] = Relationship(
+        back_populates="permission"
+    )
     users: List["User"] = Relationship(
         back_populates="permissions", link_model=UserPermissionLink
     )
@@ -28,7 +30,9 @@ class User(SQLModel, table=True):
     role: str  # 'viewer', 'depositor', 'withdrawer', 'admin'
 
     children: List["ChildUserLink"] = Relationship(back_populates="user")
-    permission_links: List["UserPermissionLink"] = Relationship(back_populates="user")
+    permission_links: List["UserPermissionLink"] = Relationship(
+        back_populates="user"
+    )
     permissions: List[Permission] = Relationship(
         back_populates="users", link_model=UserPermissionLink
     )
@@ -37,7 +41,7 @@ class User(SQLModel, table=True):
 class Child(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     first_name: str
-    access_code: str
+    access_code: str = Field(unique=True)
     account_frozen: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -72,7 +76,9 @@ class Account(SQLModel, table=True):
 class Transaction(SQLModel, table=True):
     """Ledger transaction representing credits and debits on a child's account."""
 
-    id: Optional[int] = Field(default=None, primary_key=True, alias="transaction_id")
+    id: Optional[int] = Field(
+        default=None, primary_key=True, alias="transaction_id"
+    )
     child_id: int = Field(foreign_key="child.id")
     type: str  # "credit" or "debit"
     amount: float
@@ -97,3 +103,20 @@ class WithdrawalRequest(SQLModel, table=True):
 
     child: Child = Relationship(back_populates="withdrawal_requests")
     approver: Optional[User] = Relationship()
+
+
+class CertificateDeposit(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="child.id")
+    parent_id: int = Field(foreign_key="user.id")
+    amount: float
+    interest_rate: float
+    term_days: int
+    status: str = "offered"  # offered, accepted, rejected, redeemed
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    accepted_at: Optional[datetime] = None
+    matures_at: Optional[datetime] = None
+    redeemed_at: Optional[datetime] = None
+
+    child: Child = Relationship()
+    parent: User = Relationship()
