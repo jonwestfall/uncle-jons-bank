@@ -129,6 +129,35 @@ interface. The React app checks your role by calling the `/users/me` endpoint in
 `frontend/src/App.tsx`; if it returns an account with the `admin` role, the
 admin panel is displayed.
 
+## 🧪 Testing
+
+The repository includes an integration test suite that provisions example
+accounts and verifies API functionality. After installing the Python
+dependencies with `pip install -r backend/requirements.txt`, you can run the
+tests in two ways:
+
+1. **Directly via Python**
+
+   ```bash
+   cd backend
+   python -m app.tests.api_tests
+   ```
+
+   This starts an in-memory database, creates two parents with two children each
+   and several sample transactions, and reports the results.
+
+2. **Through the running API**
+
+   Start the backend with `uvicorn app.main:app` (or `docker compose up`) and
+   POST to `/tests/run`:
+
+   ```bash
+   curl -X POST http://localhost:8000/tests/run
+   ```
+
+   The endpoint will initialize the sample users and transactions and return a
+   JSON summary of the tests.
+
 ---
 
 ## 🔐 Environment Variables
