@@ -29,6 +29,13 @@ interface WithdrawalRequest {
   denial_reason?: string | null
 }
 
+interface ChildApi {
+  id: number
+  first_name: string
+  account_frozen?: boolean
+  frozen?: boolean
+}
+
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [isChildAccount, setIsChildAccount] = useState<boolean>(() => localStorage.getItem('isChild') === 'true')
@@ -58,7 +65,14 @@ function App() {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (resp.ok) {
-      setChildren(await resp.json())
+      const data: ChildApi[] = await resp.json()
+      setChildren(
+        data.map(c => ({
+          id: c.id,
+          first_name: c.first_name,
+          frozen: c.frozen ?? c.account_frozen ?? false
+        }))
+      )
     }
   }, [token, apiUrl])
 
