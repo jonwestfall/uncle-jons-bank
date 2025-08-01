@@ -11,6 +11,7 @@ from .withdrawal import (
     WithdrawalRequestRead,
     DenyRequest,
 )
+from .permission import PermissionRead, PermissionsUpdate
 
 __all__ = [
     "UserCreate",
@@ -28,4 +29,6 @@ __all__ = [
     "WithdrawalRequestCreate",
     "WithdrawalRequestRead",
     "DenyRequest",
+    "PermissionRead",
+    "PermissionsUpdate",
 ]

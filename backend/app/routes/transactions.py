@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from app.database import get_session
-from app.models import Transaction
+from app.models import Transaction, User, Child
 from app.schemas import (
     TransactionCreate,
     TransactionRead,
@@ -19,14 +19,42 @@ from app.crud import (
     delete_transaction,
     recalc_interest,
 )
+from app.auth import require_permissions, get_current_user, get_current_identity
+from app.acl import (
+    PERM_ADD_TRANSACTION,
+    PERM_VIEW_TRANSACTIONS,
+    PERM_DELETE_TRANSACTION,
+    PERM_DEPOSIT,
+    PERM_DEBIT,
+)
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
 @router.post("/", response_model=TransactionRead)
 async def add_transaction(
-    transaction: TransactionCreate, db: AsyncSession = Depends(get_session)
+    transaction: TransactionCreate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_permissions(PERM_ADD_TRANSACTION)),
 ):
+    user_perm_names = {p.name for p in current_user.permissions}
+    if current_user.role != "admin":
+        if transaction.type == "credit" and PERM_DEPOSIT not in user_perm_names:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+            )
+        if transaction.type == "debit" and PERM_DEBIT not in user_perm_names:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+            )
+
+    if current_user.role != "admin":
+        from app.crud import get_children_by_user
+
+        children = await get_children_by_user(db, current_user.id)
+        if transaction.child_id not in [c.id for c in children]:
+            raise HTTPException(status_code=404, detail="Child not found")
+
     tx_model = Transaction(
         child_id=transaction.child_id,
         type=transaction.type,
@@ -45,6 +73,7 @@ async def update_transaction_route(
     transaction_id: int,
     data: TransactionUpdate,
     db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_permissions(PERM_ADD_TRANSACTION)),
 ):
     tx = await get_transaction(db, transaction_id)
     if not tx:
@@ -60,6 +89,7 @@ async def update_transaction_route(
 async def delete_transaction_route(
     transaction_id: int,
     db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_permissions(PERM_DELETE_TRANSACTION)),
 ):
     tx = await get_transaction(db, transaction_id)
     if not tx:
@@ -69,7 +99,27 @@ async def delete_transaction_route(
 
 
 @router.get("/child/{child_id}", response_model=LedgerResponse)
-async def get_ledger(child_id: int, db: AsyncSession = Depends(get_session)):
+async def get_ledger(
+    child_id: int,
+    db: AsyncSession = Depends(get_session),
+    identity: tuple[str, Child | User] = Depends(get_current_identity),
+):
+    kind, obj = identity
+    if kind == "child":
+        child = obj
+        if child.id != child_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    else:
+        user: User = obj
+        if user.role != "admin":
+            user_perms = {p.name for p in user.permissions}
+            if PERM_VIEW_TRANSACTIONS not in user_perms:
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
+            from app.crud import get_children_by_user
+
+            children = await get_children_by_user(db, user.id)
+            if child_id not in [c.id for c in children]:
+                raise HTTPException(status_code=404, detail="Child not found")
     transactions = await get_transactions_by_child(db, child_id)
     balance = await calculate_balance(db, child_id)
     return {"balance": balance, "transactions": transactions}

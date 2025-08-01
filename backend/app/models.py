@@ -3,6 +3,23 @@ from datetime import datetime, date
 from sqlmodel import SQLModel, Field, Relationship
 
 
+class UserPermissionLink(SQLModel, table=True):
+    user_id: int = Field(foreign_key="user.id", primary_key=True)
+    permission_id: int = Field(foreign_key="permission.id", primary_key=True)
+
+    user: "User" = Relationship(back_populates="permission_links")
+    permission: "Permission" = Relationship(back_populates="user_links")
+
+
+class Permission(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    user_links: List["UserPermissionLink"] = Relationship(back_populates="permission")
+    users: List["User"] = Relationship(
+        back_populates="permissions", link_model=UserPermissionLink
+    )
+
+
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -11,6 +28,10 @@ class User(SQLModel, table=True):
     role: str  # 'viewer', 'depositor', 'withdrawer', 'admin'
 
     children: List["ChildUserLink"] = Relationship(back_populates="user")
+    permission_links: List["UserPermissionLink"] = Relationship(back_populates="user")
+    permissions: List[Permission] = Relationship(
+        back_populates="users", link_model=UserPermissionLink
+    )
 
 
 class Child(SQLModel, table=True):

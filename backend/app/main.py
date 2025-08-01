@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import users, children, auth, transactions, withdrawals, admin
 from app.database import create_db_and_tables, async_session
-from app.crud import recalc_interest
+from app.crud import recalc_interest, ensure_permissions_exist
 from app.models import Child
+from app.acl import ALL_PERMISSIONS
 from sqlmodel import select
 import asyncio
 
@@ -22,6 +23,8 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     await create_db_and_tables()
+    async with async_session() as session:
+        await ensure_permissions_exist(session, ALL_PERMISSIONS)
     asyncio.create_task(daily_interest_task())
 
 

@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, delete
+from sqlalchemy.orm import selectinload
 from datetime import datetime, date, timedelta, time
 from app.models import (
     User,
@@ -8,8 +9,55 @@ from app.models import (
     Transaction,
     WithdrawalRequest,
     Account,
+    Permission,
+    UserPermissionLink,
 )
 from app.auth import get_password_hash, get_child_by_id
+from app.acl import get_default_permissions_for_role
+
+
+async def ensure_permissions_exist(db: AsyncSession, names: list[str]) -> None:
+    for name in names:
+        result = await db.execute(select(Permission).where(Permission.name == name))
+        perm = result.scalar_one_or_none()
+        if not perm:
+            db.add(Permission(name=name))
+    await db.commit()
+
+
+async def assign_permissions_by_names(
+    db: AsyncSession, user: User, names: list[str]
+) -> None:
+    for name in names:
+        result = await db.execute(select(Permission).where(Permission.name == name))
+        perm = result.scalar_one_or_none()
+        if perm:
+            exists = any(
+                link.permission_id == perm.id for link in user.permission_links
+            )
+            if not exists:
+                db.add(UserPermissionLink(user_id=user.id, permission_id=perm.id))
+    await db.commit()
+
+
+async def remove_permissions_by_names(
+    db: AsyncSession, user: User, names: list[str]
+) -> None:
+    for name in names:
+        result = await db.execute(select(Permission).where(Permission.name == name))
+        perm = result.scalar_one_or_none()
+        if perm:
+            link = next(
+                (l for l in user.permission_links if l.permission_id == perm.id), None
+            )
+            if link:
+                await db.delete(link)
+    await db.commit()
+
+
+async def get_all_permissions(db: AsyncSession) -> list[Permission]:
+    result = await db.execute(select(Permission).order_by(Permission.name))
+    return result.scalars().all()
 
 
 async def create_user(db: AsyncSession, user: User):
@@ -18,21 +66,34 @@ async def create_user(db: AsyncSession, user: User):
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    defaults = get_default_permissions_for_role(user.role)
+    if defaults:
+        await assign_permissions_by_names(db, user, defaults)
     return user
 
 
 async def get_user_by_email(db: AsyncSession, email: str):
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User)
+        .where(User.email == email)
+        .options(selectinload(User.permissions))
+    )
     return result.scalar_one_or_none()
 
 
 async def get_user(db: AsyncSession, user_id: int) -> User | None:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(User)
+        .where(User.id == user_id)
+        .options(selectinload(User.permissions))
+    )
     return result.scalar_one_or_none()
 
 
 async def get_all_users(db: AsyncSession) -> list[User]:
-    result = await db.execute(select(User).order_by(User.id))
+    result = await db.execute(
+        select(User).options(selectinload(User.permissions)).order_by(User.id)
+    )
     return result.scalars().all()
 
 
