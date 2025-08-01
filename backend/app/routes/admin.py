@@ -5,15 +5,32 @@ from app.database import get_session
 from app.auth import require_role, get_password_hash
 from app.models import User, Child, Transaction
 from app.schemas import (
-    UserResponse, UserUpdate,
-    ChildRead, ChildUpdate,
-    TransactionRead, TransactionUpdate,
+    UserResponse,
+    UserUpdate,
+    ChildRead,
+    ChildUpdate,
+    TransactionRead,
+    TransactionUpdate,
+    PermissionRead,
+    PermissionsUpdate,
 )
 from app.crud import (
-    get_all_users, get_user, save_user, delete_user,
-    get_all_children, get_child, save_child, delete_child,
-    get_all_transactions, get_transaction, save_transaction, delete_transaction,
+    get_all_users,
+    get_user,
+    save_user,
+    delete_user,
+    get_all_children,
+    get_child,
+    save_child,
+    delete_child,
+    get_all_transactions,
+    get_transaction,
+    save_transaction,
+    delete_transaction,
     get_account_by_child,
+    get_all_permissions,
+    assign_permissions_by_names,
+    remove_permissions_by_names,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -25,6 +42,44 @@ async def admin_list_users(
     current_user: User = Depends(require_role("admin")),
 ):
     return await get_all_users(db)
+
+
+@router.get("/permissions", response_model=list[PermissionRead])
+async def list_permissions(
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    return await get_all_permissions(db)
+
+
+@router.post("/users/{user_id}/permissions", response_model=list[PermissionRead])
+async def add_permissions_to_user(
+    user_id: int,
+    perms: PermissionsUpdate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    user = await get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    await assign_permissions_by_names(db, user, perms.permissions)
+    await db.refresh(user)
+    return [link.permission for link in user.permission_links]
+
+
+@router.delete("/users/{user_id}/permissions", response_model=list[PermissionRead])
+async def remove_permissions_from_user(
+    user_id: int,
+    perms: PermissionsUpdate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    user = await get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    await remove_permissions_by_names(db, user, perms.permissions)
+    await db.refresh(user)
+    return [link.permission for link in user.permission_links]
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -51,9 +106,20 @@ async def admin_update_user(
         raise HTTPException(status_code=404, detail="User not found")
     if data.password is not None:
         user.password_hash = get_password_hash(data.password)
-    for field, value in data.model_dump(exclude_unset=True, exclude={"password"}).items():
+    for field, value in data.model_dump(
+        exclude_unset=True, exclude={"password"}
+    ).items():
         setattr(user, field, value)
-    return await save_user(db, user)
+    updated = await save_user(db, user)
+    if data.role is not None:
+        from app.acl import get_default_permissions_for_role
+
+        await remove_permissions_by_names(
+            db, updated, [p.name for p in updated.permissions]
+        )
+        defaults = get_default_permissions_for_role(updated.role)
+        await assign_permissions_by_names(db, updated, defaults)
+    return updated
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -83,7 +149,9 @@ async def admin_list_children(
                 first_name=c.first_name,
                 account_frozen=c.account_frozen,
                 interest_rate=account.interest_rate if account else None,
-                total_interest_earned=account.total_interest_earned if account else None,
+                total_interest_earned=(
+                    account.total_interest_earned if account else None
+                ),
             )
         )
     return result
