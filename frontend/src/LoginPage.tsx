@@ -41,7 +41,7 @@ export default function LoginPage({ onLogin }: Props) {
 
   return (
     <div className="container">
-      <img src="/uncle-jon-trans.png" alt="Uncle Jon's Bank Logo" className="logo" />
+      <center><img src="/unclejon.jpg" alt="Uncle Jon's Bank Logo" className="logo" /></center>
       <h2>Login</h2>
       <button onClick={() => setIsChild(!isChild)} className="mb-1">
         {isChild ? 'Switch to Parent Login' : 'Switch to Child Login'}
