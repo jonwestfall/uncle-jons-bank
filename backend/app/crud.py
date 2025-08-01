@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, delete
+from sqlalchemy.orm import selectinload
 from datetime import datetime, date, timedelta, time
 from app.models import (
     User,
@@ -72,17 +73,27 @@ async def create_user(db: AsyncSession, user: User):
 
 
 async def get_user_by_email(db: AsyncSession, email: str):
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User)
+        .where(User.email == email)
+        .options(selectinload(User.permissions))
+    )
     return result.scalar_one_or_none()
 
 
 async def get_user(db: AsyncSession, user_id: int) -> User | None:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(User)
+        .where(User.id == user_id)
+        .options(selectinload(User.permissions))
+    )
     return result.scalar_one_or_none()
 
 
 async def get_all_users(db: AsyncSession) -> list[User]:
-    result = await db.execute(select(User).order_by(User.id))
+    result = await db.execute(
+        select(User).options(selectinload(User.permissions)).order_by(User.id)
+    )
     return result.scalars().all()
 
 
