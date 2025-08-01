@@ -63,6 +63,9 @@ export default function ParentDashboard({
   const [accessCode, setAccessCode] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [tableWidth, setTableWidth] = useState<number>();
+  const [cdAmount, setCdAmount] = useState("");
+  const [cdRate, setCdRate] = useState("");
+  const [cdDays, setCdDays] = useState("");
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
 
@@ -260,10 +263,58 @@ export default function ParentDashboard({
               value={txMemo}
               onChange={(e) => setTxMemo(e.target.value)}
             />
-            <button type="submit">Add</button>
-          </form>
-        </div>
-      )}
+          <button type="submit">Add</button>
+        </form>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await fetch(`${apiUrl}/cds`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                child_id: selectedChild,
+                amount: Number(cdAmount),
+                interest_rate: Number(cdRate),
+                term_days: Number(cdDays),
+              }),
+            });
+            setCdAmount("");
+            setCdRate("");
+            setCdDays("");
+          }}
+          className="form"
+        >
+          <h4>Offer CD</h4>
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Amount"
+            value={cdAmount}
+            onChange={(e) => setCdAmount(e.target.value)}
+            required
+          />
+          <input
+            type="number"
+            step="0.0001"
+            placeholder="Rate"
+            value={cdRate}
+            onChange={(e) => setCdRate(e.target.value)}
+            required
+          />
+          <input
+            type="number"
+            placeholder="Days"
+            value={cdDays}
+            onChange={(e) => setCdDays(e.target.value)}
+            required
+          />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    )}
       {pendingWithdrawals.length > 0 && (
         <div>
           <h4>Pending Withdrawal Requests</h4>

@@ -38,6 +38,7 @@ interface Props {
 export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Props) {
   const [ledger, setLedger] = useState<LedgerResponse | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
+  const [cds, setCds] = useState<any[]>([])
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawMemo, setWithdrawMemo] = useState('')
   const [childName, setChildName] = useState('')
@@ -57,6 +58,13 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
     if (resp.ok) setWithdrawals(await resp.json())
   }, [apiUrl, token])
 
+  const fetchCds = useCallback(async () => {
+    const resp = await fetch(`${apiUrl}/cds/child`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (resp.ok) setCds(await resp.json())
+  }, [apiUrl, token])
+
   const fetchChildName = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/children/${childId}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -71,7 +79,8 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
     fetchLedger()
     fetchMyWithdrawals()
     fetchChildName()
-  }, [fetchLedger, fetchMyWithdrawals, fetchChildName])
+    fetchCds()
+  }, [fetchLedger, fetchMyWithdrawals, fetchChildName, fetchCds])
 
   return (
     <div className="container" style={{ width: tableWidth ? `${tableWidth}px` : undefined }}>
@@ -84,6 +93,47 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
             onWidth={w => !tableWidth && setTableWidth(w)}
           />
         </>
+      )}
+      {cds.length > 0 && (
+        <div>
+          <h4>CD Offers</h4>
+          <ul className="list">
+            {cds.map(cd => (
+              <li key={cd.id}>
+                {cd.amount} for {cd.term_days} days at {(cd.interest_rate * 100).toFixed(2)}% - {cd.status}
+                {cd.status === 'offered' && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        await fetch(`${apiUrl}/cds/${cd.id}/accept`, {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` },
+                        })
+                        fetchCds()
+                        fetchLedger()
+                      }}
+                      className="ml-1"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await fetch(`${apiUrl}/cds/${cd.id}/reject`, {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` },
+                        })
+                        fetchCds()
+                      }}
+                      className="ml-05"
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <form
         onSubmit={async e => {

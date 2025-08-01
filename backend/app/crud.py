@@ -9,6 +9,7 @@ from app.models import (
     Transaction,
     WithdrawalRequest,
     Account,
+    CertificateDeposit,
     Permission,
     UserPermissionLink,
 )
@@ -18,7 +19,9 @@ from app.acl import get_default_permissions_for_role
 
 async def ensure_permissions_exist(db: AsyncSession, names: list[str]) -> None:
     for name in names:
-        result = await db.execute(select(Permission).where(Permission.name == name))
+        result = await db.execute(
+            select(Permission).where(Permission.name == name)
+        )
         perm = result.scalar_one_or_none()
         if not perm:
             db.add(Permission(name=name))
@@ -29,14 +32,18 @@ async def assign_permissions_by_names(
     db: AsyncSession, user: User, names: list[str]
 ) -> None:
     for name in names:
-        result = await db.execute(select(Permission).where(Permission.name == name))
+        result = await db.execute(
+            select(Permission).where(Permission.name == name)
+        )
         perm = result.scalar_one_or_none()
         if perm:
             exists = any(
                 link.permission_id == perm.id for link in user.permission_links
             )
             if not exists:
-                db.add(UserPermissionLink(user_id=user.id, permission_id=perm.id))
+                db.add(
+                    UserPermissionLink(user_id=user.id, permission_id=perm.id)
+                )
     await db.commit()
 
 
@@ -44,11 +51,18 @@ async def remove_permissions_by_names(
     db: AsyncSession, user: User, names: list[str]
 ) -> None:
     for name in names:
-        result = await db.execute(select(Permission).where(Permission.name == name))
+        result = await db.execute(
+            select(Permission).where(Permission.name == name)
+        )
         perm = result.scalar_one_or_none()
         if perm:
             link = next(
-                (l for l in user.permission_links if l.permission_id == perm.id), None
+                (
+                    l
+                    for l in user.permission_links
+                    if l.permission_id == perm.id
+                ),
+                None,
             )
             if link:
                 await db.delete(link)
@@ -134,13 +148,19 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
 
 
 async def get_children_by_user(db: AsyncSession, user_id: int):
-    query = select(Child).join(ChildUserLink).where(ChildUserLink.user_id == user_id)
+    query = (
+        select(Child)
+        .join(ChildUserLink)
+        .where(ChildUserLink.user_id == user_id)
+    )
     result = await db.execute(query)
     return result.scalars().all()
 
 
 async def get_child_by_access_code(db: AsyncSession, access_code: str):
-    result = await db.execute(select(Child).where(Child.access_code == access_code))
+    result = await db.execute(
+        select(Child).where(Child.access_code == access_code)
+    )
     return result.scalar_one_or_none()
 
 
@@ -180,8 +200,12 @@ async def set_child_frozen(
     return child
 
 
-async def get_account_by_child(db: AsyncSession, child_id: int) -> Account | None:
-    result = await db.execute(select(Account).where(Account.child_id == child_id))
+async def get_account_by_child(
+    db: AsyncSession, child_id: int
+) -> Account | None:
+    result = await db.execute(
+        select(Account).where(Account.child_id == child_id)
+    )
     return result.scalar_one_or_none()
 
 
@@ -219,7 +243,9 @@ async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
     return tx
 
 
-async def get_transaction(db: AsyncSession, transaction_id: int) -> Transaction | None:
+async def get_transaction(
+    db: AsyncSession, transaction_id: int
+) -> Transaction | None:
     result = await db.execute(
         select(Transaction).where(Transaction.id == transaction_id)
     )
@@ -250,7 +276,9 @@ async def get_transactions_by_child(
 
 
 async def get_all_transactions(db: AsyncSession) -> list[Transaction]:
-    result = await db.execute(select(Transaction).order_by(Transaction.timestamp))
+    result = await db.execute(
+        select(Transaction).order_by(Transaction.timestamp)
+    )
     return result.scalars().all()
 
 
@@ -281,7 +309,10 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
 
     transactions = await db.execute(
         select(Transaction)
-        .where(Transaction.child_id == child_id, Transaction.initiated_by != "system")
+        .where(
+            Transaction.child_id == child_id,
+            Transaction.initiated_by != "system",
+        )
         .order_by(Transaction.timestamp)
     )
     base_txs = list(transactions.scalars().all())
@@ -299,7 +330,9 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
     day = start_date
 
     while day < today:
-        while tx_idx < len(base_txs) and base_txs[tx_idx].timestamp.date() == day:
+        while (
+            tx_idx < len(base_txs) and base_txs[tx_idx].timestamp.date() == day
+        ):
             tx = base_txs[tx_idx]
             if tx.type == "credit":
                 current_balance += tx.amount
@@ -353,7 +386,8 @@ async def get_pending_withdrawals_for_parent(
         .join(Child)
         .join(ChildUserLink)
         .where(
-            ChildUserLink.user_id == parent_id, WithdrawalRequest.status == "pending"
+            ChildUserLink.user_id == parent_id,
+            WithdrawalRequest.status == "pending",
         )
         .order_by(WithdrawalRequest.requested_at)
     )
@@ -388,3 +422,75 @@ async def save_withdrawal_request(
     await db.commit()
     await db.refresh(req)
     return req
+
+
+async def create_cd(
+    db: AsyncSession, cd: CertificateDeposit
+) -> CertificateDeposit:
+    db.add(cd)
+    await db.commit()
+    await db.refresh(cd)
+    return cd
+
+
+async def get_cd(db: AsyncSession, cd_id: int) -> CertificateDeposit | None:
+    result = await db.execute(
+        select(CertificateDeposit).where(CertificateDeposit.id == cd_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def save_cd(
+    db: AsyncSession, cd: CertificateDeposit
+) -> CertificateDeposit:
+    db.add(cd)
+    await db.commit()
+    await db.refresh(cd)
+    return cd
+
+
+async def get_cds_by_child(
+    db: AsyncSession, child_id: int
+) -> list[CertificateDeposit]:
+    result = await db.execute(
+        select(CertificateDeposit)
+        .where(CertificateDeposit.child_id == child_id)
+        .order_by(CertificateDeposit.created_at)
+    )
+    return result.scalars().all()
+
+
+async def redeem_cd(
+    db: AsyncSession, cd: CertificateDeposit
+) -> CertificateDeposit:
+    from .crud import create_transaction, recalc_interest  # avoid circular
+
+    if cd.status != "accepted":
+        return cd
+    payout = cd.amount * (1 + cd.interest_rate)
+    tx = Transaction(
+        child_id=cd.child_id,
+        type="credit",
+        amount=payout,
+        memo=f"CD #{cd.id} maturity",
+        initiated_by="system",
+        initiator_id=0,
+    )
+    await create_transaction(db, tx)
+    cd.status = "redeemed"
+    cd.redeemed_at = datetime.utcnow()
+    await save_cd(db, cd)
+    await recalc_interest(db, cd.child_id)
+    return cd
+
+
+async def redeem_matured_cds(db: AsyncSession) -> None:
+    result = await db.execute(
+        select(CertificateDeposit).where(
+            CertificateDeposit.status == "accepted",
+            CertificateDeposit.matures_at <= datetime.utcnow(),
+        )
+    )
+    cds = result.scalars().all()
+    for cd in cds:
+        await redeem_cd(db, cd)

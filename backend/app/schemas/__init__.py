@@ -19,6 +19,7 @@ from .withdrawal import (
     DenyRequest,
 )
 from .permission import PermissionRead, PermissionsUpdate
+from .cd import CDCreate, CDRead
 
 __all__ = [
     "UserCreate",
@@ -40,4 +41,6 @@ __all__ = [
     "DenyRequest",
     "PermissionRead",
     "PermissionsUpdate",
+    "CDCreate",
+    "CDRead",
 ]
