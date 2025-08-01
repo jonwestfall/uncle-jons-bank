@@ -181,8 +181,14 @@ async def run_all_tests(persist: bool = False) -> dict:
         try:
             for _ in range(3):
                 await add_tx(p1_headers, p1_id, c1, "credit", 10)
+                await add_tx(p1_headers, p1_id, c2, "credit", 10)
+                await add_tx(p2_headers, p2_id, c3, "credit", 20)
+                await add_tx(p2_headers, p2_id, c4, "credit", 30)
             for _ in range(2):
                 await add_tx(p1_headers, p1_id, c1, "debit", 5)
+                await add_tx(p1_headers, p1_id, c2, "debit", 5)
+                await add_tx(p2_headers, p2_id, c3, "debit", 2)
+                await add_tx(p2_headers, p2_id, c4, "debit", 1)
             results.append("Transactions created")
         except Exception as e:
             results.append(f"Transaction creation failed: {e}")
