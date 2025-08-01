@@ -155,6 +155,7 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
                   Edit
                 </button>
                 <button
+                  aria-label="Delete transaction"
                   onClick={async () => {
                     if (!confirm('Delete transaction?')) return
                     await fetch(`${apiUrl}/transactions/${tx.id}`, {
@@ -165,7 +166,7 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
                   }}
                   className="ml-05"
                 >
-                  Delete
+                  &times;
                 </button>
               </>
             )}
