@@ -157,7 +157,7 @@ export default function ParentDashboard({
             onWidth={(w) => !tableWidth && setTableWidth(w)}
             renderActions={(tx) => (
               <>
-                {canEdit && (
+                {canEdit && tx.initiated_by !== "system" && (
                   <button
                     onClick={async () => {
                       const amount = window.prompt("Amount", String(tx.amount));
@@ -191,7 +191,7 @@ export default function ParentDashboard({
                     Edit
                   </button>
                 )}
-                {canDelete && (
+                {canDelete && tx.initiated_by !== "system" && (
                   <button
                     aria-label="Delete transaction"
                     onClick={async () => {
