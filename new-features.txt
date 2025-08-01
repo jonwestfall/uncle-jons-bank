@@ -1,0 +1,4 @@
+Upcoming features I'd like to build out:
+- CDs (e.g., reserve a certain amount of money aside for awhile to earn an interest "certificate" at the end of the time.
+- Parent-Owner able to modify permissions for other parents
+- UI Tweaks, and optimization for mobile
