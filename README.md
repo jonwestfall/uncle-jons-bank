@@ -76,12 +76,17 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - SQLModel and Alembic support
 - User/child creation
 - Authentication & JWT token issuing
+- Role-based permissions across endpoints
+- Ledger transactions with daily interest accrual
+- Withdrawal request & approval workflow
+- Admin panel for managing users, children and transactions
+- React frontend with dark mode and custom logo
+- Nginx config serving the single page app
 
 🛠️ In development:
-- Role-based permissions
-- Full ledger and bucket support
-- Interest engine (cron job or Celery)
-- Admin tools and UI
+- Bucket-based budgeting support
+- Notification system for denied withdrawals
+- Additional automated tests
 
 ---
 
@@ -98,13 +103,14 @@ git clone https://github.com/YOUR_USERNAME/uncles-bank.git
 cd uncles-bank
 ```
 
-### Start the Backend
+### Start the App
 
 ```bash
 docker compose up --build
 ```
 
 FastAPI will be served at: [http://localhost:8000/docs](http://localhost:8000/docs)
+The React frontend will be available at [http://localhost:3000](http://localhost:3000)
 
 ### Migrate DB
 
@@ -142,10 +148,10 @@ These are used for JWT authentication.
 ## 🧠 Future Roadmap
 
 ### 💡 Short-Term
-- UI with child-friendly dashboard (React/Vite frontend)
-- Parent console with approval workflow
-- Scheduled interest compounding
+- Bucket-based budgeting system
 - Notification system for denied withdrawals
+- UI polish and child-friendly enhancements
+- Automated testing suite
 
 ### 🧠 Long-Term
 - Mobile-first PWA
