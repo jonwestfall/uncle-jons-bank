@@ -156,9 +156,9 @@ async def run_all_tests(persist: bool = False) -> dict:
 
         try:
             c1 = await create_child(p1_headers, "Child1A", "C1A")
-            await create_child(p1_headers, "Child1B", "C1B")
-            await create_child(p2_headers, "Child2A", "C2A")
-            await create_child(p2_headers, "Child2B", "C2B")
+            c2 = await create_child(p1_headers, "Child1B", "C1B")
+            c3 = await create_child(p2_headers, "Child2A", "C2A")
+            c4 = await create_child(p2_headers, "Child2B", "C2B")
             results.append("Children created")
         except Exception as e:
             results.append(f"Child creation failed: {e}")
