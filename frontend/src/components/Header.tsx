@@ -5,19 +5,23 @@ interface Props {
   onLogout: () => void
   isAdmin: boolean
   isChild: boolean
+  siteName: string
 }
 
-export default function Header({ onLogout, isAdmin, isChild }: Props) {
+export default function Header({ onLogout, isAdmin, isChild, siteName }: Props) {
   return (
     <header className="header">
-      <img src="/unclejon.jpg" alt="Uncle Jon's Bank Logo" className="logo" />
+      <img src="/unclejon.jpg" alt={`${siteName} Logo`} className="logo" />
       <nav>
         <ul>
           {isChild ? (
-            <li><Link to="/child">Ledger</Link></li>
-          ) : (
-            <li><Link to="/">Dashboard</Link></li>
-          )}
+              <>
+                <li><Link to="/child">Ledger</Link></li>
+                <li><Link to="/child/profile">Profile</Link></li>
+              </>
+            ) : (
+              <li><Link to="/">Dashboard</Link></li>
+            )}
           {isAdmin && <li><Link to="/admin">Admin</Link></li>}
           <li><button onClick={onLogout}>Logout</button></li>
         </ul>

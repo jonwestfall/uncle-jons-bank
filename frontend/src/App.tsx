@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import ParentDashboard from './pages/ParentDashboard'
 import ChildDashboard from './pages/ChildDashboard'
+import ChildProfile from './pages/ChildProfile'
 import AdminPanel from './pages/AdminPanel'
 import Header from './components/Header'
 import './App.css'
@@ -16,6 +17,7 @@ function App() {
   })
   const [isAdmin, setIsAdmin] = useState(false)
   const [permissions, setPermissions] = useState<string[]>([])
+  const [siteName, setSiteName] = useState("Uncle Jon's Bank")
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   const handleLogin = (tok: string, child: boolean) => {
@@ -54,20 +56,33 @@ function App() {
     }
   }, [token, apiUrl])
 
+  const fetchSettings = useCallback(async () => {
+    const resp = await fetch(`${apiUrl}/settings`)
+    if (resp.ok) {
+      const data = await resp.json()
+      setSiteName(data.site_name)
+      document.title = data.site_name
+    }
+  }, [apiUrl])
+
   useEffect(() => {
     fetchMe()
-  }, [fetchMe])
+    fetchSettings()
+  }, [fetchMe, fetchSettings])
 
   if (!token) {
-    return <LoginPage onLogin={handleLogin} />
+    return <LoginPage onLogin={handleLogin} siteName={siteName} />
   }
 
   return (
     <BrowserRouter>
-      <Header onLogout={handleLogout} isAdmin={isAdmin} isChild={isChildAccount} />
+      <Header onLogout={handleLogout} isAdmin={isAdmin} isChild={isChildAccount} siteName={siteName} />
       <Routes>
         {isChildAccount && childId !== null && (
-          <Route path="/child" element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} />} />
+          <>
+            <Route path="/child" element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} />} />
+            <Route path="/child/profile" element={<ChildProfile token={token} apiUrl={apiUrl} />} />
+          </>
         )}
         {!isChildAccount && (
           <Route
@@ -75,7 +90,7 @@ function App() {
             element={<ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} />}
           />
         )}
-        {isAdmin && <Route path="/admin" element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} />} />}
+        {isAdmin && <Route path="/admin" element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} siteName={siteName} />} />}
         <Route path="*" element={<Navigate to={isChildAccount ? '/child' : '/'} replace />} />
       </Routes>
     </BrowserRouter>

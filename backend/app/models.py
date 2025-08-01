@@ -67,6 +67,7 @@ class Account(SQLModel, table=True):
     balance: float = 0.0
     interest_rate: float = 0.01  # Daily rate for positive balances
     penalty_interest_rate: float = 0.02  # Daily rate applied when balance < 0
+    cd_penalty_rate: float = 0.1  # Penalty for early CD withdrawal
     last_interest_applied: Optional[date] = None
     total_interest_earned: float = 0.0
 
@@ -120,3 +121,11 @@ class CertificateDeposit(SQLModel, table=True):
 
     child: Child = Relationship()
     parent: User = Relationship()
+
+
+class Settings(SQLModel, table=True):
+    id: Optional[int] = Field(default=1, primary_key=True)
+    site_name: str = "Uncle Jon's Bank"
+    default_interest_rate: float = 0.01
+    default_penalty_interest_rate: float = 0.02
+    default_cd_penalty_rate: float = 0.1

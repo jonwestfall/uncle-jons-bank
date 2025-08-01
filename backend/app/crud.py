@@ -12,6 +12,7 @@ from app.models import (
     CertificateDeposit,
     Permission,
     UserPermissionLink,
+    Settings,
 )
 from app.auth import get_password_hash, get_child_by_id
 from app.acl import get_default_permissions_for_role
@@ -72,6 +73,24 @@ async def remove_permissions_by_names(
 async def get_all_permissions(db: AsyncSession) -> list[Permission]:
     result = await db.execute(select(Permission).order_by(Permission.name))
     return result.scalars().all()
+
+
+async def get_settings(db: AsyncSession) -> Settings:
+    result = await db.execute(select(Settings).where(Settings.id == 1))
+    settings = result.scalar_one_or_none()
+    if not settings:
+        settings = Settings()
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    return settings
+
+
+async def save_settings(db: AsyncSession, settings: Settings) -> Settings:
+    db.add(settings)
+    await db.commit()
+    await db.refresh(settings)
+    return settings
 
 
 async def create_user(db: AsyncSession, user: User):
@@ -136,7 +155,13 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
     await db.refresh(child)
 
     # Create an associated account with default interest settings
-    account = Account(child_id=child.id)
+    settings = await get_settings(db)
+    account = Account(
+        child_id=child.id,
+        interest_rate=settings.default_interest_rate,
+        penalty_interest_rate=settings.default_penalty_interest_rate,
+        cd_penalty_rate=settings.default_cd_penalty_rate,
+    )
     db.add(account)
     await db.commit()
     await db.refresh(account)
@@ -229,6 +254,19 @@ async def set_penalty_interest_rate(
     if not account:
         return None
     account.penalty_interest_rate = rate
+    db.add(account)
+    await db.commit()
+    await db.refresh(account)
+    return account
+
+
+async def set_cd_penalty_rate(
+    db: AsyncSession, child_id: int, rate: float
+) -> Account | None:
+    account = await get_account_by_child(db, child_id)
+    if not account:
+        return None
+    account.cd_penalty_rate = rate
     db.add(account)
     await db.commit()
     await db.refresh(account)
@@ -505,12 +543,14 @@ async def redeem_cd(
                 initiator_id=0,
             ),
         )
+        account = await get_account_by_child(db, cd.child_id)
+        penalty_rate = account.cd_penalty_rate if account else 0.1
         await create_transaction(
             db,
             Transaction(
                 child_id=cd.child_id,
                 type="debit",
-                amount=round(cd.amount * 0.1, 2),
+                amount=round(cd.amount * penalty_rate, 2),
                 memo=f"CD #{cd.id} early withdrawal penalty",
                 initiated_by="system",
                 initiator_id=0,
