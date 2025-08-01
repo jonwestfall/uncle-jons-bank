@@ -25,3 +25,9 @@ class ChildLogin(BaseModel):
 
 class InterestRateUpdate(BaseModel):
     interest_rate: float
+
+
+class ChildUpdate(BaseModel):
+    first_name: str | None = None
+    access_code: str | None = None
+    frozen: bool | None = None

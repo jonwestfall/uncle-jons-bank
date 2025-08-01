@@ -26,6 +26,28 @@ async def get_user_by_email(db: AsyncSession, email: str):
     return result.scalar_one_or_none()
 
 
+async def get_user(db: AsyncSession, user_id: int) -> User | None:
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
+
+
+async def get_all_users(db: AsyncSession) -> list[User]:
+    result = await db.execute(select(User).order_by(User.id))
+    return result.scalars().all()
+
+
+async def save_user(db: AsyncSession, user: User) -> User:
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def delete_user(db: AsyncSession, user: User) -> None:
+    await db.delete(user)
+    await db.commit()
+
+
 async def create_child(db: AsyncSession, child: Child):
     db.add(child)
     await db.commit()
@@ -59,6 +81,28 @@ async def get_children_by_user(db: AsyncSession, user_id: int):
 async def get_child_by_access_code(db: AsyncSession, access_code: str):
     result = await db.execute(select(Child).where(Child.access_code == access_code))
     return result.scalar_one_or_none()
+
+
+async def get_child(db: AsyncSession, child_id: int) -> Child | None:
+    result = await db.execute(select(Child).where(Child.id == child_id))
+    return result.scalar_one_or_none()
+
+
+async def get_all_children(db: AsyncSession) -> list[Child]:
+    result = await db.execute(select(Child).order_by(Child.id))
+    return result.scalars().all()
+
+
+async def save_child(db: AsyncSession, child: Child) -> Child:
+    db.add(child)
+    await db.commit()
+    await db.refresh(child)
+    return child
+
+
+async def delete_child(db: AsyncSession, child: Child) -> None:
+    await db.delete(child)
+    await db.commit()
 
 
 async def set_child_frozen(
@@ -128,6 +172,11 @@ async def get_transactions_by_child(
         .where(Transaction.child_id == child_id)
         .order_by(Transaction.timestamp)
     )
+    return result.scalars().all()
+
+
+async def get_all_transactions(db: AsyncSession) -> list[Transaction]:
+    result = await db.execute(select(Transaction).order_by(Transaction.timestamp))
     return result.scalars().all()
 
 
