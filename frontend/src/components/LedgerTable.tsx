@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useLayoutEffect, useRef } from 'react'
 
 export interface Transaction {
   id: number
@@ -14,13 +14,22 @@ export interface Transaction {
 export default function LedgerTable({
   transactions,
   renderActions,
+  onWidth,
 }: {
   transactions: Transaction[]
   renderActions?: (tx: Transaction) => React.ReactNode
+  onWidth?: (width: number) => void
 }) {
+  const tableRef = useRef<HTMLTableElement>(null)
+  useLayoutEffect(() => {
+    if (tableRef.current && onWidth) {
+      onWidth(tableRef.current.scrollWidth)
+    }
+  }, [transactions, onWidth])
+
   let runningBalance = 0
   return (
-    <table className="ledger-table">
+    <table ref={tableRef} className="ledger-table">
       <thead>
         <tr>
           <th>Date</th>

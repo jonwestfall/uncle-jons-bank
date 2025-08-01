@@ -54,6 +54,7 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
   const [firstName, setFirstName] = useState('')
   const [accessCode, setAccessCode] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [tableWidth, setTableWidth] = useState<number>()
 
   const fetchChildren = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/children`, {
@@ -103,7 +104,7 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
   }
 
   return (
-    <div className="container">
+    <div className="container" style={{ width: tableWidth ? `${tableWidth}px` : undefined }}>
       <h2>Your Children</h2>
       <ul className="list">
         {children.map(c => (
@@ -128,6 +129,7 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
           <p>Balance: {ledger.balance.toFixed(2)}</p>
           <LedgerTable
             transactions={ledger.transactions}
+            onWidth={w => !tableWidth && setTableWidth(w)}
             renderActions={tx => (
               <>
                 <button

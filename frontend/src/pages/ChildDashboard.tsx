@@ -40,6 +40,8 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawMemo, setWithdrawMemo] = useState('')
+  const [childName, setChildName] = useState('')
+  const [tableWidth, setTableWidth] = useState<number>()
 
   const fetchLedger = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/transactions/child/${childId}`, {
@@ -55,18 +57,29 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
     if (resp.ok) setWithdrawals(await resp.json())
   }, [apiUrl, token])
 
+  const fetchChildName = useCallback(async () => {
+    const resp = await fetch(`${apiUrl}/children/${childId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (resp.ok) {
+      const data = await resp.json()
+      setChildName(data.first_name)
+    }
+  }, [apiUrl, childId, token])
+
   useEffect(() => {
     fetchLedger()
     fetchMyWithdrawals()
-  }, [fetchLedger, fetchMyWithdrawals])
+    fetchChildName()
+  }, [fetchLedger, fetchMyWithdrawals, fetchChildName])
 
   return (
-    <div className="container">
-      <h2>Your Ledger</h2>
+    <div className="container" style={{ width: tableWidth ? `${tableWidth}px` : undefined }}>
+      <h2>{childName ? `${childName}'s Account` : 'Your Ledger'}</h2>
       {ledger && (
         <>
           <p>Balance: {ledger.balance.toFixed(2)}</p>
-          <LedgerTable transactions={ledger.transactions} />
+          <LedgerTable transactions={ledger.transactions} onWidth={w => !tableWidth && setTableWidth(w)} />
         </>
       )}
       <form
