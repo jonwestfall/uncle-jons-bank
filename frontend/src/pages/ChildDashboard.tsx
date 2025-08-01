@@ -79,7 +79,10 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
       {ledger && (
         <>
           <p>Balance: {ledger.balance.toFixed(2)}</p>
-          <LedgerTable transactions={ledger.transactions} onWidth={w => !tableWidth && setTableWidth(w)} />
+          <LedgerTable
+            transactions={ledger.transactions}
+            onWidth={w => !tableWidth && setTableWidth(w)}
+          />
         </>
       )}
       <form

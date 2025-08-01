@@ -155,6 +155,7 @@ export default function ParentDashboard({
           <LedgerTable
             transactions={ledger.transactions}
             onWidth={(w) => !tableWidth && setTableWidth(w)}
+            allowDownload
             renderActions={(tx) => (
               <>
                 {canEdit && tx.initiated_by !== "system" && (
