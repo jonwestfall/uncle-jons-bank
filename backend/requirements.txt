@@ -9,3 +9,6 @@ uvicorn
 sqlmodel
 sqlalchemy
 aiosqlite
+httpx
+email-validator
+python-multipart
