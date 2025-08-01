@@ -4,11 +4,12 @@ from datetime import datetime, timedelta, date
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlmodel import SQLModel
 
+from sqlmodel import select
+
 from app.database import async_session, create_db_and_tables
-from app.models import User, Child, Transaction
+from app.models import User, Child, Transaction, Permission, UserPermissionLink
 from app.crud import (
     ensure_permissions_exist,
-    create_user,
     create_child_for_user,
     create_transaction,
     recalc_interest,
@@ -17,7 +18,7 @@ from app.crud import (
     get_account_by_child,
 )
 from app.auth import get_password_hash
-from app.acl import ALL_PERMISSIONS
+from app.acl import ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS
 
 
 async def run_interest_test(persist: bool = False, days: int = 5) -> dict:
@@ -49,6 +50,14 @@ async def run_interest_test(persist: bool = False, days: int = 5) -> dict:
         session.add(parent)
         await session.commit()
         await session.refresh(parent)
+        for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
+            result = await session.execute(
+                select(Permission).where(Permission.name == perm_name)
+            )
+            perm = result.scalar_one()
+            link = UserPermissionLink(user_id=parent.id, permission_id=perm.id)
+            session.add(link)
+        await session.commit()
 
         child_pos = await create_child_for_user(
             session, Child(first_name="Saver", access_code="SAV"), parent.id
