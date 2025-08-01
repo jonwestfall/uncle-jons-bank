@@ -108,6 +108,27 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
                   {cd.status === 'accepted' && daysLeft !== null && (
                     <span> (redeems in {daysLeft} days)</span>
                   )}
+                  {cd.status === 'accepted' && daysLeft !== null && daysLeft > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (
+                          !confirm(
+                            'Redeem this CD early? A 10% penalty will be charged.'
+                          )
+                        )
+                          return
+                        await fetch(`${apiUrl}/cds/${cd.id}/redeem-early`, {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` },
+                        })
+                        fetchCds()
+                        fetchLedger()
+                      }}
+                      className="ml-05"
+                    >
+                      Redeem Early
+                    </button>
+                  )}
                   {cd.status === 'offered' && (
                     <>
                       <button

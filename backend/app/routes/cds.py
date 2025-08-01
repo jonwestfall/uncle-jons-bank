@@ -113,3 +113,18 @@ async def redeem_cd_route(
 
     cd = await redeem_cd(db, cd)
     return cd
+
+
+@router.post("/{cd_id}/redeem-early", response_model=CDRead)
+async def redeem_cd_early_route(
+    cd_id: int,
+    child: Child = Depends(get_current_child),
+    db: AsyncSession = Depends(get_session),
+):
+    cd = await _get_child_cd(db, cd_id, child.id)
+    if cd.status != "accepted":
+        raise HTTPException(status_code=400, detail="Cannot redeem")
+    from app.crud import redeem_cd
+
+    cd = await redeem_cd(db, cd)
+    return cd

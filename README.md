@@ -33,7 +33,8 @@ Parents can offer time-locked certificates with a custom term and interest rate.
 Children can review these offers and choose to accept or reject them. Accepting
 debits the CD amount from the child’s balance and locks it until maturity. When
 the term ends the principal plus interest is automatically deposited. Admins may
-force a redemption early via `POST /cds/{cd_id}/redeem`; early redemptions return
+force a redemption early via `POST /cds/{cd_id}/redeem`; children can redeem
+early themselves using `POST /cds/{cd_id}/redeem-early`. Early redemptions return
 the principal and charge a 10% penalty. The `/tests/cd-issue` and
 `/tests/cd-redeem` endpoints help generate and redeem CDs for integration tests.
 
