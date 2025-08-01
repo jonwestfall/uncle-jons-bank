@@ -41,7 +41,7 @@ class User(SQLModel, table=True):
 class Child(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     first_name: str
-    access_code: str
+    access_code: str = Field(unique=True)
     account_frozen: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

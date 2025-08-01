@@ -161,7 +161,7 @@ async def get_child_by_access_code(db: AsyncSession, access_code: str):
     result = await db.execute(
         select(Child).where(Child.access_code == access_code)
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def get_child(db: AsyncSession, child_id: int) -> Child | None:
