@@ -53,7 +53,7 @@ export default function AdminPanel({ token, apiUrl, onLogout }: Props) {
 
   return (
     <div className="container">
-      <img src="/uncle-jon-trans.png" alt="Uncle Jon's Bank Logo" className="logo" />
+      <center><img src="/unclejon.jpg" alt="Uncle Jon's Bank Logo" className="logo" /></center>
       <h1>Admin Panel</h1>
       <h2>Users</h2>
       <ul className="list">
