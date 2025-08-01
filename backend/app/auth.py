@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from app.models import User, Child
 from app.database import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
+
 import os
 
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key")
@@ -78,9 +79,29 @@ def require_role(*roles: str):
 
     return role_dependency
 
+
+def require_permissions(*perms: str):
+    """Dependency factory to require one or more permissions."""
+
+    async def perm_dependency(current_user: User = Depends(get_current_user)):
+        if current_user.role == "admin":
+            return current_user
+        user_perms = {p.name for p in current_user.permissions}
+        for perm in perms:
+            if perm not in user_perms:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Insufficient permissions",
+                )
+        return current_user
+
+    return perm_dependency
+
+
 async def get_child_by_id(db: AsyncSession, child_id: int):
     result = await db.execute(select(Child).where(Child.id == child_id))
     return result.scalar_one_or_none()
+
 
 async def get_current_child(
     token: str = Depends(oauth2_scheme),

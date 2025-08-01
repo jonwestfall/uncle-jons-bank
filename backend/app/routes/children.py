@@ -18,6 +18,13 @@ from app.auth import (
     get_current_user,
     require_role,
     create_access_token,
+    require_permissions,
+)
+from app.acl import (
+    PERM_ADD_CHILD,
+    PERM_REMOVE_CHILD,
+    PERM_FREEZE_CHILD,
+    PERM_VIEW_TRANSACTIONS,
 )
 
 router = APIRouter(prefix="/children", tags=["children"])
@@ -27,7 +34,7 @@ router = APIRouter(prefix="/children", tags=["children"])
 async def create_child_route(
     child: ChildCreate,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_ADD_CHILD)),
 ):
     existing = await get_child_by_access_code(db, child.access_code)
     if existing:
@@ -51,7 +58,7 @@ async def create_child_route(
 @router.get("/", response_model=list[ChildRead])
 async def list_children(
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_ADD_CHILD)),
 ):
     children = await get_children_by_user(db, current_user.id)
     result = []
@@ -75,7 +82,7 @@ async def list_children(
 async def get_child_route(
     child_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_VIEW_TRANSACTIONS)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:
@@ -98,7 +105,7 @@ async def get_child_route(
 async def freeze_child(
     child_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_FREEZE_CHILD)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:
@@ -122,7 +129,7 @@ async def freeze_child(
 async def unfreeze_child(
     child_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_FREEZE_CHILD)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:

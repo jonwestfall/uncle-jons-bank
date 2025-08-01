@@ -8,8 +8,55 @@ from app.models import (
     Transaction,
     WithdrawalRequest,
     Account,
+    Permission,
+    UserPermissionLink,
 )
 from app.auth import get_password_hash, get_child_by_id
+from app.acl import get_default_permissions_for_role
+
+
+async def ensure_permissions_exist(db: AsyncSession, names: list[str]) -> None:
+    for name in names:
+        result = await db.execute(select(Permission).where(Permission.name == name))
+        perm = result.scalar_one_or_none()
+        if not perm:
+            db.add(Permission(name=name))
+    await db.commit()
+
+
+async def assign_permissions_by_names(
+    db: AsyncSession, user: User, names: list[str]
+) -> None:
+    for name in names:
+        result = await db.execute(select(Permission).where(Permission.name == name))
+        perm = result.scalar_one_or_none()
+        if perm:
+            exists = any(
+                link.permission_id == perm.id for link in user.permission_links
+            )
+            if not exists:
+                db.add(UserPermissionLink(user_id=user.id, permission_id=perm.id))
+    await db.commit()
+
+
+async def remove_permissions_by_names(
+    db: AsyncSession, user: User, names: list[str]
+) -> None:
+    for name in names:
+        result = await db.execute(select(Permission).where(Permission.name == name))
+        perm = result.scalar_one_or_none()
+        if perm:
+            link = next(
+                (l for l in user.permission_links if l.permission_id == perm.id), None
+            )
+            if link:
+                await db.delete(link)
+    await db.commit()
+
+
+async def get_all_permissions(db: AsyncSession) -> list[Permission]:
+    result = await db.execute(select(Permission).order_by(Permission.name))
+    return result.scalars().all()
 
 
 async def create_user(db: AsyncSession, user: User):
@@ -18,6 +65,9 @@ async def create_user(db: AsyncSession, user: User):
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    defaults = get_default_permissions_for_role(user.role)
+    if defaults:
+        await assign_permissions_by_names(db, user, defaults)
     return user
 
 
