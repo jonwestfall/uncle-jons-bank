@@ -217,6 +217,7 @@ function App() {
     setToken(null)
     setIsChildAccount(false)
     setChildId(null)
+    setChildren([])
     setLedger(null)
     setSelectedChild(null)
     setWithdrawals([])

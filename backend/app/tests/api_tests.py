@@ -225,6 +225,56 @@ async def run_all_tests(persist: bool = False) -> dict:
             results.append(f"Admin endpoint test failed: {e}")
             return {"success": False, "details": results}
 
+        # ACL tests
+        try:
+            # Parent1 should not be able to delete Parent2's transaction
+            other_ledger = await client.get(
+                f"/transactions/child/{c3}", headers=p2_headers
+            )
+            assert other_ledger.status_code == 200
+            other_tx = other_ledger.json()["transactions"][0]["id"]
+            resp = await client.delete(
+                f"/transactions/{other_tx}", headers=p1_headers
+            )
+            assert resp.status_code in (403, 404)
+            results.append("Unauthorized deletion blocked")
+        except Exception as e:
+            results.append(f"ACL deletion test failed: {e}")
+            success = False
+
+        try:
+            # Child1 should not view Child2's ledger
+            child_login = await client.post(
+                "/children/login", json={"access_code": "C1A"}
+            )
+            assert child_login.status_code == 200
+            child_headers = {
+                "Authorization": f"Bearer {child_login.json()['access_token']}"
+            }
+            resp = await client.get(
+                f"/transactions/child/{c3}", headers=child_headers
+            )
+            assert resp.status_code == 403
+            results.append("Child cross-account access blocked")
+        except Exception as e:
+            results.append(f"Child ACL test failed: {e}")
+            success = False
+
+        try:
+            # Child1 attempts to request withdrawal for Child2A
+            resp = await client.post(
+                "/withdrawals/",
+                headers=child_headers,
+                json={"amount": 5, "memo": "Test", "child_id": c3},
+            )
+            assert resp.status_code == 200
+            if resp.json()["child_id"] != c1:
+                raise AssertionError("Child request applied to wrong account")
+            results.append("Child withdrawal restricted to own account")
+        except Exception as e:
+            results.append(f"Child withdrawal ACL test failed: {e}")
+            success = False
+
     if not persist:
         app.dependency_overrides.pop(get_session, None)
 
