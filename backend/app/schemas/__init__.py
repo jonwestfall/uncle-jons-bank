@@ -1,4 +1,4 @@
-from .user import UserCreate, UserResponse, UserUpdate
+from .user import UserCreate, UserResponse, UserUpdate, UserMeResponse
 from .child import (
     ChildCreate,
     ChildRead,
@@ -23,6 +23,7 @@ from .permission import PermissionRead, PermissionsUpdate
 __all__ = [
     "UserCreate",
     "UserResponse",
+    "UserMeResponse",
     "UserUpdate",
     "ChildCreate",
     "ChildRead",

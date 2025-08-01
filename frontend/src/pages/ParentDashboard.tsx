@@ -40,10 +40,11 @@ interface WithdrawalRequest {
 interface Props {
   token: string
   apiUrl: string
+  permissions: string[]
   onLogout: () => void
 }
 
-export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
+export default function ParentDashboard({ token, apiUrl, permissions, onLogout }: Props) {
   const [children, setChildren] = useState<Child[]>([])
   const [ledger, setLedger] = useState<LedgerResponse | null>(null)
   const [selectedChild, setSelectedChild] = useState<number | null>(null)
@@ -132,44 +133,48 @@ export default function ParentDashboard({ token, apiUrl, onLogout }: Props) {
             onWidth={w => !tableWidth && setTableWidth(w)}
             renderActions={tx => (
               <>
-                <button
-                  onClick={async () => {
-                    const amount = window.prompt('Amount', String(tx.amount))
-                    if (amount === null) return
-                    const memo = window.prompt('Memo', tx.memo || '')
-                    const type = window.prompt('Type (credit/debit)', tx.type)
-                    await fetch(`${apiUrl}/transactions/${tx.id}`, {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                      },
-                      body: JSON.stringify({
-                        amount: Number(amount),
-                        memo: memo || null,
-                        type: type || tx.type,
-                      }),
-                    })
-                    fetchLedger(selectedChild)
-                  }}
-                  className="ml-1"
-                >
-                  Edit
-                </button>
-                <button
-                  aria-label="Delete transaction"
-                  onClick={async () => {
-                    if (!confirm('Delete transaction?')) return
-                    await fetch(`${apiUrl}/transactions/${tx.id}`, {
-                      method: 'DELETE',
-                      headers: { Authorization: `Bearer ${token}` },
-                    })
-                    fetchLedger(selectedChild)
-                  }}
-                  className="ml-05"
-                >
-                  &times;
-                </button>
+                {permissions.includes('edit_transaction') && (
+                  <button
+                    onClick={async () => {
+                      const amount = window.prompt('Amount', String(tx.amount))
+                      if (amount === null) return
+                      const memo = window.prompt('Memo', tx.memo || '')
+                      const type = window.prompt('Type (credit/debit)', tx.type)
+                      await fetch(`${apiUrl}/transactions/${tx.id}`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          amount: Number(amount),
+                          memo: memo || null,
+                          type: type || tx.type,
+                        }),
+                      })
+                      fetchLedger(selectedChild)
+                    }}
+                    className="ml-1"
+                  >
+                    Edit
+                  </button>
+                )}
+                {permissions.includes('delete_transaction') && (
+                  <button
+                    aria-label="Delete transaction"
+                    onClick={async () => {
+                      if (!confirm('Delete transaction?')) return
+                      await fetch(`${apiUrl}/transactions/${tx.id}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${token}` },
+                      })
+                      fetchLedger(selectedChild)
+                    }}
+                    className="ml-05"
+                  >
+                    &times;
+                  </button>
+                )}
               </>
             )}
           />
