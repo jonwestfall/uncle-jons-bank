@@ -23,7 +23,9 @@ class Child(SQLModel, table=True):
     parents: List["ChildUserLink"] = Relationship(back_populates="child")
     account: Optional["Account"] = Relationship(back_populates="child")
     transactions: List["Transaction"] = Relationship(back_populates="child")
-    withdrawal_requests: List["WithdrawalRequest"] = Relationship(back_populates="child")
+    withdrawal_requests: List["WithdrawalRequest"] = Relationship(
+        back_populates="child"
+    )
 
 
 class ChildUserLink(SQLModel, table=True):
@@ -40,6 +42,7 @@ class Account(SQLModel, table=True):
     balance: float = 0.0
     interest_rate: float = 0.01  # Daily rate (e.g., 0.01 = 1%)
     last_interest_applied: Optional[date] = None
+    total_interest_earned: float = 0.0
 
     child: Child = Relationship(back_populates="account")
 

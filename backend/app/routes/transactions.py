@@ -17,13 +17,16 @@ from app.crud import (
     get_transaction,
     save_transaction,
     delete_transaction,
+    recalc_interest,
 )
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
 @router.post("/", response_model=TransactionRead)
-async def add_transaction(transaction: TransactionCreate, db: AsyncSession = Depends(get_session)):
+async def add_transaction(
+    transaction: TransactionCreate, db: AsyncSession = Depends(get_session)
+):
     tx_model = Transaction(
         child_id=transaction.child_id,
         type=transaction.type,
@@ -32,7 +35,9 @@ async def add_transaction(transaction: TransactionCreate, db: AsyncSession = Dep
         initiated_by=transaction.initiated_by,
         initiator_id=transaction.initiator_id,
     )
-    return await create_transaction(db, tx_model)
+    new_tx = await create_transaction(db, tx_model)
+    await recalc_interest(db, transaction.child_id)
+    return new_tx
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
@@ -47,6 +52,7 @@ async def update_transaction_route(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(tx, field, value)
     updated = await save_transaction(db, tx)
+    await recalc_interest(db, tx.child_id)
     return updated
 
 
@@ -59,6 +65,7 @@ async def delete_transaction_route(
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     await delete_transaction(db, tx)
+    await recalc_interest(db, tx.child_id)
 
 
 @router.get("/child/{child_id}", response_model=LedgerResponse)

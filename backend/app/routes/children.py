@@ -1,7 +1,7 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas import ChildCreate, ChildRead, ChildLogin
+from app.schemas import ChildCreate, ChildRead, ChildLogin, InterestRateUpdate
 from app.models import Child, User
 from app.database import get_session
 from app.crud import (
@@ -10,6 +10,9 @@ from app.crud import (
     get_child_by_id,
     get_child_by_access_code,
     set_child_frozen,
+    set_interest_rate,
+    get_account_by_child,
+    recalc_interest,
 )
 from app.auth import (
     get_current_user,
@@ -18,6 +21,7 @@ from app.auth import (
 )
 
 router = APIRouter(prefix="/children", tags=["children"])
+
 
 @router.post("/", response_model=ChildRead)
 async def create_child_route(
@@ -33,7 +37,15 @@ async def create_child_route(
         access_code=child.access_code,
         account_frozen=child.frozen,
     )
-    return await create_child_for_user(db, child_model, current_user.id)
+    new_child = await create_child_for_user(db, child_model, current_user.id)
+    account = await get_account_by_child(db, new_child.id)
+    return ChildRead(
+        id=new_child.id,
+        first_name=new_child.first_name,
+        account_frozen=new_child.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
 
 
 @router.get("/", response_model=list[ChildRead])
@@ -41,7 +53,22 @@ async def list_children(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_role("parent", "admin")),
 ):
-    return await get_children_by_user(db, current_user.id)
+    children = await get_children_by_user(db, current_user.id)
+    result = []
+    for c in children:
+        account = await get_account_by_child(db, c.id)
+        result.append(
+            ChildRead(
+                id=c.id,
+                first_name=c.first_name,
+                account_frozen=c.account_frozen,
+                interest_rate=account.interest_rate if account else None,
+                total_interest_earned=(
+                    account.total_interest_earned if account else None
+                ),
+            )
+        )
+    return result
 
 
 @router.get("/{child_id}", response_model=ChildRead)
@@ -57,7 +84,14 @@ async def get_child_route(
         children = await get_children_by_user(db, current_user.id)
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
-    return child
+    account = await get_account_by_child(db, child_id)
+    return ChildRead(
+        id=child.id,
+        first_name=child.first_name,
+        account_frozen=child.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
 
 
 @router.post("/{child_id}/freeze", response_model=ChildRead)
@@ -74,7 +108,14 @@ async def freeze_child(
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
     updated = await set_child_frozen(db, child_id, True)
-    return updated
+    account = await get_account_by_child(db, child_id)
+    return ChildRead(
+        id=updated.id,
+        first_name=updated.first_name,
+        account_frozen=updated.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
 
 
 @router.post("/{child_id}/unfreeze", response_model=ChildRead)
@@ -91,7 +132,39 @@ async def unfreeze_child(
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
     updated = await set_child_frozen(db, child_id, False)
-    return updated
+    account = await get_account_by_child(db, child_id)
+    return ChildRead(
+        id=updated.id,
+        first_name=updated.first_name,
+        account_frozen=updated.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
+
+
+@router.put("/{child_id}/interest-rate", response_model=ChildRead)
+async def update_interest_rate(
+    child_id: int,
+    data: InterestRateUpdate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        children = await get_children_by_user(db, current_user.id)
+        if child_id not in [c.id for c in children]:
+            raise HTTPException(status_code=404, detail="Child not found")
+    account = await set_interest_rate(db, child_id, data.interest_rate)
+    await recalc_interest(db, child_id)
+    return ChildRead(
+        id=child.id,
+        first_name=child.first_name,
+        account_frozen=child.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
 
 
 @router.post("/login")
