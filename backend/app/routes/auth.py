@@ -10,6 +10,8 @@ from app.auth import (
 )
 from app.database import get_session
 from app.models import User
+from app.acl import PARENT_DEFAULT_GLOBAL
+from app.crud import add_user_permission
 
 from sqlmodel import select
 from app.schemas.user import UserCreate, UserResponse, UserLogin
@@ -72,5 +74,8 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session))
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+
+    for perm in PARENT_DEFAULT_GLOBAL:
+        await add_user_permission(db, new_user.id, perm.value)
 
     return new_user

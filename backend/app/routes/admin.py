@@ -3,7 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.auth import require_role, get_password_hash
-from app.models import User, Child, Transaction
+from app.models import User, Child, Transaction, UserPermission
+from app.schemas.permission import PermissionRead, PermissionCreate
+from app.acl import Permission
 from app.schemas import (
     UserResponse, UserUpdate,
     ChildRead, ChildUpdate,
@@ -14,6 +16,7 @@ from app.crud import (
     get_all_children, get_child, save_child, delete_child,
     get_all_transactions, get_transaction, save_transaction, delete_transaction,
     get_account_by_child,
+    add_user_permission, delete_user_permission, get_permissions_for_user,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -192,3 +195,31 @@ async def admin_delete_transaction(
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     await delete_transaction(db, tx)
+
+
+@router.get("/users/{user_id}/permissions", response_model=list[PermissionRead])
+async def admin_list_permissions(
+    user_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    return await get_permissions_for_user(db, user_id)
+
+
+@router.post("/users/{user_id}/permissions", response_model=PermissionRead)
+async def admin_add_permission(
+    user_id: int,
+    data: PermissionCreate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    return await add_user_permission(db, user_id, data.permission, data.child_id)
+
+
+@router.delete("/permissions/{perm_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_delete_permission(
+    perm_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    await delete_user_permission(db, perm_id)

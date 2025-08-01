@@ -8,8 +8,10 @@ from app.models import (
     Transaction,
     WithdrawalRequest,
     Account,
+    UserPermission,
 )
 from app.auth import get_password_hash, get_child_by_id
+from app.acl import PARENT_DEFAULT_CHILD, PARENT_DEFAULT_GLOBAL
 
 
 async def create_user(db: AsyncSession, user: User):
@@ -18,6 +20,10 @@ async def create_user(db: AsyncSession, user: User):
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    if user.role == "parent":
+        for perm in PARENT_DEFAULT_GLOBAL:
+            db.add(UserPermission(user_id=user.id, permission=perm.value))
+        await db.commit()
     return user
 
 
@@ -68,6 +74,11 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
 
     link = ChildUserLink(user_id=user_id, child_id=child.id)
     db.add(link)
+    await db.commit()
+
+    # Grant default permissions to the parent for this child
+    for perm in PARENT_DEFAULT_CHILD:
+        db.add(UserPermission(user_id=user_id, child_id=child.id, permission=perm.value))
     await db.commit()
     return child
 
@@ -309,3 +320,33 @@ async def save_withdrawal_request(
     await db.commit()
     await db.refresh(req)
     return req
+
+# Permission helpers
+async def add_user_permission(db: AsyncSession, user_id: int, permission: str, child_id: int | None = None):
+    perm = UserPermission(user_id=user_id, permission=permission, child_id=child_id)
+    db.add(perm)
+    await db.commit()
+    await db.refresh(perm)
+    return perm
+
+async def delete_user_permission(db: AsyncSession, perm_id: int):
+    perm = await db.get(UserPermission, perm_id)
+    if perm:
+        await db.delete(perm)
+        await db.commit()
+
+async def get_permissions_for_user(db: AsyncSession, user_id: int):
+    result = await db.execute(select(UserPermission).where(UserPermission.user_id == user_id))
+    return result.scalars().all()
+
+async def user_has_permission(db: AsyncSession, user_id: int, permission: str, child_id: int | None = None) -> bool:
+    query = select(UserPermission).where(
+        UserPermission.user_id == user_id,
+        UserPermission.permission == permission,
+    )
+    if child_id is None:
+        query = query.where(UserPermission.child_id.is_(None))
+    else:
+        query = query.where((UserPermission.child_id == child_id) | (UserPermission.child_id.is_(None)))
+    result = await db.execute(query)
+    return result.first() is not None

@@ -75,3 +75,12 @@ class WithdrawalRequest(SQLModel, table=True):
 
     child: Child = Relationship(back_populates="withdrawal_requests")
     approver: Optional[User] = Relationship()
+
+class UserPermission(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    permission: str
+    child_id: Optional[int] = Field(default=None, foreign_key="child.id")
+
+    user: Optional[User] = Relationship()
+    child: Optional[Child] = Relationship()
