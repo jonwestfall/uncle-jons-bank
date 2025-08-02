@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import LedgerTable from "../components/LedgerTable";
 import type { Transaction } from "../components/LedgerTable";
+import { NotifyProvider, useNotify } from "../hooks/useNotify";
 
 interface Child {
   id: number;
@@ -46,12 +47,16 @@ interface Props {
   onLogout: () => void;
 }
 
-export default function ParentDashboard({
-  token,
-  apiUrl,
-  permissions,
-  onLogout,
-}: Props) {
+export default function ParentDashboard(props: Props) {
+  return (
+    <NotifyProvider>
+      <Dashboard {...props} />
+    </NotifyProvider>
+  );
+}
+
+function Dashboard({ token, apiUrl, permissions, onLogout }: Props) {
+  const notify = useNotify();
   const [children, setChildren] = useState<Child[]>([]);
   const [ledger, setLedger] = useState<LedgerResponse | null>(null);
   const [selectedChild, setSelectedChild] = useState<number | null>(null);
@@ -68,6 +73,13 @@ export default function ParentDashboard({
   const [cdAmount, setCdAmount] = useState("");
   const [cdRate, setCdRate] = useState("");
   const [cdDays, setCdDays] = useState("");
+  const [freezingId, setFreezingId] = useState<number | null>(null);
+  const [editingRateId, setEditingRateId] = useState<number | null>(null);
+  const [addingTx, setAddingTx] = useState(false);
+  const [offeringCd, setOfferingCd] = useState(false);
+  const [processingWithdrawalId, setProcessingWithdrawalId] = useState<
+    number | null
+  >(null);
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
 
@@ -127,31 +139,70 @@ export default function ParentDashboard({
       String(child?.cd_penalty_rate ?? "0.1"),
     );
     if (cdr === null) return;
-    await fetch(`${apiUrl}/children/${childId}/interest-rate`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ interest_rate: Number(i) }),
-    });
-    await fetch(`${apiUrl}/children/${childId}/penalty-interest-rate`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ penalty_interest_rate: Number(p) }),
-    });
-    await fetch(`${apiUrl}/children/${childId}/cd-penalty-rate`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ cd_penalty_rate: Number(cdr) }),
-    });
-    fetchChildren();
+    setEditingRateId(childId);
+    try {
+      const ir = await fetch(`${apiUrl}/children/${childId}/interest-rate`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ interest_rate: Number(i) }),
+      });
+      const pr = await fetch(
+        `${apiUrl}/children/${childId}/penalty-interest-rate`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ penalty_interest_rate: Number(p) }),
+        },
+      );
+      const cr = await fetch(`${apiUrl}/children/${childId}/cd-penalty-rate`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ cd_penalty_rate: Number(cdr) }),
+      });
+      if (ir.ok && pr.ok && cr.ok) {
+        notify("Rates updated", "success");
+        fetchChildren();
+      } else {
+        notify("Failed to update rates", "error");
+      }
+    } catch {
+      notify("Failed to update rates", "error");
+    } finally {
+      setEditingRateId(null);
+    }
   };
 
   const toggleFreeze = async (childId: number, frozen: boolean) => {
     const endpoint = frozen ? "unfreeze" : "freeze";
-    await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    fetchChildren();
+    setFreezingId(childId);
+    try {
+      const resp = await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok) {
+        notify(
+          frozen ? "Child account unfrozen" : "Child account frozen",
+          "success",
+        );
+        fetchChildren();
+      } else {
+        notify("Failed to update account status", "error");
+      }
+    } catch {
+      notify("Failed to update account status", "error");
+    } finally {
+      setFreezingId(null);
+    }
   };
 
   return (
@@ -167,12 +218,22 @@ export default function ParentDashboard({
               {c.first_name} {c.frozen && "(Frozen)"}
             </span>
             <span>
-              <button onClick={() => editRates(c.id)}>Rates</button>
+              <button
+                onClick={() => editRates(c.id)}
+                disabled={editingRateId === c.id}
+              >
+                {editingRateId === c.id ? "..." : "Rates"}
+              </button>
               <button
                 onClick={() => toggleFreeze(c.id, c.frozen)}
                 className="ml-1"
+                disabled={freezingId === c.id}
               >
-                {c.frozen ? "Unfreeze" : "Freeze"}
+                {freezingId === c.id
+                  ? "..."
+                  : c.frozen
+                    ? "Unfreeze"
+                    : "Freeze"}
               </button>
               <button
                 onClick={() => {
@@ -258,6 +319,7 @@ export default function ParentDashboard({
           <form
             onSubmit={async (e) => {
               e.preventDefault();
+              setAddingTx(true);
               const resp = await fetch(`${apiUrl}/transactions/`, {
                 method: "POST",
                 headers: {
@@ -273,11 +335,15 @@ export default function ParentDashboard({
                   initiator_id: 0,
                 }),
               });
+              setAddingTx(false);
               setTxAmount("");
               setTxMemo("");
               setTxType("credit");
               if (resp.ok && selectedChild !== null) {
+                notify("Transaction added", "success");
                 await fetchLedger(selectedChild);
+              } else {
+                notify("Failed to add transaction", "error");
               }
             }}
             className="form"
@@ -299,12 +365,15 @@ export default function ParentDashboard({
               value={txMemo}
               onChange={(e) => setTxMemo(e.target.value)}
             />
-          <button type="submit">Add</button>
+          <button type="submit" disabled={addingTx}>
+            {addingTx ? "Adding..." : "Add"}
+          </button>
         </form>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            await fetch(`${apiUrl}/cds`, {
+            setOfferingCd(true);
+            const resp = await fetch(`${apiUrl}/cds`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -317,9 +386,15 @@ export default function ParentDashboard({
                 term_days: Number(cdDays),
               }),
             });
-            setCdAmount("");
-            setCdRate("");
-            setCdDays("");
+            setOfferingCd(false);
+            if (resp.ok) {
+              notify("CD offer sent", "success");
+              setCdAmount("");
+              setCdRate("");
+              setCdDays("");
+            } else {
+              notify("Failed to offer CD", "error");
+            }
           }}
           className="form"
         >
@@ -347,7 +422,9 @@ export default function ParentDashboard({
             onChange={(e) => setCdDays(e.target.value)}
             required
           />
-          <button type="submit">Send</button>
+          <button type="submit" disabled={offeringCd}>
+            {offeringCd ? "Sending..." : "Send"}
+          </button>
         </form>
       </div>
     )}
@@ -360,34 +437,56 @@ export default function ParentDashboard({
                 Child {w.child_id}: {w.amount} {w.memo ? `(${w.memo})` : ""}
                 <button
                   onClick={async () => {
-                    await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {
-                      method: "POST",
-                      headers: { Authorization: `Bearer ${token}` },
-                    });
-                    await fetchPendingWithdrawals();
-                    if (selectedChild === w.child_id)
-                      await fetchLedger(w.child_id);
+                    setProcessingWithdrawalId(w.id);
+                    const resp = await fetch(
+                      `${apiUrl}/withdrawals/${w.id}/approve`,
+                      {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                      },
+                    );
+                    setProcessingWithdrawalId(null);
+                    if (resp.ok) {
+                      notify("Withdrawal approved", "success");
+                      await fetchPendingWithdrawals();
+                      if (selectedChild === w.child_id)
+                        await fetchLedger(w.child_id);
+                    } else {
+                      notify("Failed to approve withdrawal", "error");
+                    }
                   }}
                   className="ml-1"
+                  disabled={processingWithdrawalId === w.id}
                 >
-                  Approve
+                  {processingWithdrawalId === w.id ? "..." : "Approve"}
                 </button>
                 <button
                   onClick={async () => {
                     const reason = window.prompt("Reason for denial?") || "";
-                    await fetch(`${apiUrl}/withdrawals/${w.id}/deny`, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
+                    setProcessingWithdrawalId(w.id);
+                    const resp = await fetch(
+                      `${apiUrl}/withdrawals/${w.id}/deny`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ reason }),
                       },
-                      body: JSON.stringify({ reason }),
-                    });
-                    await fetchPendingWithdrawals();
+                    );
+                    setProcessingWithdrawalId(null);
+                    if (resp.ok) {
+                      notify("Withdrawal denied", "success");
+                      await fetchPendingWithdrawals();
+                    } else {
+                      notify("Failed to deny withdrawal", "error");
+                    }
                   }}
                   className="ml-05"
+                  disabled={processingWithdrawalId === w.id}
                 >
-                  Deny
+                  {processingWithdrawalId === w.id ? "..." : "Deny"}
                 </button>
               </li>
             ))}
