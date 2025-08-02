@@ -27,6 +27,11 @@ The goal is to teach kids about money through experience — without handing ove
 - Daily **compound interest**, with optional **bonus tiers** or promotions (Parents can change interest rates at any time)
 - Full ledger of transactions: amount, memo, date, creator, type, promo ID (optional)
 
+### 📆 Recurring Charges, Fees & Promotions
+- **Recurring charges** let parents schedule automatic deductions for regular expenses, like a monthly cell phone plan or an online game subscription.
+- Configure site-wide **service fees** or **overdraft penalties** to teach kids about the cost of banking.
+- Run **promotions** that match deposits, waive fees, or boost interest rates to encourage saving and responsible spending.
+
 ### 💰 Certificate Deposits
 Parents can offer time-locked certificates with a custom term and interest rate.
 Children can review these offers and choose to accept or reject them. Accepting
