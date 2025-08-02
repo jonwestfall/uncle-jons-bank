@@ -1,6 +1,8 @@
 services:
   backend:
     build: ./backend
+    environment:
+      - TZ=America/Chicago
     expose:
       - "8000"
     volumes:
@@ -11,6 +13,8 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: /api
+    environment:
+      - TZ=America/Chicago
     expose:
       - "80"
     volumes:
