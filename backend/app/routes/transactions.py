@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +29,8 @@ from app.acl import (
     PERM_DEPOSIT,
     PERM_DEBIT,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -65,6 +68,13 @@ async def add_transaction(
         initiator_id=transaction.initiator_id,
     )
     new_tx = await create_transaction(db, tx_model)
+    logger.info(
+        "Transaction %s %s for child %s by user %s",
+        transaction.type,
+        transaction.amount,
+        transaction.child_id,
+        current_user.id,
+    )
     await recalc_interest(db, transaction.child_id)
     return new_tx
 
@@ -82,6 +92,7 @@ async def update_transaction_route(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(tx, field, value)
     updated = await save_transaction(db, tx)
+    logger.info("Transaction %s updated by user %s", transaction_id, current_user.id)
     await recalc_interest(db, tx.child_id)
     return updated
 
@@ -96,6 +107,7 @@ async def delete_transaction_route(
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     await delete_transaction(db, tx)
+    logger.info("Transaction %s deleted by user %s", transaction_id, current_user.id)
     await recalc_interest(db, tx.child_id)
 
 

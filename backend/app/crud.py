@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, delete
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func, case
 from datetime import datetime, date, timedelta, time
 from app.models import (
     User,
@@ -150,12 +151,12 @@ async def create_child(db: AsyncSession, child: Child):
 
 
 async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
+    """Create a child, associated account, and link in a single transaction."""
+    settings = await get_settings(db)
     db.add(child)
-    await db.commit()
-    await db.refresh(child)
+    await db.flush()  # ensure child.id is populated
 
     # Create an associated account with default interest settings
-    settings = await get_settings(db)
     account = Account(
         child_id=child.id,
         interest_rate=settings.default_interest_rate,
@@ -163,12 +164,12 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
         cd_penalty_rate=settings.default_cd_penalty_rate,
     )
     db.add(account)
-    await db.commit()
-    await db.refresh(account)
 
     link = ChildUserLink(user_id=user_id, child_id=child.id)
     db.add(link)
+
     await db.commit()
+    await db.refresh(child)
     return child
 
 
@@ -213,11 +214,11 @@ async def delete_child(db: AsyncSession, child: Child) -> None:
 
 async def set_child_frozen(
     db: AsyncSession, child_id: int, frozen: bool
-) -> Child | None:
+) -> Child:
     result = await db.execute(select(Child).where(Child.id == child_id))
     child = result.scalar_one_or_none()
     if not child:
-        return None
+        raise ValueError("Child not found")
     child.account_frozen = frozen
     db.add(child)
     await db.commit()
@@ -236,10 +237,10 @@ async def get_account_by_child(
 
 async def set_interest_rate(
     db: AsyncSession, child_id: int, rate: float
-) -> Account | None:
+) -> Account:
     account = await get_account_by_child(db, child_id)
     if not account:
-        return None
+        raise ValueError("Account not found")
     account.interest_rate = rate
     db.add(account)
     await db.commit()
@@ -249,10 +250,10 @@ async def set_interest_rate(
 
 async def set_penalty_interest_rate(
     db: AsyncSession, child_id: int, rate: float
-) -> Account | None:
+) -> Account:
     account = await get_account_by_child(db, child_id)
     if not account:
-        return None
+        raise ValueError("Account not found")
     account.penalty_interest_rate = rate
     db.add(account)
     await db.commit()
@@ -262,10 +263,10 @@ async def set_penalty_interest_rate(
 
 async def set_cd_penalty_rate(
     db: AsyncSession, child_id: int, rate: float
-) -> Account | None:
+) -> Account:
     account = await get_account_by_child(db, child_id)
     if not account:
-        return None
+        raise ValueError("Account not found")
     account.cd_penalty_rate = rate
     db.add(account)
     await db.commit()
@@ -321,48 +322,73 @@ async def get_all_transactions(db: AsyncSession) -> list[Transaction]:
 
 
 async def calculate_balance(db: AsyncSession, child_id: int) -> float:
-    transactions = await get_transactions_by_child(db, child_id)
-    balance = 0.0
-    for tx in transactions:
-        if tx.type == "credit":
-            balance += tx.amount
-        else:
-            balance -= tx.amount
-    return balance
+    total = func.coalesce(
+        func.sum(
+            case(
+                (Transaction.type == "credit", Transaction.amount),
+                else_=-Transaction.amount,
+            )
+        ),
+        0.0,
+    )
+    result = await db.execute(
+        select(total).where(Transaction.child_id == child_id)
+    )
+    return float(result.scalar_one())
 
 
 async def recalc_interest(db: AsyncSession, child_id: int) -> None:
     account = await get_account_by_child(db, child_id)
     if not account:
-        return
+        raise ValueError("Account not found")
 
-    result = await db.execute(
-        select(Transaction)
-        .where(Transaction.child_id == child_id)
-        .order_by(Transaction.timestamp)
+    # Determine starting point for recalculation
+    first_tx_result = await db.execute(
+        select(func.min(Transaction.timestamp)).where(
+            Transaction.child_id == child_id
+        )
     )
-    txs = list(result.scalars().all())
-
-    if not txs:
+    first_tx_time = first_tx_result.scalar_one_or_none()
+    if not first_tx_time:
         account.last_interest_applied = date.today()
         db.add(account)
         await db.commit()
         return
 
-    start_date = account.last_interest_applied or txs[0].timestamp.date()
+    start_date = account.last_interest_applied or first_tx_time.date()
     today = date.today()
 
-    current_balance = 0.0
-    tx_idx = 0
-    total_interest = account.total_interest_earned
+    # Balance prior to start_date
+    bal_before_result = await db.execute(
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Transaction.type == "credit", Transaction.amount),
+                        else_=-Transaction.amount,
+                    )
+                ),
+                0.0,
+            )
+        ).where(
+            Transaction.child_id == child_id,
+            Transaction.timestamp < datetime.combine(start_date, time.min),
+        )
+    )
+    current_balance = float(bal_before_result.scalar_one())
 
-    while tx_idx < len(txs) and txs[tx_idx].timestamp.date() < start_date:
-        tx = txs[tx_idx]
-        if tx.type == "credit":
-            current_balance += tx.amount
-        else:
-            current_balance -= tx.amount
-        tx_idx += 1
+    result = await db.execute(
+        select(Transaction)
+        .where(
+            Transaction.child_id == child_id,
+            Transaction.timestamp >= datetime.combine(start_date, time.min),
+        )
+        .order_by(Transaction.timestamp)
+    )
+    txs = list(result.scalars().all())
+
+    total_interest = account.total_interest_earned
+    tx_idx = 0
 
     day = start_date
     while day < today:

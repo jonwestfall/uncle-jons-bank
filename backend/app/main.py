@@ -1,5 +1,8 @@
-from fastapi import FastAPI
+import os
+import logging
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.routes import (
     users,
     children,
@@ -17,6 +20,11 @@ from app.models import Child
 from app.acl import ALL_PERMISSIONS
 from sqlmodel import select
 import asyncio
+
+# Basic logging configuration
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, LOG_LEVEL))
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -39,15 +47,19 @@ async def on_startup():
 
 
 async def daily_interest_task():
+    logger.info("Starting daily interest task")
     while True:
-        async with async_session() as session:
-            result = await session.execute(select(Child.id))
-            child_ids = result.scalars().all()
-            for cid in child_ids:
-                await recalc_interest(session, cid)
-            from app.crud import redeem_matured_cds
+        try:
+            async with async_session() as session:
+                result = await session.execute(select(Child.id))
+                child_ids = result.scalars().all()
+                for cid in child_ids:
+                    await recalc_interest(session, cid)
+                from app.crud import redeem_matured_cds
 
-            await redeem_matured_cds(session)
+                await redeem_matured_cds(session)
+        except Exception as exc:
+            logger.exception("Daily interest task failed: %s", exc)
         await asyncio.sleep(60 * 60 * 24)
 
 
@@ -70,3 +82,16 @@ async def read_root():
         s = await get_settings(session)
         name = s.site_name
     return {"message": f"Welcome to {name} API"}
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch-all exception handler that logs the stack trace once."""
+    logger.exception("Unhandled error during request %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "internal_server_error",
+            "message": "An unexpected error occurred",
+        },
+    )
