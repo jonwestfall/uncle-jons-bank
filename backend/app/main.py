@@ -13,9 +13,14 @@ from app.routes import (
     tests,
     cds,
     settings,
+    recurring,
 )
 from app.database import create_db_and_tables, async_session
-from app.crud import recalc_interest, ensure_permissions_exist
+from app.crud import (
+    recalc_interest,
+    ensure_permissions_exist,
+    process_due_recurring_charges,
+)
 from app.models import Child
 from app.acl import ALL_PERMISSIONS
 from sqlmodel import select
@@ -51,6 +56,7 @@ async def daily_interest_task():
     while True:
         try:
             async with async_session() as session:
+                await process_due_recurring_charges(session)
                 result = await session.execute(select(Child.id))
                 child_ids = result.scalars().all()
                 for cid in child_ids:
@@ -72,6 +78,7 @@ app.include_router(cds.router)
 app.include_router(admin.router)
 app.include_router(tests.router)
 app.include_router(settings.router)
+app.include_router(recurring.router)
 
 
 @app.get("/")

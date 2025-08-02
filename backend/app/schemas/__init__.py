@@ -22,6 +22,11 @@ from .withdrawal import (
 from .permission import PermissionRead, PermissionsUpdate
 from .cd import CDCreate, CDRead
 from .settings import SettingsRead, SettingsUpdate
+from .recurring import (
+    RecurringChargeCreate,
+    RecurringChargeRead,
+    RecurringChargeUpdate,
+)
 
 __all__ = [
     "UserCreate",
@@ -48,4 +53,7 @@ __all__ = [
     "CDRead",
     "SettingsRead",
     "SettingsUpdate",
+    "RecurringChargeCreate",
+    "RecurringChargeRead",
+    "RecurringChargeUpdate",
 ]

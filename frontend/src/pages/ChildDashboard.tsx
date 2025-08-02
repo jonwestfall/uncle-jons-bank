@@ -28,6 +28,16 @@ interface WithdrawalRequest {
   denial_reason?: string | null
 }
 
+interface RecurringCharge {
+  id: number
+  child_id: number
+  amount: number
+  memo?: string | null
+  interval_days: number
+  next_run: string
+  active: boolean
+}
+
 interface Props {
   token: string
   childId: number
@@ -48,6 +58,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
   const [ledger, setLedger] = useState<LedgerResponse | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
   const [cds, setCds] = useState<CdOffer[]>([])
+   const [charges, setCharges] = useState<RecurringCharge[]>([])
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawMemo, setWithdrawMemo] = useState('')
   const [childName, setChildName] = useState('')
@@ -84,12 +95,20 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
     }
   }, [apiUrl, childId, token])
 
+  const fetchCharges = useCallback(async () => {
+    const resp = await fetch(`${apiUrl}/recurring/mine`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (resp.ok) setCharges(await resp.json())
+  }, [apiUrl, token])
+
   useEffect(() => {
     fetchLedger()
     fetchMyWithdrawals()
     fetchChildName()
     fetchCds()
-  }, [fetchLedger, fetchMyWithdrawals, fetchChildName, fetchCds])
+    fetchCharges()
+  }, [fetchLedger, fetchMyWithdrawals, fetchChildName, fetchCds, fetchCharges])
 
   return (
     <div className="container" style={{ width: tableWidth ? `${tableWidth}px` : undefined }}>
@@ -102,6 +121,19 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
             onWidth={w => !tableWidth && setTableWidth(w)}
           />
         </>
+      )}
+      {charges.length > 0 && (
+        <div>
+          <h4>Recurring Charges</h4>
+          <ul className="list">
+            {charges.map(c => (
+              <li key={c.id}>
+                {c.amount.toFixed(2)} every {c.interval_days} days next on{' '}
+                {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {cds.length > 0 && (
         <div>
