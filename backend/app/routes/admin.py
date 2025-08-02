@@ -13,6 +13,7 @@ from app.schemas import (
     TransactionUpdate,
     PermissionRead,
     PermissionsUpdate,
+    Promotion,
 )
 from app.crud import (
     get_all_users,
@@ -31,6 +32,7 @@ from app.crud import (
     get_all_permissions,
     assign_permissions_by_names,
     remove_permissions_by_names,
+    apply_promotion,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -266,3 +268,15 @@ async def admin_delete_transaction(
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     await delete_transaction(db, tx)
+
+
+@router.post("/promotions")
+async def run_promotion(
+    promo: Promotion,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    count = await apply_promotion(
+        db, promo.amount, promo.is_percentage, promo.credit, promo.memo
+    )
+    return {"accounts_updated": count}

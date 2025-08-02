@@ -14,6 +14,7 @@ from app.crud import (
     save_withdrawal_request,
     create_transaction,
     get_children_by_user,
+    post_transaction_update,
 )
 from app.schemas import WithdrawalRequestCreate, WithdrawalRequestRead, DenyRequest
 
@@ -72,6 +73,7 @@ async def approve_request(
         initiator_id=req.child_id,
     )
     await create_transaction(db, tx)
+    await post_transaction_update(db, req.child_id)
 
     req.status = "approved"
     req.responded_at = datetime.utcnow()

@@ -27,6 +27,7 @@ from .recurring import (
     RecurringChargeRead,
     RecurringChargeUpdate,
 )
+from .promotion import Promotion
 
 __all__ = [
     "UserCreate",
@@ -56,4 +57,5 @@ __all__ = [
     "RecurringChargeCreate",
     "RecurringChargeRead",
     "RecurringChargeUpdate",
+    "Promotion",
 ]

@@ -18,7 +18,7 @@ from app.crud import (
     get_transaction,
     save_transaction,
     delete_transaction,
-    recalc_interest,
+    post_transaction_update,
 )
 from app.auth import require_permissions, get_current_user, get_current_identity
 from app.acl import (
@@ -75,7 +75,7 @@ async def add_transaction(
         transaction.child_id,
         current_user.id,
     )
-    await recalc_interest(db, transaction.child_id)
+    await post_transaction_update(db, transaction.child_id)
     return new_tx
 
 
@@ -93,7 +93,7 @@ async def update_transaction_route(
         setattr(tx, field, value)
     updated = await save_transaction(db, tx)
     logger.info("Transaction %s updated by user %s", transaction_id, current_user.id)
-    await recalc_interest(db, tx.child_id)
+    await post_transaction_update(db, tx.child_id)
     return updated
 
 
@@ -108,7 +108,7 @@ async def delete_transaction_route(
         raise HTTPException(status_code=404, detail="Transaction not found")
     await delete_transaction(db, tx)
     logger.info("Transaction %s deleted by user %s", transaction_id, current_user.id)
-    await recalc_interest(db, tx.child_id)
+    await post_transaction_update(db, tx.child_id)
 
 
 @router.get("/child/{child_id}", response_model=LedgerResponse)

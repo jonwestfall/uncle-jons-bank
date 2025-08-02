@@ -18,6 +18,11 @@ async def read_settings(db: AsyncSession = Depends(get_session)):
         default_interest_rate=settings.default_interest_rate,
         default_penalty_interest_rate=settings.default_penalty_interest_rate,
         default_cd_penalty_rate=settings.default_cd_penalty_rate,
+        service_fee_amount=settings.service_fee_amount,
+        service_fee_is_percentage=settings.service_fee_is_percentage,
+        overdraft_fee_amount=settings.overdraft_fee_amount,
+        overdraft_fee_is_percentage=settings.overdraft_fee_is_percentage,
+        overdraft_fee_daily=settings.overdraft_fee_daily,
     )
 
 
@@ -36,4 +41,9 @@ async def update_settings(
         default_interest_rate=updated.default_interest_rate,
         default_penalty_interest_rate=updated.default_penalty_interest_rate,
         default_cd_penalty_rate=updated.default_cd_penalty_rate,
+        service_fee_amount=updated.service_fee_amount,
+        service_fee_is_percentage=updated.service_fee_is_percentage,
+        overdraft_fee_amount=updated.overdraft_fee_amount,
+        overdraft_fee_is_percentage=updated.overdraft_fee_is_percentage,
+        overdraft_fee_daily=updated.overdraft_fee_daily,
     )

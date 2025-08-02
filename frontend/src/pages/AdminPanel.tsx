@@ -38,6 +38,11 @@ interface SiteSettings {
   default_interest_rate: number
   default_penalty_interest_rate: number
   default_cd_penalty_rate: number
+  service_fee_amount: number
+  service_fee_is_percentage: boolean
+  overdraft_fee_amount: number
+  overdraft_fee_is_percentage: boolean
+  overdraft_fee_daily: boolean
 }
 
 export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props) {
@@ -73,16 +78,32 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
           <p>Default Interest Rate: {settings.default_interest_rate}</p>
           <p>Penalty Interest Rate: {settings.default_penalty_interest_rate}</p>
           <p>CD Penalty Rate: {settings.default_cd_penalty_rate}</p>
+          <p>
+            Service Fee: {settings.service_fee_amount}
+            {settings.service_fee_is_percentage ? '%' : ''}
+          </p>
+          <p>
+            Overdraft Fee: {settings.overdraft_fee_amount}
+            {settings.overdraft_fee_is_percentage ? '%' : ''}
+            {settings.overdraft_fee_daily ? ' (daily)' : ' (once)'}
+          </p>
           <button
             onClick={async () => {
               const name = window.prompt('Site name', settings.site_name)
               if (name === null) return
-                const ir = window.prompt('Interest rate', String(settings.default_interest_rate))
+              const ir = window.prompt('Interest rate', String(settings.default_interest_rate))
               if (ir === null) return
-                const pr = window.prompt('Penalty rate', String(settings.default_penalty_interest_rate))
+              const pr = window.prompt('Penalty rate', String(settings.default_penalty_interest_rate))
               if (pr === null) return
-                const cd = window.prompt('CD penalty rate', String(settings.default_cd_penalty_rate))
+              const cd = window.prompt('CD penalty rate', String(settings.default_cd_penalty_rate))
               if (cd === null) return
+              const sf = window.prompt('Service fee amount', String(settings.service_fee_amount))
+              if (sf === null) return
+              const sfp = window.confirm('Is service fee a percentage?')
+              const of = window.prompt('Overdraft fee amount', String(settings.overdraft_fee_amount))
+              if (of === null) return
+              const ofp = window.confirm('Is overdraft fee a percentage?')
+              const ofd = window.confirm('Charge overdraft fee daily?')
               await fetch(`${apiUrl}/settings`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -91,6 +112,11 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
                   default_interest_rate: Number(ir),
                   default_penalty_interest_rate: Number(pr),
                   default_cd_penalty_rate: Number(cd),
+                  service_fee_amount: Number(sf),
+                  service_fee_is_percentage: sfp,
+                  overdraft_fee_amount: Number(of),
+                  overdraft_fee_is_percentage: ofp,
+                  overdraft_fee_daily: ofd,
                 })
               })
               fetchData()
@@ -98,6 +124,27 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
           >Edit</button>
         </div>
       )}
+      <h2>Promotions</h2>
+      <button
+        onClick={async () => {
+          const amt = window.prompt('Amount or percentage', '0')
+          if (amt === null) return
+          const isPct = window.confirm('Is this a percentage?')
+          const credit = window.confirm('Credit accounts? Cancel for charge')
+          const memo = window.prompt('Memo', 'Promotion') || 'Promotion'
+          await fetch(`${apiUrl}/admin/promotions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              amount: Number(amt),
+              is_percentage: isPct,
+              credit,
+              memo
+            })
+          })
+          fetchData()
+        }}
+      >Run Promotion</button>
       <h2>Users</h2>
       <ul className="list">
         {users.map(u => (
