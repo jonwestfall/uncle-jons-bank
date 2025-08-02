@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import LedgerTable from "../components/LedgerTable";
 import type { Transaction } from "../components/LedgerTable";
+import EditRatesModal from "../components/EditRatesModal";
+import EditTransactionModal from "../components/EditTransactionModal";
 
 interface Child {
   id: number;
@@ -68,6 +70,10 @@ export default function ParentDashboard({
   const [cdAmount, setCdAmount] = useState("");
   const [cdRate, setCdRate] = useState("");
   const [cdDays, setCdDays] = useState("");
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [ratesMessage, setRatesMessage] = useState<string | null>(null);
+  const [ratesError, setRatesError] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
 
@@ -113,38 +119,6 @@ export default function ParentDashboard({
     fetchPendingWithdrawals();
   }, [fetchChildren, fetchPendingWithdrawals]);
 
-  const editRates = async (childId: number) => {
-    const child = children.find((c) => c.id === childId);
-    const i = window.prompt("Interest rate", String(child?.interest_rate ?? ""));
-    if (i === null) return;
-    const p = window.prompt(
-      "Penalty interest rate",
-      String(child?.penalty_interest_rate ?? ""),
-    );
-    if (p === null) return;
-    const cdr = window.prompt(
-      "CD early withdrawal penalty rate",
-      String(child?.cd_penalty_rate ?? "0.1"),
-    );
-    if (cdr === null) return;
-    await fetch(`${apiUrl}/children/${childId}/interest-rate`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ interest_rate: Number(i) }),
-    });
-    await fetch(`${apiUrl}/children/${childId}/penalty-interest-rate`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ penalty_interest_rate: Number(p) }),
-    });
-    await fetch(`${apiUrl}/children/${childId}/cd-penalty-rate`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ cd_penalty_rate: Number(cdr) }),
-    });
-    fetchChildren();
-  };
-
   const toggleFreeze = async (childId: number, frozen: boolean) => {
     const endpoint = frozen ? "unfreeze" : "freeze";
     await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
@@ -160,6 +134,9 @@ export default function ParentDashboard({
       style={{ width: tableWidth ? `${tableWidth}px` : undefined }}
     >
       <h2>Your Children</h2>
+      {ratesMessage && (
+        <p className={ratesError ? "error" : "success"}>{ratesMessage}</p>
+      )}
       <ul className="list">
         {children.map((c) => (
           <li key={c.id} className="child-row">
@@ -167,7 +144,7 @@ export default function ParentDashboard({
               {c.first_name} {c.frozen && "(Frozen)"}
             </span>
             <span>
-              <button onClick={() => editRates(c.id)}>Rates</button>
+              <button onClick={() => setEditingChild(c)}>Rates</button>
               <button
                 onClick={() => toggleFreeze(c.id, c.frozen)}
                 className="ml-1"
@@ -199,33 +176,7 @@ export default function ParentDashboard({
               <>
                 {canEdit && tx.initiated_by !== "system" && (
                   <button
-                    onClick={async () => {
-                      const amount = window.prompt("Amount", String(tx.amount));
-                      if (amount === null) return;
-                      const memo = window.prompt("Memo", tx.memo || "");
-                      const type = window.prompt(
-                        "Type (credit/debit)",
-                        tx.type,
-                      );
-                      const resp = await fetch(
-                        `${apiUrl}/transactions/${tx.id}`,
-                        {
-                          method: "PUT",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${token}`,
-                          },
-                          body: JSON.stringify({
-                            amount: Number(amount),
-                            memo: memo || null,
-                            type: type || tx.type,
-                          }),
-                        },
-                      );
-                      if (resp.ok && selectedChild !== null) {
-                        await fetchLedger(selectedChild);
-                      }
-                    }}
+                    onClick={() => setEditingTx(tx)}
                     className="ml-1"
                   >
                     Edit
@@ -443,7 +394,35 @@ export default function ParentDashboard({
         />
         <button type="submit">Add</button>
       </form>
+      {editingChild && (
+        <EditRatesModal
+          child={editingChild}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingChild(null)}
+          onSuccess={(msg) => {
+            setRatesMessage(msg);
+            setRatesError(false);
+            fetchChildren();
+          }}
+          onError={(msg) => {
+            setRatesMessage(msg);
+            setRatesError(true);
+          }}
+        />
+      )}
       <button onClick={onLogout}>Logout</button>
+      {editingTx && selectedChild !== null && (
+        <EditTransactionModal
+          transaction={editingTx}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingTx(null)}
+          onSuccess={async () => {
+            await fetchLedger(selectedChild);
+          }}
+        />
+      )}
     </div>
   );
 }
