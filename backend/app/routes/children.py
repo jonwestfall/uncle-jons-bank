@@ -216,7 +216,10 @@ async def update_interest_rate(
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
     await recalc_interest(db, child_id)
-    account = await set_interest_rate(db, child_id, data.interest_rate)
+    try:
+        account = await set_interest_rate(db, child_id, data.interest_rate)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Account not found")
     return ChildRead(
         id=child.id,
         first_name=child.first_name,
@@ -243,7 +246,12 @@ async def update_penalty_interest_rate(
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
     await recalc_interest(db, child_id)
-    account = await set_penalty_interest_rate(db, child_id, data.penalty_interest_rate)
+    try:
+        account = await set_penalty_interest_rate(
+            db, child_id, data.penalty_interest_rate
+        )
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Account not found")
     return ChildRead(
         id=child.id,
         first_name=child.first_name,
@@ -269,7 +277,10 @@ async def update_cd_penalty_rate(
         children = await get_children_by_user(db, current_user.id)
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
-    account = await set_cd_penalty_rate(db, child_id, data.cd_penalty_rate)
+    try:
+        account = await set_cd_penalty_rate(db, child_id, data.cd_penalty_rate)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Account not found")
     return ChildRead(
         id=child.id,
         first_name=child.first_name,

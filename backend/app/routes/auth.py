@@ -1,4 +1,5 @@
 # app/routes/auth.py
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from sqlmodel import select
 from app.schemas.user import UserCreate, UserResponse, UserLogin
 from datetime import timedelta
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -26,10 +28,15 @@ async def login_for_access_token(
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.password_hash):
+        logger.warning("Failed OAuth login for %s", form_data.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            detail={
+                "code": "auth_invalid_credentials",
+                "message": "Invalid email or password",
+            },
         )
+    logger.info("User %s logged in via OAuth form", user.email)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=timedelta(minutes=60)
     )
@@ -39,12 +46,19 @@ async def login_for_access_token(
 
 @router.post("/login")
 async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
-    user = await authenticate_user(db=db, email=user_in.email, password=user_in.password)
+    user = await authenticate_user(
+        db=db, email=user_in.email, password=user_in.password
+    )
     if not user:
+        logger.warning("Failed login for %s", user_in.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            detail={
+                "code": "auth_invalid_credentials",
+                "message": "Invalid email or password",
+            },
         )
+    logger.info("User %s logged in", user.email)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=timedelta(minutes=60)
     )
@@ -58,7 +72,10 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session))
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email is already registered.",
+            detail={
+                "code": "auth_email_registered",
+                "message": "Email is already registered.",
+            },
         )
 
     hashed_pw = get_password_hash(user_in.password)
@@ -72,6 +89,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session))
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+    logger.info("User %s registered", new_user.email)
 
     return new_user
 
