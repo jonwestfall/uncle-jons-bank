@@ -97,7 +97,7 @@ export default function ParentDashboard({
   const [rcNext, setRcNext] = useState("");
 
   const fetchChildren = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/children`, {
+    const resp = await fetch(`${apiUrl}/children/`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (resp.ok) {
@@ -138,7 +138,7 @@ export default function ParentDashboard({
   );
 
   const fetchPendingWithdrawals = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/withdrawals`, {
+    const resp = await fetch(`${apiUrl}/withdrawals/`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (resp.ok) setPendingWithdrawals(await resp.json());
@@ -497,7 +497,7 @@ export default function ParentDashboard({
           e.preventDefault();
           setErrorMessage(null);
           try {
-            const resp = await fetch(`${apiUrl}/children`, {
+            const resp = await fetch(`${apiUrl}/children/`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",

@@ -1,0 +1,14 @@
+:80 {
+    @api {
+        path /api/*
+    }
+    handle @api {
+        uri strip_prefix /api
+        reverse_proxy backend:8000 {
+            header_down Location ^/(.*)$ /api/$1
+        }
+    }
+    handle {
+        reverse_proxy frontend:80
+    }
+}
