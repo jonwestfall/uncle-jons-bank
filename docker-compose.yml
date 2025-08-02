@@ -1,15 +1,29 @@
 services:
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     volumes:
       - ./backend:/app
+
   frontend:
-    build: ./frontend
-    ports:
-      - "3000:80"
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+    expose:
+      - "80"
     volumes:
       - ./frontend:/app
     depends_on:
       - backend
+
+  caddy:
+    image: caddy:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - backend
+      - frontend

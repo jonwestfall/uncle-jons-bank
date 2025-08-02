@@ -125,8 +125,8 @@ cd uncle-jons-bank
 docker compose up --build
 ```
 
-FastAPI will be served at: [http://localhost:8000/docs](http://localhost:8000/docs)
-The React frontend will be available at [http://localhost:3000](http://localhost:3000)
+Visit [http://localhost](http://localhost) for the frontend.
+FastAPI's interactive docs are available at [http://localhost/api/docs](http://localhost/api/docs).
 
 ### Migrate DB
 
