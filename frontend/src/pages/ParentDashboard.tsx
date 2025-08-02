@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import LedgerTable from "../components/LedgerTable";
 import type { Transaction } from "../components/LedgerTable";
 import { NotifyProvider, useNotify } from "../hooks/useNotify";
+import EditRatesModal from "../components/EditRatesModal";
+import EditTransactionModal from "../components/EditTransactionModal";
 
 interface Child {
   id: number;
@@ -80,6 +82,10 @@ function Dashboard({ token, apiUrl, permissions, onLogout }: Props) {
   const [processingWithdrawalId, setProcessingWithdrawalId] = useState<
     number | null
   >(null);
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [ratesMessage, setRatesMessage] = useState<string | null>(null);
+  const [ratesError, setRatesError] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
 
@@ -211,6 +217,9 @@ function Dashboard({ token, apiUrl, permissions, onLogout }: Props) {
       style={{ width: tableWidth ? `${tableWidth}px` : undefined }}
     >
       <h2>Your Children</h2>
+      {ratesMessage && (
+        <p className={ratesError ? "error" : "success"}>{ratesMessage}</p>
+      )}
       <ul className="list">
         {children.map((c) => (
           <li key={c.id} className="child-row">
@@ -218,12 +227,16 @@ function Dashboard({ token, apiUrl, permissions, onLogout }: Props) {
               {c.first_name} {c.frozen && "(Frozen)"}
             </span>
             <span>
+
               <button
                 onClick={() => editRates(c.id)}
                 disabled={editingRateId === c.id}
               >
                 {editingRateId === c.id ? "..." : "Rates"}
               </button>
+
+              <button onClick={() => setEditingChild(c)}>Rates</button>
+
               <button
                 onClick={() => toggleFreeze(c.id, c.frozen)}
                 className="ml-1"
@@ -260,33 +273,7 @@ function Dashboard({ token, apiUrl, permissions, onLogout }: Props) {
               <>
                 {canEdit && tx.initiated_by !== "system" && (
                   <button
-                    onClick={async () => {
-                      const amount = window.prompt("Amount", String(tx.amount));
-                      if (amount === null) return;
-                      const memo = window.prompt("Memo", tx.memo || "");
-                      const type = window.prompt(
-                        "Type (credit/debit)",
-                        tx.type,
-                      );
-                      const resp = await fetch(
-                        `${apiUrl}/transactions/${tx.id}`,
-                        {
-                          method: "PUT",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${token}`,
-                          },
-                          body: JSON.stringify({
-                            amount: Number(amount),
-                            memo: memo || null,
-                            type: type || tx.type,
-                          }),
-                        },
-                      );
-                      if (resp.ok && selectedChild !== null) {
-                        await fetchLedger(selectedChild);
-                      }
-                    }}
+                    onClick={() => setEditingTx(tx)}
                     className="ml-1"
                   >
                     Edit
@@ -542,7 +529,35 @@ function Dashboard({ token, apiUrl, permissions, onLogout }: Props) {
         />
         <button type="submit">Add</button>
       </form>
+      {editingChild && (
+        <EditRatesModal
+          child={editingChild}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingChild(null)}
+          onSuccess={(msg) => {
+            setRatesMessage(msg);
+            setRatesError(false);
+            fetchChildren();
+          }}
+          onError={(msg) => {
+            setRatesMessage(msg);
+            setRatesError(true);
+          }}
+        />
+      )}
       <button onClick={onLogout}>Logout</button>
+      {editingTx && selectedChild !== null && (
+        <EditTransactionModal
+          transaction={editingTx}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingTx(null)}
+          onSuccess={async () => {
+            await fetchLedger(selectedChild);
+          }}
+        />
+      )}
     </div>
   );
 }
