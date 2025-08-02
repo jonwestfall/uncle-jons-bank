@@ -1,3 +1,6 @@
 Upcoming features I'd like to build out:
 - Parent-Owner able to modify permissions for other parents
 - UI Tweaks, and optimization for mobile
+- Fees module (Bank can charge fees)
+- Bill pay / auto-debits (parents can charge for services)
+- Some form of loan / credit card type product.
