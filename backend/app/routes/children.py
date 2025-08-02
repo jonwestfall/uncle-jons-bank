@@ -215,8 +215,8 @@ async def update_interest_rate(
         children = await get_children_by_user(db, current_user.id)
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
-    account = await set_interest_rate(db, child_id, data.interest_rate)
     await recalc_interest(db, child_id)
+    account = await set_interest_rate(db, child_id, data.interest_rate)
     return ChildRead(
         id=child.id,
         first_name=child.first_name,
@@ -242,8 +242,8 @@ async def update_penalty_interest_rate(
         children = await get_children_by_user(db, current_user.id)
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
-    account = await set_penalty_interest_rate(db, child_id, data.penalty_interest_rate)
     await recalc_interest(db, child_id)
+    account = await set_penalty_interest_rate(db, child_id, data.penalty_interest_rate)
     return ChildRead(
         id=child.id,
         first_name=child.first_name,

@@ -336,43 +336,38 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
     if not account:
         return
 
-    # Remove previously generated interest transactions
-    await db.execute(
-        delete(Transaction).where(
-            Transaction.child_id == child_id,
-            Transaction.initiated_by == "system",
-            Transaction.memo == "Interest",
-        )
-    )
-    await db.commit()
-
-    transactions = await db.execute(
+    result = await db.execute(
         select(Transaction)
-        .where(
-            Transaction.child_id == child_id,
-            Transaction.initiated_by != "system",
-        )
+        .where(Transaction.child_id == child_id)
         .order_by(Transaction.timestamp)
     )
-    base_txs = list(transactions.scalars().all())
+    txs = list(result.scalars().all())
 
-    if not base_txs:
-        account.total_interest_earned = 0.0
+    if not txs:
+        account.last_interest_applied = date.today()
+        db.add(account)
         await db.commit()
         return
 
-    start_date = base_txs[0].timestamp.date()
+    start_date = account.last_interest_applied or txs[0].timestamp.date()
+    today = date.today()
+
     current_balance = 0.0
     tx_idx = 0
-    today = date.today()
-    total_interest = 0.0
-    day = start_date
+    total_interest = account.total_interest_earned
 
+    while tx_idx < len(txs) and txs[tx_idx].timestamp.date() < start_date:
+        tx = txs[tx_idx]
+        if tx.type == "credit":
+            current_balance += tx.amount
+        else:
+            current_balance -= tx.amount
+        tx_idx += 1
+
+    day = start_date
     while day < today:
-        while (
-            tx_idx < len(base_txs) and base_txs[tx_idx].timestamp.date() == day
-        ):
-            tx = base_txs[tx_idx]
+        while tx_idx < len(txs) and txs[tx_idx].timestamp.date() == day:
+            tx = txs[tx_idx]
             if tx.type == "credit":
                 current_balance += tx.amount
             else:
