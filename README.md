@@ -8,24 +8,23 @@
 
 ## 🎯 Purpose
 
-The goal is to teach kids about money through experience — without handing over actual bank accounts. Children get balances, budgets, and interest — while parents control transactions, set savings goals, and approve (or deny) withdrawals.
+The goal is to teach kids about money through experience — without handing over actual bank accounts. Children get balances, interest, and basic financial products like CDs — while parents control transactions, set savings goals, and approve (or deny) withdrawals.
 
 ---
 
 ## 🧩 Core Features (MVP)
 
 ### 👨‍👩‍👧‍👦 Accounts & Access
-- Multiple parent/guardian accounts per child, each with roles:
+- Multiple parent/guardian accounts per child, each with permission levels, making it possible to have:
   - **Viewer**: can see activity
   - **Depositor**: can add funds
   - **Approver**: can approve withdrawals
-- Children have their own logins with a simplified UI
+- Children have their own logins with a simplified UI through a secret code.
 
 ### 💸 Banking & Ledger
 - One main balance per child
-- Optional **buckets** (spending, saving, giving)
-- Optional **locked savings** (e.g., “CD-style” accounts)
-- Daily **compound interest**, with optional **bonus tiers** or promotions
+- Ability to accept offers on Certificates of Deposit (CDs) given by parents.
+- Daily **compound interest**, with optional **bonus tiers** or promotions (Parents can change interest rates at any time)
 - Full ledger of transactions: amount, memo, date, creator, type, promo ID (optional)
 
 ### 💰 Certificate Deposits
@@ -40,7 +39,7 @@ the principal and charge a 10% penalty. The `/tests/cd-issue` and
 
 ### 🔐 Permissions & Controls
 - Withdrawals are **requested** by the child, and **approved/denied** by guardians
-- Accounts can be **frozen** or have **limits**
+- Accounts can be **frozen**.
 - Penalty interest can apply to negative balances
 
 ### 🧠 Educational & Fun
@@ -212,7 +211,7 @@ These are used for JWT authentication.
 
 ## 👨‍👧 Philosophy
 
-Uncle Jon’s Bank is more than a toy. It’s a tool to **build good money habits** before real money is at stake. Kids learn by **doing**, with structure, love, and maybe a penalty APR or two when needed.
+Uncle Jon’s Bank is more than a toy. It’s a tool to **build good money habits** before real money is at stake. Kids learn by **doing**, with structure, love, and maybe a penalty APR or two when needed. And unlike commercial products, it teaches to **save** not to **spend**.
 
 ---
 
