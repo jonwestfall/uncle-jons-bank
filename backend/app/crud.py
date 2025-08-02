@@ -236,6 +236,11 @@ async def get_account_by_child(
     return result.scalar_one_or_none()
 
 
+async def get_all_accounts(db: AsyncSession) -> list[Account]:
+    result = await db.execute(select(Account))
+    return result.scalars().all()
+
+
 async def set_interest_rate(
     db: AsyncSession, child_id: int, rate: float
 ) -> Account:
@@ -430,6 +435,119 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
     await db.commit()
 
 
+async def apply_service_fee(
+    db: AsyncSession, account: Account, settings: Settings, today: date
+) -> None:
+    if today.day != 1:
+        return
+    if account.service_fee_last_charged and account.service_fee_last_charged.month == today.month and account.service_fee_last_charged.year == today.year:
+        return
+    balance = await calculate_balance(db, account.child_id)
+    fee = (
+        abs(balance) * settings.service_fee_amount
+        if settings.service_fee_is_percentage
+        else settings.service_fee_amount
+    )
+    fee = round(fee, 2)
+    if fee <= 0:
+        return
+    tx = Transaction(
+        child_id=account.child_id,
+        type="debit",
+        amount=fee,
+        memo="Service Fee",
+        initiated_by="system",
+        initiator_id=0,
+        timestamp=datetime.combine(today, time.min),
+    )
+    await create_transaction(db, tx)
+    account.service_fee_last_charged = today
+    db.add(account)
+    await db.commit()
+
+
+async def apply_overdraft_fee(
+    db: AsyncSession, account: Account, settings: Settings, today: date
+) -> None:
+    balance = await calculate_balance(db, account.child_id)
+    if balance < 0:
+        fee = (
+            abs(balance) * settings.overdraft_fee_amount
+            if settings.overdraft_fee_is_percentage
+            else settings.overdraft_fee_amount
+        )
+        fee = round(fee, 2)
+        if fee > 0:
+            if settings.overdraft_fee_daily:
+                if account.overdraft_fee_last_charged != today:
+                    tx = Transaction(
+                        child_id=account.child_id,
+                        type="debit",
+                        amount=fee,
+                        memo="Overdraft Fee",
+                        initiated_by="system",
+                        initiator_id=0,
+                    )
+                    await create_transaction(db, tx)
+                    account.overdraft_fee_last_charged = today
+            else:
+                if not account.overdraft_fee_charged:
+                    tx = Transaction(
+                        child_id=account.child_id,
+                        type="debit",
+                        amount=fee,
+                        memo="Overdraft Fee",
+                        initiated_by="system",
+                        initiator_id=0,
+                    )
+                    await create_transaction(db, tx)
+                    account.overdraft_fee_charged = True
+                    account.overdraft_fee_last_charged = today
+    else:
+        if account.overdraft_fee_charged or account.overdraft_fee_last_charged:
+            account.overdraft_fee_charged = False
+            account.overdraft_fee_last_charged = None
+    db.add(account)
+    await db.commit()
+
+
+async def post_transaction_update(db: AsyncSession, child_id: int) -> None:
+    await recalc_interest(db, child_id)
+    settings = await get_settings(db)
+    account = await get_account_by_child(db, child_id)
+    if account:
+        await apply_overdraft_fee(db, account, settings, date.today())
+
+
+async def apply_promotion(
+    db: AsyncSession,
+    amount: float,
+    is_percentage: bool,
+    credit: bool,
+    memo: str | None = None,
+) -> int:
+    accounts = await get_all_accounts(db)
+    count = 0
+    for account in accounts:
+        balance = await calculate_balance(db, account.child_id)
+        adj = amount * balance if is_percentage else amount
+        adj = round(adj, 2)
+        if adj == 0:
+            continue
+        tx = Transaction(
+            child_id=account.child_id,
+            type="credit" if credit else "debit",
+            amount=abs(adj),
+            memo=memo or "Promotion",
+            initiated_by="system",
+            initiator_id=0,
+        )
+        await create_transaction(db, tx)
+        await post_transaction_update(db, account.child_id)
+        count += 1
+    return count
+
+
 async def create_withdrawal_request(
     db: AsyncSession, req: WithdrawalRequest
 ) -> WithdrawalRequest:
@@ -583,6 +701,10 @@ async def redeem_cd(
     cd.redeemed_at = datetime.utcnow()
     await save_cd(db, cd)
     await recalc_interest(db, cd.child_id)
+    settings = await get_settings(db)
+    account = await get_account_by_child(db, cd.child_id)
+    if account:
+        await apply_overdraft_fee(db, account, settings, date.today())
     return cd
 
 

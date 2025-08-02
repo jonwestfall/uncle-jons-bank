@@ -70,6 +70,9 @@ class Account(SQLModel, table=True):
     cd_penalty_rate: float = 0.1  # Penalty for early CD withdrawal
     last_interest_applied: Optional[date] = None
     total_interest_earned: float = 0.0
+    service_fee_last_charged: Optional[date] = None
+    overdraft_fee_last_charged: Optional[date] = None
+    overdraft_fee_charged: bool = False
 
     child: Child = Relationship(back_populates="account")
 
@@ -141,3 +144,8 @@ class Settings(SQLModel, table=True):
     default_interest_rate: float = 0.01
     default_penalty_interest_rate: float = 0.02
     default_cd_penalty_rate: float = 0.1
+    service_fee_amount: float = 0.0
+    service_fee_is_percentage: bool = False
+    overdraft_fee_amount: float = 0.0
+    overdraft_fee_is_percentage: bool = False
+    overdraft_fee_daily: bool = False

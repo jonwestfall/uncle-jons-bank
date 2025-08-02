@@ -14,6 +14,7 @@ from app.crud import (
     get_children_by_user,
     calculate_balance,
     create_transaction,
+    post_transaction_update,
 )
 
 router = APIRouter(prefix="/cds", tags=["cds"])
@@ -79,6 +80,7 @@ async def accept_cd(
             initiator_id=child.id,
         ),
     )
+    await post_transaction_update(db, child.id)
     cd.status = "accepted"
     cd.accepted_at = datetime.utcnow()
     cd.matures_at = cd.accepted_at + timedelta(days=cd.term_days)

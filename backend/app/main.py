@@ -20,11 +20,16 @@ from app.crud import (
     recalc_interest,
     ensure_permissions_exist,
     process_due_recurring_charges,
+    get_all_accounts,
+    get_settings,
+    apply_service_fee,
+    apply_overdraft_fee,
 )
 from app.models import Child
 from app.acl import ALL_PERMISSIONS
 from sqlmodel import select
 import asyncio
+from datetime import date
 
 # Basic logging configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -57,10 +62,15 @@ async def daily_interest_task():
         try:
             async with async_session() as session:
                 await process_due_recurring_charges(session)
-                result = await session.execute(select(Child.id))
-                child_ids = result.scalars().all()
-                for cid in child_ids:
-                    await recalc_interest(session, cid)
+                settings = await get_settings(session)
+                accounts = await get_all_accounts(session)
+                for account in accounts:
+                    await recalc_interest(session, account.child_id)
+                accounts = await get_all_accounts(session)
+                today = date.today()
+                for account in accounts:
+                    await apply_service_fee(session, account, settings, today)
+                    await apply_overdraft_fee(session, account, settings, today)
                 from app.crud import redeem_matured_cds
 
                 await redeem_matured_cds(session)
