@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import LedgerTable from "../components/LedgerTable";
 import type { Transaction } from "../components/LedgerTable";
+import EditTransactionModal from "../components/EditTransactionModal";
 
 interface Child {
   id: number;
@@ -68,6 +69,7 @@ export default function ParentDashboard({
   const [cdAmount, setCdAmount] = useState("");
   const [cdRate, setCdRate] = useState("");
   const [cdDays, setCdDays] = useState("");
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
 
@@ -199,33 +201,7 @@ export default function ParentDashboard({
               <>
                 {canEdit && tx.initiated_by !== "system" && (
                   <button
-                    onClick={async () => {
-                      const amount = window.prompt("Amount", String(tx.amount));
-                      if (amount === null) return;
-                      const memo = window.prompt("Memo", tx.memo || "");
-                      const type = window.prompt(
-                        "Type (credit/debit)",
-                        tx.type,
-                      );
-                      const resp = await fetch(
-                        `${apiUrl}/transactions/${tx.id}`,
-                        {
-                          method: "PUT",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${token}`,
-                          },
-                          body: JSON.stringify({
-                            amount: Number(amount),
-                            memo: memo || null,
-                            type: type || tx.type,
-                          }),
-                        },
-                      );
-                      if (resp.ok && selectedChild !== null) {
-                        await fetchLedger(selectedChild);
-                      }
-                    }}
+                    onClick={() => setEditingTx(tx)}
                     className="ml-1"
                   >
                     Edit
@@ -444,6 +420,17 @@ export default function ParentDashboard({
         <button type="submit">Add</button>
       </form>
       <button onClick={onLogout}>Logout</button>
+      {editingTx && selectedChild !== null && (
+        <EditTransactionModal
+          transaction={editingTx}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingTx(null)}
+          onSuccess={async () => {
+            await fetchLedger(selectedChild);
+          }}
+        />
+      )}
     </div>
   );
 }
