@@ -33,11 +33,18 @@ interface Transaction {
   timestamp: string
 }
 
+interface SiteSettings {
+  site_name: string
+  default_interest_rate: number
+  default_penalty_interest_rate: number
+  default_cd_penalty_rate: number
+}
+
 export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props) {
   const [users, setUsers] = useState<User[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [settings, setSettings] = useState<any>(null)
+  const [settings, setSettings] = useState<SiteSettings | null>(null)
 
   const fetchData = async () => {
     const uh = { Authorization: `Bearer ${token}` }
@@ -48,7 +55,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
     const t = await fetch(`${apiUrl}/admin/transactions`, { headers: uh })
     if (t.ok) setTransactions(await t.json())
     const s = await fetch(`${apiUrl}/settings`)
-    if (s.ok) setSettings(await s.json())
+    if (s.ok) setSettings((await s.json()) as SiteSettings)
   }
 
   useEffect(() => {
@@ -70,11 +77,11 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
             onClick={async () => {
               const name = window.prompt('Site name', settings.site_name)
               if (name === null) return
-              const ir = window.prompt('Interest rate', settings.default_interest_rate)
+                const ir = window.prompt('Interest rate', String(settings.default_interest_rate))
               if (ir === null) return
-              const pr = window.prompt('Penalty rate', settings.default_penalty_interest_rate)
+                const pr = window.prompt('Penalty rate', String(settings.default_penalty_interest_rate))
               if (pr === null) return
-              const cd = window.prompt('CD penalty rate', settings.default_cd_penalty_rate)
+                const cd = window.prompt('CD penalty rate', String(settings.default_cd_penalty_rate))
               if (cd === null) return
               await fetch(`${apiUrl}/settings`, {
                 method: 'PUT',

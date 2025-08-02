@@ -5,13 +5,19 @@ interface Props {
   apiUrl: string
 }
 
+interface ChildProfileData {
+  interest_rate: number
+  penalty_interest_rate: number
+  cd_penalty_rate: number
+}
+
 export default function ChildProfile({ token, apiUrl }: Props) {
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<ChildProfileData | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       const resp = await fetch(`${apiUrl}/children/me`, { headers: { Authorization: `Bearer ${token}` } })
-      if (resp.ok) setData(await resp.json())
+      if (resp.ok) setData((await resp.json()) as ChildProfileData)
     }
     fetchData()
   }, [token, apiUrl])

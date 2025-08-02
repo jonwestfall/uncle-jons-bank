@@ -35,10 +35,19 @@ interface Props {
   onLogout: () => void
 }
 
+interface CdOffer {
+  id: number
+  amount: number
+  interest_rate: number
+  term_days: number
+  status: string
+  matures_at?: string | null
+}
+
 export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Props) {
   const [ledger, setLedger] = useState<LedgerResponse | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
-  const [cds, setCds] = useState<any[]>([])
+  const [cds, setCds] = useState<CdOffer[]>([])
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawMemo, setWithdrawMemo] = useState('')
   const [childName, setChildName] = useState('')
@@ -62,7 +71,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
     const resp = await fetch(`${apiUrl}/cds/child`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-    if (resp.ok) setCds(await resp.json())
+    if (resp.ok) setCds((await resp.json()) as CdOffer[])
   }, [apiUrl, token])
 
   const fetchChildName = useCallback(async () => {
