@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.openapi.docs import get_swagger_ui_html
 from app.routes import (
     users,
     children,
@@ -36,7 +37,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = FastAPI(docs_url=None)
 
 # CORS setup
 app.add_middleware(
@@ -89,6 +90,15 @@ app.include_router(admin.router)
 app.include_router(tests.router)
 app.include_router(settings.router)
 app.include_router(recurring.router)
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    # The API is served behind a `/api` prefix by the reverse proxy. The default
+    # FastAPI docs expect the OpenAPI schema at `/openapi.json`, which lives
+    # outside that prefix and results in the Swagger UI failing to load.
+    # Point the docs to `/api/openapi.json` so requests are routed correctly.
+    return get_swagger_ui_html(openapi_url="/api/openapi.json", title="API Docs")
 
 
 @app.get("/")
