@@ -59,7 +59,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
     if (c.ok) setChildren(await c.json())
     const t = await fetch(`${apiUrl}/admin/transactions`, { headers: uh })
     if (t.ok) setTransactions(await t.json())
-    const s = await fetch(`${apiUrl}/settings`)
+    const s = await fetch(`${apiUrl}/settings/`)
     if (s.ok) setSettings((await s.json()) as SiteSettings)
   }
 
@@ -104,7 +104,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
               if (of === null) return
               const ofp = window.confirm('Is overdraft fee a percentage?')
               const ofd = window.confirm('Charge overdraft fee daily?')
-              await fetch(`${apiUrl}/settings`, {
+              await fetch(`${apiUrl}/settings/`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({

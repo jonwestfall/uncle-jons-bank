@@ -57,7 +57,7 @@ function App() {
   }, [token, apiUrl])
 
   const fetchSettings = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/settings`)
+    const resp = await fetch(`${apiUrl}/settings/`)
     if (resp.ok) {
       const data = await resp.json()
       setSiteName(data.site_name)
