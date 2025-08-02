@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+
+# Navigate to repository root
+cd "$(dirname "$0")/.."
+
+# Run the full backend test suite, including recurring charge tests
+pytest backend/app/tests "$@"

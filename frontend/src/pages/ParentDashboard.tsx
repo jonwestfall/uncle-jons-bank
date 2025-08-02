@@ -42,6 +42,16 @@ interface WithdrawalRequest {
   denial_reason?: string | null;
 }
 
+interface RecurringCharge {
+  id: number;
+  child_id: number;
+  amount: number;
+  memo?: string | null;
+  interval_days: number;
+  next_run: string;
+  active: boolean;
+}
+
 interface Props {
   token: string;
   apiUrl: string;
@@ -61,6 +71,7 @@ export default function ParentDashboard({
   const [pendingWithdrawals, setPendingWithdrawals] = useState<
     WithdrawalRequest[]
   >([]);
+  const [charges, setCharges] = useState<RecurringCharge[]>([]);
   const [txType, setTxType] = useState("credit");
   const [txAmount, setTxAmount] = useState("");
   const [txMemo, setTxMemo] = useState("");
@@ -77,6 +88,13 @@ export default function ParentDashboard({
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
+  const canAddRecurring = permissions.includes("add_recurring_charge");
+  const canEditRecurring = permissions.includes("edit_recurring_charge");
+  const canDeleteRecurring = permissions.includes("delete_recurring_charge");
+  const [rcAmount, setRcAmount] = useState("");
+  const [rcMemo, setRcMemo] = useState("");
+  const [rcInterval, setRcInterval] = useState("");
+  const [rcNext, setRcNext] = useState("");
 
   const fetchChildren = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/children`, {
@@ -104,6 +122,17 @@ export default function ParentDashboard({
         headers: { Authorization: `Bearer ${token}` },
       });
       if (resp.ok) setLedger(await resp.json());
+    },
+    [apiUrl, token],
+  );
+
+  const fetchCharges = useCallback(
+    async (cid: number) => {
+      const resp = await fetch(`${apiUrl}/recurring/child/${cid}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok) setCharges(await resp.json());
+      else setCharges([]);
     },
     [apiUrl, token],
   );
@@ -155,6 +184,7 @@ export default function ParentDashboard({
               <button
                 onClick={() => {
                   fetchLedger(c.id);
+                  fetchCharges(c.id);
                   setSelectedChild(c.id);
                 }}
                 className="ml-1"
@@ -207,6 +237,122 @@ export default function ParentDashboard({
               </>
             )}
           />
+          <h4>Recurring Charges</h4>
+          <ul className="list">
+            {charges.map((c) => (
+              <li key={c.id}>
+                {c.amount.toFixed(2)} every {c.interval_days} days next on
+                {" "}
+                {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ""}
+                {canEditRecurring && (
+                  <button
+                    onClick={async () => {
+                      const amt = prompt("Amount", String(c.amount));
+                      if (!amt) return;
+                      const interval = prompt(
+                        "Interval days",
+                        String(c.interval_days),
+                      );
+                      if (!interval) return;
+                      const memo = prompt("Memo", c.memo || "") || null;
+                      const next =
+                        prompt(
+                          "Next run (YYYY-MM-DD)",
+                          c.next_run.slice(0, 10),
+                        ) || c.next_run.slice(0, 10);
+                      await fetch(`${apiUrl}/recurring/${c.id}`, {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          amount: Number(amt),
+                          interval_days: Number(interval),
+                          memo,
+                          next_run: next,
+                        }),
+                      });
+                      fetchCharges(selectedChild);
+                    }}
+                    className="ml-1"
+                  >
+                    Edit
+                  </button>
+                )}
+                {canDeleteRecurring && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Delete charge?")) return;
+                      await fetch(`${apiUrl}/recurring/${c.id}`, {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      fetchCharges(selectedChild);
+                    }}
+                    className="ml-05"
+                  >
+                    &times;
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {canAddRecurring && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    amount: Number(rcAmount),
+                    memo: rcMemo || null,
+                    interval_days: Number(rcInterval),
+                    next_run: rcNext,
+                  }),
+                });
+                setRcAmount("");
+                setRcMemo("");
+                setRcInterval("");
+                setRcNext("");
+                fetchCharges(selectedChild);
+              }}
+              className="form"
+            >
+              <h4>Add Recurring Charge</h4>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Amount"
+                value={rcAmount}
+                onChange={(e) => setRcAmount(e.target.value)}
+                required
+              />
+              <input
+                placeholder="Memo"
+                value={rcMemo}
+                onChange={(e) => setRcMemo(e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Interval days"
+                value={rcInterval}
+                onChange={(e) => setRcInterval(e.target.value)}
+                required
+              />
+              <input
+                type="date"
+                value={rcNext}
+                onChange={(e) => setRcNext(e.target.value)}
+                required
+              />
+              <button type="submit">Add</button>
+            </form>
+          )}
           <form
             onSubmit={async (e) => {
               e.preventDefault();

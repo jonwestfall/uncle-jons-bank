@@ -11,6 +11,7 @@ from app.models import (
     WithdrawalRequest,
     Account,
     CertificateDeposit,
+    RecurringCharge,
     Permission,
     UserPermissionLink,
     Settings,
@@ -595,3 +596,66 @@ async def redeem_matured_cds(db: AsyncSession) -> None:
     cds = result.scalars().all()
     for cd in cds:
         await redeem_cd(db, cd)
+
+
+async def create_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> RecurringCharge:
+    db.add(rc)
+    await db.commit()
+    await db.refresh(rc)
+    return rc
+
+
+async def get_recurring_charge(db: AsyncSession, rc_id: int) -> RecurringCharge | None:
+    result = await db.execute(
+        select(RecurringCharge).where(RecurringCharge.id == rc_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_recurring_charges_by_child(
+    db: AsyncSession, child_id: int
+) -> list[RecurringCharge]:
+    result = await db.execute(
+        select(RecurringCharge).where(RecurringCharge.child_id == child_id)
+    )
+    return result.scalars().all()
+
+
+async def save_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> RecurringCharge:
+    db.add(rc)
+    await db.commit()
+    await db.refresh(rc)
+    return rc
+
+
+async def delete_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> None:
+    await db.delete(rc)
+    await db.commit()
+
+
+async def process_due_recurring_charges(db: AsyncSession) -> None:
+    today = date.today()
+    result = await db.execute(
+        select(RecurringCharge).where(
+            RecurringCharge.active == True,  # noqa: E712
+            RecurringCharge.next_run <= today,
+        )
+    )
+    charges = result.scalars().all()
+    for charge in charges:
+        while charge.next_run <= today and charge.active:
+            await create_transaction(
+                db,
+                Transaction(
+                    child_id=charge.child_id,
+                    type="debit",
+                    amount=charge.amount,
+                    memo=charge.memo,
+                    initiated_by="system",
+                    initiator_id=0,
+                ),
+            )
+            charge.next_run = charge.next_run + timedelta(days=charge.interval_days)
+            db.add(charge)
+            await db.commit()
+            await db.refresh(charge)

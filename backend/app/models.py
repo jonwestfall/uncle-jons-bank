@@ -106,6 +106,18 @@ class WithdrawalRequest(SQLModel, table=True):
     approver: Optional[User] = Relationship()
 
 
+class RecurringCharge(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="child.id")
+    amount: float
+    memo: Optional[str] = None
+    interval_days: int
+    next_run: date
+    active: bool = True
+
+    child: Child = Relationship()
+
+
 class CertificateDeposit(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
