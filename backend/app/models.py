@@ -178,6 +178,38 @@ class CertificateDeposit(SQLModel, table=True):
     parent: User = Relationship()
 
 
+class Loan(SQLModel, table=True):
+    """Simple loan offered by a parent to a child."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="child.id")
+    parent_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    amount: float
+    purpose: Optional[str] = None
+    interest_rate: float = 0.0
+    status: str = "requested"  # requested, approved, active, denied, closed
+    principal_remaining: float = 0.0
+    last_interest_applied: Optional[date] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    child: Child = Relationship()
+    parent: Optional[User] = Relationship()
+    transactions: List["LoanTransaction"] = Relationship(back_populates="loan")
+
+
+class LoanTransaction(SQLModel, table=True):
+    """Ledger of loan-related transactions."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    loan_id: int = Field(foreign_key="loan.id")
+    type: str  # disbursement, payment, interest, fee
+    amount: float
+    memo: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    loan: Loan = Relationship(back_populates="transactions")
+
+
 class Settings(SQLModel, table=True):
     """Singleton table storing site‑wide configuration values."""
     id: Optional[int] = Field(default=1, primary_key=True)

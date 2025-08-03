@@ -38,6 +38,7 @@ from .recurring import (
 )
 from .promotion import Promotion
 from .share import ShareCodeCreate, ShareCodeRead, ParentAccess
+from .loan import LoanCreate, LoanRead, LoanApprove, LoanPayment
 
 __all__ = [
     "UserCreate",
@@ -73,4 +74,8 @@ __all__ = [
     "ShareCodeCreate",
     "ShareCodeRead",
     "ParentAccess",
+    "LoanCreate",
+    "LoanRead",
+    "LoanApprove",
+    "LoanPayment",
 ]

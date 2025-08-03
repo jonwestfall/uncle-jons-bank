@@ -19,6 +19,8 @@ PERM_ADD_RECURRING = "add_recurring_charge"
 PERM_EDIT_RECURRING = "edit_recurring_charge"
 PERM_DELETE_RECURRING = "delete_recurring_charge"
 PERM_OFFER_CD = "offer_cd"
+PERM_OFFER_LOAN = "offer_loan"
+PERM_MANAGE_LOAN = "manage_loan"
 
 ALL_PERMISSIONS = [
     PERM_ADD_TRANSACTION,
@@ -34,6 +36,8 @@ ALL_PERMISSIONS = [
     PERM_EDIT_RECURRING,
     PERM_DELETE_RECURRING,
     PERM_OFFER_CD,
+    PERM_OFFER_LOAN,
+    PERM_MANAGE_LOAN,
 ]
 
 ROLE_DEFAULT_PERMISSIONS = {
@@ -51,6 +55,8 @@ ROLE_DEFAULT_PERMISSIONS = {
         PERM_EDIT_RECURRING,
         PERM_DELETE_RECURRING,
         PERM_OFFER_CD,
+        PERM_OFFER_LOAN,
+        PERM_MANAGE_LOAN,
     ],
     "child": [PERM_VIEW_TRANSACTIONS],
 }

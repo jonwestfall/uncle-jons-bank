@@ -1,6 +1,18 @@
 """Aggregate import for all API route modules."""
 
-from . import auth, users, children, transactions, withdrawals, admin, tests, cds, settings, recurring
+from . import (
+    auth,
+    users,
+    children,
+    transactions,
+    withdrawals,
+    admin,
+    tests,
+    cds,
+    settings,
+    recurring,
+    loans,
+)
 
 __all__ = [
     "auth",
@@ -13,4 +25,5 @@ __all__ = [
     "admin",
     "tests",
     "recurring",
+    "loans",
 ]
