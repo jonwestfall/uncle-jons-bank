@@ -45,7 +45,8 @@ class User(SQLModel, table=True):
 
     children: List["ChildUserLink"] = Relationship(back_populates="user")
     permission_links: List["UserPermissionLink"] = Relationship(
-        back_populates="user"
+        back_populates="user",
+        sa_relationship_kwargs={"overlaps": "users"},
     )
     permissions: List[Permission] = Relationship(
         back_populates="users",
