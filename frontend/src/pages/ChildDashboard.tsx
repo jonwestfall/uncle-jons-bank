@@ -121,6 +121,9 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
       {ledger && (
         <>
           <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
+          <p className="help-text">
+            This is how much money you have right now. Money you add makes it go up. Money you spend makes it go down.
+          </p>
           <LedgerTable
             transactions={ledger.transactions}
             onWidth={w => !tableWidth && setTableWidth(w)}
@@ -130,7 +133,10 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
       )}
       {charges.length > 0 && (
         <div>
-          <h4>Recurring Transactions</h4>
+          <h4>Automatic Money Moves</h4>
+          <p className="help-text">
+            These happen on their own, like getting allowance every week.
+          </p>
           <ul className="list">
             {charges.map(c => (
               <li key={c.id}>
@@ -142,7 +148,10 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
       )}
       {cds.length > 0 && (
         <div>
-          <h4>CD Offers</h4>
+          <h4>Special Savings Offers (CDs)</h4>
+          <p className="help-text">
+            A CD (Certificate of Deposit) is like a special piggy bank. You agree to leave your money in for a set time and earn extra money called interest.
+          </p>
           <ul className="list">
             {cds.map(cd => {
               const daysLeft = cd.matures_at
@@ -159,7 +168,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
                       onClick={() =>
                         setConfirmAction({
                           message:
-                            'Redeem this CD early? A 10% penalty will be charged.',
+                            'Take out this CD early? A 10% fee will be taken.',
                           onConfirm: async () => {
                             await fetch(`${apiUrl}/cds/${cd.id}/redeem-early`, {
                               method: 'POST',
@@ -172,7 +181,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
                       }
                       className="ml-05"
                     >
-                      Redeem Early
+                      Take Money Early
                     </button>
                   )}
                   {cd.status === 'offered' && (
@@ -188,7 +197,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
                         }}
                         className="ml-1"
                       >
-                        Accept
+                        Yes, Save It
                       </button>
                       <button
                         onClick={async () => {
@@ -200,7 +209,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
                         }}
                         className="ml-05"
                       >
-                        Reject
+                        No Thanks
                       </button>
                     </>
                   )}
@@ -228,9 +237,12 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
         }}
         className="form"
       >
-        <h4>Request Withdrawal</h4>
+        <h4>Ask to Take Out Money</h4>
+        <p className="help-text">
+          A withdrawal is asking your grown-up to send money to you. They have to say yes before you get it.
+        </p>
         <label>
-          Amount
+          How much?
           <input
             type="number"
             step="0.01"
@@ -240,18 +252,19 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
           />
         </label>
         <label>
-          Memo
+          Note for your grown-up
           <input
-            placeholder="Memo"
+            placeholder="Optional note"
             value={withdrawMemo}
             onChange={e => setWithdrawMemo(e.target.value)}
           />
         </label>
-        <button type="submit">Submit</button>
+        <button type="submit">Send Request</button>
       </form>
       {withdrawals.length > 0 && (
         <div>
-          <h4>Your Requests</h4>
+          <h4>Your Money Requests</h4>
+          <p className="help-text">Pending means waiting for a grown-up to decide.</p>
           <ul className="list">
             {withdrawals.map(w => (
               <li key={w.id}>
