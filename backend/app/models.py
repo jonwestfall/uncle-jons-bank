@@ -51,7 +51,7 @@ class User(SQLModel, table=True):
     permissions: List[Permission] = Relationship(
         back_populates="users",
         link_model=UserPermissionLink,
-        sa_relationship_kwargs={"overlaps": "permission,user_links"},
+        sa_relationship_kwargs={"overlaps": "permission_links,user"},
     )
 
 
