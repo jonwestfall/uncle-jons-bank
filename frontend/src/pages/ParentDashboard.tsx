@@ -1,15 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
-import LedgerTable from "../components/LedgerTable";
-import type { Transaction } from "../components/LedgerTable";
+import { useCallback, useEffect, useState } from "react";
 import EditRatesModal from "../components/EditRatesModal";
+import type { Transaction } from "../components/LedgerTable";
+import LedgerTable from "../components/LedgerTable";
 import { formatCurrency } from "../utils/currency";
 
-import EditTransactionModal from "../components/EditTransactionModal";
-import TextPromptModal from "../components/TextPromptModal";
 import ConfirmModal from "../components/ConfirmModal";
 import EditRecurringModal from "../components/EditRecurringModal";
-import ShareChildModal from "../components/ShareChildModal";
+import EditTransactionModal from "../components/EditTransactionModal";
 import ManageAccessModal from "../components/ManageAccessModal";
+import ShareChildModal from "../components/ShareChildModal";
+import TextPromptModal from "../components/TextPromptModal";
 
 interface Child {
   id: number;
@@ -217,8 +217,39 @@ export default function ParentDashboard({
 
   return (
     <div className="container">
+      {pendingWithdrawals.length > 0 && (
+        <div>
+          <h4>Pending Withdrawal Requests</h4>
+          <ul className="list">
+            {pendingWithdrawals.map((w) => (
+              <li key={w.id}>
+                Child {w.child_id}: {formatCurrency(w.amount, currencySymbol)} {w.memo ? `(${w.memo})` : ""}
+                <button
+                  onClick={async () => {
+                    await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    await fetchPendingWithdrawals();
+                    if (selectedChild === w.child_id)
+                      await fetchLedger(w.child_id);
+                  }}
+                  className="ml-1"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => setDenyRequest(w)}
+                  className="ml-05"
+                >
+                  Deny
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <h2>Your Children</h2>
-      <button onClick={() => setRedeemOpen(true)}>Redeem Share Code</button>
         {toast && (
           <div className={toast.error ? "error" : "success"}>
             <span>{toast.message}</span>
@@ -248,6 +279,7 @@ export default function ParentDashboard({
           </li>
         ))}
       </ul>
+      <button onClick={() => setRedeemOpen(true)}>Redeem Share Code</button>
       {actionChild && (
         <div
           className="modal-overlay"
@@ -631,38 +663,7 @@ export default function ParentDashboard({
       </form>
       </div>
     )}
-      {pendingWithdrawals.length > 0 && (
-        <div>
-          <h4>Pending Withdrawal Requests</h4>
-          <ul className="list">
-            {pendingWithdrawals.map((w) => (
-              <li key={w.id}>
-                Child {w.child_id}: {formatCurrency(w.amount, currencySymbol)} {w.memo ? `(${w.memo})` : ""}
-                <button
-                  onClick={async () => {
-                    await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {
-                      method: "POST",
-                      headers: { Authorization: `Bearer ${token}` },
-                    });
-                    await fetchPendingWithdrawals();
-                    if (selectedChild === w.child_id)
-                      await fetchLedger(w.child_id);
-                  }}
-                  className="ml-1"
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => setDenyRequest(w)}
-                  className="ml-05"
-                >
-                  Deny
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      
       <form
         onSubmit={async (e) => {
           e.preventDefault();
