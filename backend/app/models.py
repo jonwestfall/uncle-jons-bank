@@ -120,7 +120,7 @@ class WithdrawalRequest(SQLModel, table=True):
     child_id: int = Field(foreign_key="child.id")
     amount: float
     memo: Optional[str] = None
-    status: str = "pending"  # pending, approved, denied
+    status: str = "pending"  # pending, approved, denied, cancelled
     requested_at: datetime = Field(default_factory=datetime.utcnow)
     responded_at: Optional[datetime] = None
     approver_id: Optional[int] = Field(default=None, foreign_key="user.id")

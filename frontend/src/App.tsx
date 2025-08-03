@@ -114,7 +114,7 @@ function App() {
         {isChildAccount && childId !== null && (
           <>
             <Route path="/child" element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} currencySymbol={currencySymbol} />} />
-            <Route path="/child/profile" element={<ChildProfile token={token} apiUrl={apiUrl} />} />
+              <Route path="/child/profile" element={<ChildProfile token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />} />
           </>
         )}
         {!isChildAccount && (

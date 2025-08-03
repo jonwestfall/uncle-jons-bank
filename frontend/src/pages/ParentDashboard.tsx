@@ -164,12 +164,6 @@ export default function ParentDashboard({
     fetchPendingWithdrawals();
   }, [fetchChildren, fetchPendingWithdrawals]);
 
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
 
   const toggleFreeze = async (childId: number, frozen: boolean) => {
     const endpoint = frozen ? "unfreeze" : "freeze";
@@ -183,9 +177,14 @@ export default function ParentDashboard({
   return (
     <div className="container">
       <h2>Your Children</h2>
-      {toast && (
-        <p className={toast.error ? "error" : "success"}>{toast.message}</p>
-      )}
+        {toast && (
+          <div className={toast.error ? "error" : "success"}>
+            <span>{toast.message}</span>
+            <button className="ml-05" onClick={() => setToast(null)}>
+              X
+            </button>
+          </div>
+        )}
       <ul className="list">
         {children.map((c) => (
           <li key={c.id}>
@@ -436,7 +435,7 @@ export default function ParentDashboard({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            await fetch(`${apiUrl}/cds`, {
+            const resp = await fetch(`${apiUrl}/cds`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -449,6 +448,18 @@ export default function ParentDashboard({
                 term_days: Number(cdDays),
               }),
             });
+            if (resp.ok) {
+              alert("CD offer sent!");
+            } else {
+              let msg = "Failed to send CD offer";
+              try {
+                const data = await resp.json();
+                if (data.detail) msg = data.detail;
+              } catch {
+                // ignore
+              }
+              alert(msg);
+            }
             setCdAmount("");
             setCdRate("");
             setCdDays("");
