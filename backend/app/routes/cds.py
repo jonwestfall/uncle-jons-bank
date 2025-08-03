@@ -13,11 +13,12 @@ from app.crud import (
     get_cd,
     save_cd,
     get_cds_by_child,
-    get_children_by_user,
+    get_child_user_link,
     calculate_balance,
     create_transaction,
     post_transaction_update,
 )
+from app.acl import PERM_OFFER_CD
 
 router = APIRouter(prefix="/cds", tags=["cds"])
 
@@ -29,9 +30,11 @@ async def create_cd_offer(
     current_user: User = Depends(require_role("parent", "admin")),
 ):
     if current_user.role != "admin":
-        children = await get_children_by_user(db, current_user.id)
-        if data.child_id not in [c.id for c in children]:
+        link = await get_child_user_link(db, current_user.id, data.child_id)
+        if not link:
             raise HTTPException(status_code=404, detail="Child not found")
+        if PERM_OFFER_CD not in link.permissions and not link.is_owner:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
     cd = CertificateDeposit(
         child_id=data.child_id,
         parent_id=current_user.id,
