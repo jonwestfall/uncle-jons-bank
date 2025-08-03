@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
-import LedgerTable from '../components/LedgerTable'
+import { useCallback, useEffect, useState } from 'react'
 import ConfirmModal from '../components/ConfirmModal'
+import LedgerTable from '../components/LedgerTable'
 import { formatCurrency } from '../utils/currency'
 
 interface Transaction {
@@ -140,7 +140,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
           <ul className="list">
             {charges.map(c => (
               <li key={c.id}>
-                {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run + "T00:00:00").toLocaleDateString()} {c.memo ? `(${c.memo})` : ''}
+                A {c.type} of {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} day(s), next on {new Date(c.next_run + "T00:00:00").toLocaleDateString()} {c.memo ? `(Memo: ${c.memo})` : ''}
               </li>
             ))}
           </ul>
