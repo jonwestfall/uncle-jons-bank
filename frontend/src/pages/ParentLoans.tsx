@@ -29,6 +29,7 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
   const [approveRate, setApproveRate] = useState<Record<number, string>>({})
   const [approveTerms, setApproveTerms] = useState<Record<number, string>>({})
   const [paymentAmount, setPaymentAmount] = useState<Record<number, string>>({})
+  const [newRate, setNewRate] = useState<Record<number, string>>({})
 
   const fetchChildren = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/children/`, {
@@ -92,6 +93,19 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
     fetchLoans(selectedChild!)
   }
 
+  const changeRate = async (loanId: number) => {
+    await fetch(`${apiUrl}/loans/${loanId}/interest`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ interest_rate: parseFloat(newRate[loanId] || '0') }),
+    })
+    setNewRate({ ...newRate, [loanId]: '' })
+    fetchLoans(selectedChild!)
+  }
+
   const closeLoan = async (loanId: number) => {
     await fetch(`${apiUrl}/loans/${loanId}/close`, {
       method: 'POST',
@@ -126,6 +140,19 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
           {loans.map(l => (
             <li key={l.id}>
               {formatCurrency(l.amount, currencySymbol)} for {l.purpose || 'n/a'} - {l.status}
+              {['approved', 'active'].includes(l.status) && (
+                <div>
+                  Rate: {l.interest_rate}
+                  <input
+                    placeholder="New rate"
+                    value={newRate[l.id] || ''}
+                    onChange={e =>
+                      setNewRate({ ...newRate, [l.id]: e.target.value })
+                    }
+                  />
+                  <button onClick={() => changeRate(l.id)}>Update Rate</button>
+                </div>
+              )}
               {l.status === 'requested' && (
                 <div>
                   <input

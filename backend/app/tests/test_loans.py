@@ -160,6 +160,23 @@ def test_loan_flow():
             assert resp.json()["status"] == "active"
             assert resp.json()["principal_remaining"] == 80
 
+            # Parent2 interest change attempt -> 403
+            resp = await client.post(
+                f"/loans/{loan2_id}/interest",
+                headers=parent2_headers,
+                json={"interest_rate": 0.02},
+            )
+            assert resp.status_code == 403
+
+            # Parent1 changes interest rate
+            resp = await client.post(
+                f"/loans/{loan2_id}/interest",
+                headers=parent1_headers,
+                json={"interest_rate": 0.02},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["interest_rate"] == 0.02
+
             # Parent2 payment attempt -> 403
             resp = await client.post(
                 f"/loans/{loan2_id}/payment",

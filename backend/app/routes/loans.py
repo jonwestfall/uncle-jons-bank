@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
 from app.models import Loan, LoanTransaction, Child, User, Transaction
-from app.schemas import LoanCreate, LoanRead, LoanApprove, LoanPayment
+from app.schemas import LoanCreate, LoanRead, LoanApprove, LoanPayment, LoanRateUpdate
 from app.auth import get_current_child, require_permissions
 from app.acl import PERM_OFFER_LOAN, PERM_MANAGE_LOAN
 from app.crud import (
@@ -178,6 +178,34 @@ async def parent_loans(
         ):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
     return await get_loans_by_child(db, child_id)
+
+
+@router.post("/{loan_id}/interest", response_model=LoanRead)
+async def update_interest_rate(
+    loan_id: int,
+    data: LoanRateUpdate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_LOAN)),
+):
+    loan = await get_loan(db, loan_id)
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    if current_user.role != "admin":
+        link = await get_child_user_link(db, current_user.id, loan.child_id)
+        if not link or (PERM_MANAGE_LOAN not in link.permissions and not link.is_owner):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+    loan.interest_rate = data.interest_rate
+    await record_loan_transaction(
+        db,
+        LoanTransaction(
+            loan_id=loan.id,
+            type="rate_change",
+            amount=0,
+            memo=f"Interest rate changed to {data.interest_rate}",
+        ),
+    )
+    await save_loan(db, loan)
+    return loan
 
 
 @router.post("/{loan_id}/payment", response_model=LoanRead)

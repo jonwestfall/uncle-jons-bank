@@ -32,3 +32,7 @@ class LoanApprove(BaseModel):
 
 class LoanPayment(BaseModel):
     amount: float
+
+
+class LoanRateUpdate(BaseModel):
+    interest_rate: float
