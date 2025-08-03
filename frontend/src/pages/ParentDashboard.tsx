@@ -435,7 +435,7 @@ export default function ParentDashboard({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const resp = await fetch(`${apiUrl}/cds`, {
+            const resp = await fetch(`${apiUrl}/cds/`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
