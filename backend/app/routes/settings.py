@@ -23,6 +23,7 @@ async def read_settings(db: AsyncSession = Depends(get_session)):
         overdraft_fee_amount=settings.overdraft_fee_amount,
         overdraft_fee_is_percentage=settings.overdraft_fee_is_percentage,
         overdraft_fee_daily=settings.overdraft_fee_daily,
+        currency_symbol=settings.currency_symbol,
     )
 
 
@@ -46,4 +47,5 @@ async def update_settings(
         overdraft_fee_amount=updated.overdraft_fee_amount,
         overdraft_fee_is_percentage=updated.overdraft_fee_is_percentage,
         overdraft_fee_daily=updated.overdraft_fee_daily,
+        currency_symbol=updated.currency_symbol,
     )

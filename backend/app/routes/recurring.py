@@ -51,6 +51,7 @@ async def add_recurring_charge(
     rc = RecurringCharge(
         child_id=child_id,
         amount=data.amount,
+        type=data.type,
         memo=data.memo,
         interval_days=data.interval_days,
         next_run=data.next_run,

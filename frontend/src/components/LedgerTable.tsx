@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState, useMemo } from 'react'
+import { formatCurrency } from '../utils/currency'
 
 export interface Transaction {
   id: number
@@ -16,11 +17,13 @@ export default function LedgerTable({
   renderActions,
   onWidth,
   allowDownload,
+  currencySymbol,
 }: {
   transactions: Transaction[]
   renderActions?: (tx: Transaction) => React.ReactNode
   onWidth?: (width: number) => void
   allowDownload?: boolean
+  currencySymbol: string
 }) {
   const tableRef = useRef<HTMLTableElement>(null)
   const [pageSize, setPageSize] = useState(15)
@@ -85,9 +88,9 @@ export default function LedgerTable({
         <td>{new Date(tx.timestamp).toLocaleDateString()}</td>
         <td>{tx.type}</td>
         <td>{tx.memo || ''}</td>
-        <td>{tx.type === 'debit' ? tx.amount.toFixed(2) : ''}</td>
-        <td>{tx.type === 'credit' ? tx.amount.toFixed(2) : ''}</td>
-        <td>{runningBalance.toFixed(2)}</td>
+        <td>{tx.type === 'debit' ? formatCurrency(tx.amount, currencySymbol) : ''}</td>
+        <td>{tx.type === 'credit' ? formatCurrency(tx.amount, currencySymbol) : ''}</td>
+        <td>{formatCurrency(runningBalance, currencySymbol)}</td>
         {renderActions && <td>{renderActions(tx)}</td>}
       </tr>
     )
@@ -114,9 +117,9 @@ export default function LedgerTable({
         new Date(tx.timestamp).toLocaleDateString(),
         tx.type,
         tx.memo || '',
-        tx.type === 'debit' ? tx.amount.toFixed(2) : '',
-        tx.type === 'credit' ? tx.amount.toFixed(2) : '',
-        bal.toFixed(2),
+        tx.type === 'debit' ? formatCurrency(tx.amount, currencySymbol) : '',
+        tx.type === 'credit' ? formatCurrency(tx.amount, currencySymbol) : '',
+        formatCurrency(bal, currencySymbol),
       ])
     })
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')

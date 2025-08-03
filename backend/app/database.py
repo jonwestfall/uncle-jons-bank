@@ -78,6 +78,20 @@ async def create_db_and_tables() -> None:
                     "ALTER TABLE settings ADD COLUMN overdraft_fee_daily BOOLEAN DEFAULT 0"
                 )
             )
+        if not await has_column("settings", "currency_symbol"):
+            await conn.execute(
+                text(
+                    "ALTER TABLE settings ADD COLUMN currency_symbol VARCHAR DEFAULT '$'"
+                )
+            )
+
+        # RecurringCharge table columns
+        if not await has_column("recurringcharge", "type"):
+            await conn.execute(
+                text(
+                    "ALTER TABLE recurringcharge ADD COLUMN type VARCHAR DEFAULT 'debit'"
+                )
+            )
 
         # Account table columns
         if not await has_column("account", "service_fee_last_charged"):

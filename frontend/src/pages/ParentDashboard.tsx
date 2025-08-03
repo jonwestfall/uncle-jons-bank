@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import LedgerTable from "../components/LedgerTable";
 import type { Transaction } from "../components/LedgerTable";
 import EditRatesModal from "../components/EditRatesModal";
+import { formatCurrency } from "../utils/currency";
 
 import EditTransactionModal from "../components/EditTransactionModal";
 import TextPromptModal from "../components/TextPromptModal";
@@ -48,6 +49,7 @@ interface RecurringCharge {
   id: number;
   child_id: number;
   amount: number;
+  type: string;
   memo?: string | null;
   interval_days: number;
   next_run: string;
@@ -59,6 +61,7 @@ interface Props {
   apiUrl: string;
   permissions: string[];
   onLogout: () => void;
+  currencySymbol: string;
 }
 
 export default function ParentDashboard({
@@ -66,6 +69,7 @@ export default function ParentDashboard({
   apiUrl,
   permissions,
   onLogout,
+  currencySymbol,
 }: Props) {
   const [children, setChildren] = useState<Child[]>([]);
   const [ledger, setLedger] = useState<LedgerResponse | null>(null);
@@ -101,6 +105,7 @@ export default function ParentDashboard({
   const canEditRecurring = permissions.includes("edit_recurring_charge");
   const canDeleteRecurring = permissions.includes("delete_recurring_charge");
   const [rcAmount, setRcAmount] = useState("");
+  const [rcType, setRcType] = useState("debit");
   const [rcMemo, setRcMemo] = useState("");
   const [rcInterval, setRcInterval] = useState("");
   const [rcNext, setRcNext] = useState("");
@@ -207,11 +212,12 @@ export default function ParentDashboard({
       {ledger && selectedChild !== null && (
         <div>
           <h4>Ledger for child #{selectedChild}</h4>
-          <p>Balance: {ledger.balance.toFixed(2)}</p>
+          <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
           <LedgerTable
             transactions={ledger.transactions}
             onWidth={(w) => !tableWidth && setTableWidth(w)}
             allowDownload
+            currencySymbol={currencySymbol}
             renderActions={(tx) => (
               <>
                 {canEdit && tx.initiated_by !== "system" && (
@@ -250,13 +256,11 @@ export default function ParentDashboard({
               </>
             )}
           />
-          <h4>Recurring Charges</h4>
+          <h4>Recurring Transactions</h4>
           <ul className="list">
             {charges.map((c) => (
               <li key={c.id}>
-                {c.amount.toFixed(2)} every {c.interval_days} days next on
-                {" "}
-                {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ""}
+                {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ""}
                 {canEditRecurring && (
                   <button
                     onClick={async () => {
@@ -268,6 +272,7 @@ export default function ParentDashboard({
                       );
                       if (!interval) return;
                       const memo = prompt("Memo", c.memo || "") || null;
+                      const type = prompt("Type (credit/debit)", c.type) || c.type;
                       const next =
                         prompt(
                           "Next run (YYYY-MM-DD)",
@@ -284,6 +289,7 @@ export default function ParentDashboard({
                           interval_days: Number(interval),
                           memo,
                           next_run: next,
+                          type,
                         }),
                       });
                       fetchCharges(selectedChild);
@@ -330,9 +336,11 @@ export default function ParentDashboard({
                     memo: rcMemo || null,
                     interval_days: Number(rcInterval),
                     next_run: rcNext,
+                    type: rcType,
                   }),
                 });
                 setRcAmount("");
+                setRcType("debit");
                 setRcMemo("");
                 setRcInterval("");
                 setRcNext("");
@@ -340,7 +348,14 @@ export default function ParentDashboard({
               }}
               className="form"
             >
-              <h4>Add Recurring Charge</h4>
+              <h4>Add Recurring Transaction</h4>
+              <label>
+                Type
+                <select value={rcType} onChange={(e) => setRcType(e.target.value)}>
+                  <option value="debit">Debit</option>
+                  <option value="credit">Credit</option>
+                </select>
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -484,7 +499,7 @@ export default function ParentDashboard({
           <ul className="list">
             {pendingWithdrawals.map((w) => (
               <li key={w.id}>
-                Child {w.child_id}: {w.amount} {w.memo ? `(${w.memo})` : ""}
+                Child {w.child_id}: {formatCurrency(w.amount, currencySymbol)} {w.memo ? `(${w.memo})` : ""}
                 <button
                   onClick={async () => {
                     await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {

@@ -5,6 +5,7 @@ from datetime import date
 
 class RecurringChargeBase(BaseModel):
     amount: float
+    type: str = "debit"
     memo: Optional[str] = None
     interval_days: int
     next_run: date
@@ -25,6 +26,7 @@ class RecurringChargeRead(RecurringChargeBase):
 
 class RecurringChargeUpdate(BaseModel):
     amount: float | None = None
+    type: str | None = None
     memo: str | None = None
     interval_days: int | None = None
     next_run: date | None = None

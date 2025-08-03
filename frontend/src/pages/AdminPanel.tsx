@@ -3,12 +3,15 @@ import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
 import RunPromotionModal from '../components/RunPromotionModal'
 import TextPromptModal from '../components/TextPromptModal'
 import ConfirmModal from '../components/ConfirmModal'
+import { formatCurrency } from '../utils/currency'
 
 interface Props {
   token: string
   apiUrl: string
   onLogout: () => void
   siteName: string
+  currencySymbol: string
+  onSettingsChange?: () => void
 }
 
 interface User {
@@ -47,9 +50,10 @@ interface SiteSettings {
   overdraft_fee_amount: number
   overdraft_fee_is_percentage: boolean
   overdraft_fee_daily: boolean
+  currency_symbol: string
 }
 
-export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props) {
+export default function AdminPanel({ token, apiUrl, onLogout, siteName, currencySymbol, onSettingsChange }: Props) {
   const [users, setUsers] = useState<User[]>([])
   const [children, setChildren] = useState<Child[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -69,7 +73,11 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
     const t = await fetch(`${apiUrl}/admin/transactions`, { headers: uh })
     if (t.ok) setTransactions(await t.json())
     const s = await fetch(`${apiUrl}/settings/`)
-    if (s.ok) setSettings((await s.json()) as SiteSettings)
+    if (s.ok) {
+      const data = (await s.json()) as SiteSettings
+      setSettings(data)
+      onSettingsChange && onSettingsChange()
+    }
   }
 
   useEffect(() => {
@@ -89,13 +97,12 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
           <p>Default Interest Rate: {settings.default_interest_rate}</p>
           <p>Penalty Interest Rate: {settings.default_penalty_interest_rate}</p>
           <p>CD Penalty Rate: {settings.default_cd_penalty_rate}</p>
+          <p>Currency Symbol: {settings.currency_symbol}</p>
           <p>
-            Service Fee: {settings.service_fee_amount}
-            {settings.service_fee_is_percentage ? '%' : ''}
+            Service Fee: {settings.service_fee_is_percentage ? `${settings.service_fee_amount}%` : formatCurrency(settings.service_fee_amount, currencySymbol)}
           </p>
           <p>
-            Overdraft Fee: {settings.overdraft_fee_amount}
-            {settings.overdraft_fee_is_percentage ? '%' : ''}
+            Overdraft Fee: {settings.overdraft_fee_is_percentage ? `${settings.overdraft_fee_amount}%` : formatCurrency(settings.overdraft_fee_amount, currencySymbol)}
             {settings.overdraft_fee_daily ? ' (daily)' : ' (once)'}
           </p>
           <button onClick={() => setShowSettingsModal(true)}>Edit</button>
@@ -169,7 +176,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
       <ul className="list">
         {transactions.map(t => (
           <li key={t.id}>
-            #{t.id} Child {t.child_id} {t.type} {t.amount}
+            #{t.id} Child {t.child_id} {t.type} {formatCurrency(t.amount, currencySymbol)}
             {t.memo ? ` (${t.memo})` : ''}
             <button
               onClick={() =>

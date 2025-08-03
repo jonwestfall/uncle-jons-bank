@@ -113,6 +113,7 @@ class RecurringCharge(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     amount: float
+    type: str = "debit"  # "credit" or "debit"
     memo: Optional[str] = None
     interval_days: int
     next_run: date
@@ -149,3 +150,4 @@ class Settings(SQLModel, table=True):
     overdraft_fee_amount: float = 0.0
     overdraft_fee_is_percentage: bool = False
     overdraft_fee_daily: bool = False
+    currency_symbol: str = "$"
