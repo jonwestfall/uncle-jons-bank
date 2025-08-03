@@ -126,6 +126,12 @@ export default function ParentDashboard({
   const [rcInterval, setRcInterval] = useState("");
   const [rcNext, setRcNext] = useState("");
 
+  const closeLedger = () => {
+    setLedger(null);
+    setSelectedChild(null);
+    setCharges([]);
+  };
+
   const fetchChildren = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/children/`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -229,7 +235,14 @@ export default function ParentDashboard({
                 {c.first_name} {c.frozen && "(Frozen)"}
               </summary>
               <div className="child-actions">
-                <button onClick={() => setActionChild(c)}>Actions</button>
+                <button
+                  onClick={() => {
+                    closeLedger();
+                    setActionChild(c);
+                  }}
+                >
+                  Actions
+                </button>
               </div>
             </details>
           </li>
@@ -250,6 +263,7 @@ export default function ParentDashboard({
             <div className="child-actions">
               <button
                 onClick={() => {
+                  closeLedger();
                   setEditingChild(actionChild);
                   setActionChild(null);
                 }}
@@ -258,6 +272,7 @@ export default function ParentDashboard({
               </button>
               <button
                 onClick={() => {
+                  closeLedger();
                   toggleFreeze(actionChild.id, actionChild.frozen);
                   setActionChild(null);
                 }}
@@ -266,6 +281,7 @@ export default function ParentDashboard({
               </button>
               <button
                 onClick={() => {
+                  closeLedger();
                   setCodeChild(actionChild);
                   setActionChild(null);
                 }}
@@ -274,6 +290,7 @@ export default function ParentDashboard({
               </button>
               <button
                 onClick={() => {
+                  closeLedger();
                   setSharingChild(actionChild);
                   setActionChild(null);
                 }}
@@ -282,6 +299,7 @@ export default function ParentDashboard({
               </button>
               <button
                 onClick={() => {
+                  closeLedger();
                   openAccess(actionChild);
                   setActionChild(null);
                 }}
@@ -290,6 +308,7 @@ export default function ParentDashboard({
               </button>
               <button
                 onClick={() => {
+                  closeLedger();
                   fetchLedger(actionChild.id);
                   fetchCharges(actionChild.id);
                   setSelectedChild(actionChild.id);
@@ -308,8 +327,11 @@ export default function ParentDashboard({
         </div>
       )}
       {ledger && selectedChild !== null && (
-        <div>
-          <h4>Ledger for child #{selectedChild}</h4>
+        <div className="ledger-area">
+          <div className="ledger-header">
+            <h4>Ledger for child #{selectedChild}</h4>
+            <button onClick={closeLedger}>Close Ledger</button>
+          </div>
           <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
           <div className="ledger-scroll">
             <LedgerTable

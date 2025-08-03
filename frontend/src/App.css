@@ -93,6 +93,19 @@
   overflow-x: auto;
 }
 
+.ledger-area {
+  border: 1px solid var(--container-border, #ccc);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.ledger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .ml-1 {
   color: white;
   margin-left: 1em;
