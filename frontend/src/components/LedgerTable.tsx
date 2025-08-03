@@ -73,28 +73,31 @@ export default function LedgerTable({
     startIndex + pageSize,
   )
 
-  const startingBalance = sorted
-    .slice(0, startIndex)
-    .reduce((bal, tx) => (tx.type === 'credit' ? bal + tx.amount : bal - tx.amount), 0)
-  let runningBalance = startingBalance
-  const displayRows = currentItems.map(tx => {
-    if (tx.type === 'credit') {
-      runningBalance += tx.amount
-    } else {
-      runningBalance -= tx.amount
-    }
-    return (
-      <tr key={tx.id}>
-        <td>{new Date(tx.timestamp).toLocaleDateString()}</td>
-        <td>{tx.type}</td>
-        <td>{tx.memo || ''}</td>
-        <td>{tx.type === 'debit' ? formatCurrency(tx.amount, currencySymbol) : ''}</td>
-        <td>{tx.type === 'credit' ? formatCurrency(tx.amount, currencySymbol) : ''}</td>
-        <td>{formatCurrency(runningBalance, currencySymbol)}</td>
-        {renderActions && <td>{renderActions(tx)}</td>}
-      </tr>
+  const balanceMap = useMemo(() => {
+    const arr = [...transactions]
+    arr.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     )
-  })
+    let bal = 0
+    const map = new Map<number, number>()
+    arr.forEach(tx => {
+      bal += tx.type === 'credit' ? tx.amount : -tx.amount
+      map.set(tx.id, bal)
+    })
+    return map
+  }, [transactions])
+
+  const displayRows = currentItems.map(tx => (
+    <tr key={tx.id}>
+      <td>{new Date(tx.timestamp).toLocaleDateString()}</td>
+      <td>{tx.type}</td>
+      <td>{tx.memo || ''}</td>
+      <td>{tx.type === 'debit' ? formatCurrency(tx.amount, currencySymbol) : ''}</td>
+      <td>{tx.type === 'credit' ? formatCurrency(tx.amount, currencySymbol) : ''}</td>
+      <td>{formatCurrency(balanceMap.get(tx.id) ?? 0, currencySymbol)}</td>
+      {renderActions && <td>{renderActions(tx)}</td>}
+    </tr>
+  ))
 
   const handleHeaderClick = (col: keyof Transaction | 'amount') => {
     if (sortColumn === col) {
@@ -109,17 +112,14 @@ export default function LedgerTable({
     const rows = [
       ['Date', 'Type', 'Description / Payee', 'Payment (-)', 'Deposit (+)', 'Balance'],
     ]
-    let bal = 0
     sorted.forEach(tx => {
-      if (tx.type === 'credit') bal += tx.amount
-      else bal -= tx.amount
       rows.push([
         new Date(tx.timestamp).toLocaleDateString(),
         tx.type,
         tx.memo || '',
         tx.type === 'debit' ? formatCurrency(tx.amount, currencySymbol) : '',
         tx.type === 'credit' ? formatCurrency(tx.amount, currencySymbol) : '',
-        formatCurrency(bal, currencySymbol),
+        formatCurrency(balanceMap.get(tx.id) ?? 0, currencySymbol),
       ])
     })
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
