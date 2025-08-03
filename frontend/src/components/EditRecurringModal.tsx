@@ -47,6 +47,13 @@ export default function EditRecurringModal({
       setError("Interval must be positive");
       return;
     }
+    const nextDate = new Date(next + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (nextDate < today) {
+      setError("Next run cannot be in the past");
+      return;
+    }
     setLoading(true);
     try {
       const resp = await fetch(`${apiUrl}/recurring/${charge.id}`, {

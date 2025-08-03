@@ -50,6 +50,11 @@ async def add_recurring_charge(
         children = await get_children_by_user(db, current_user.id)
         if child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
+    from datetime import date
+    if data.next_run < date.today():
+        raise HTTPException(
+            status_code=400, detail="next_run cannot be in the past"
+        )
     rc = RecurringCharge(
         child_id=child_id,
         amount=data.amount,
@@ -114,7 +119,12 @@ async def update_recurring_charge(
         children = await get_children_by_user(db, current_user.id)
         if rc.child_id not in [c.id for c in children]:
             raise HTTPException(status_code=404, detail="Child not found")
+    from datetime import date
     for field, value in data.model_dump(exclude_unset=True).items():
+        if field == "next_run" and value < date.today():
+            raise HTTPException(
+                status_code=400, detail="next_run cannot be in the past"
+            )
         setattr(rc, field, value)
     updated = await save_recurring_charge(db, rc)
     logger.info("Recurring charge %s updated by user %s", charge_id, current_user.id)

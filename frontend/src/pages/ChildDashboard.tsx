@@ -140,7 +140,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
           <ul className="list">
             {charges.map(c => (
               <li key={c.id}>
-                {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ''}
+                {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run + "T00:00:00").toLocaleDateString()} {c.memo ? `(${c.memo})` : ''}
               </li>
             ))}
           </ul>

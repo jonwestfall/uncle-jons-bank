@@ -265,7 +265,7 @@ export default function ParentDashboard({
           <ul className="list">
             {charges.map((c) => (
               <li key={c.id}>
-                {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ""}
+                {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run + "T00:00:00").toLocaleDateString()} {c.memo ? `(${c.memo})` : ""}
                 {canEditRecurring && (
                   <button
                     onClick={() => setEditingCharge(c)}
@@ -298,8 +298,15 @@ export default function ParentDashboard({
           </ul>
           {canAddRecurring && (
             <form
-              onSubmit={async (e) => {
-                e.preventDefault();
+            onSubmit={async (e) => {
+              e.preventDefault();
+                const nextDate = new Date(rcNext + "T00:00:00");
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (nextDate < today) {
+                  setToast({ message: "Next run cannot be in the past", error: true });
+                  return;
+                }
                 await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
                   method: "POST",
                   headers: {
