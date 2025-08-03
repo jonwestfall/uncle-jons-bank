@@ -1,11 +1,11 @@
 """Endpoints for managing user accounts."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas import UserCreate, UserResponse, UserMeResponse
+from app.schemas import UserCreate, UserResponse, UserMeResponse, PasswordChange
 from app.models import User
 from app.database import get_session
-from app.crud import create_user, get_user_by_email
+from app.crud import create_user, get_user_by_email, save_user
 from app.auth import get_password_hash, require_role, get_current_user
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -36,3 +36,16 @@ async def read_current_user(current_user: User = Depends(get_current_user)):
         role=current_user.role,
         permissions=[p.name for p in current_user.permissions],
     )
+
+
+@router.put("/me/password", status_code=204)
+async def change_password(
+    data: PasswordChange,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Allow the authenticated user to change their password."""
+
+    current_user.password_hash = get_password_hash(data.password)
+    await save_user(db, current_user)
+    return Response(status_code=204)

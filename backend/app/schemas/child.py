@@ -45,3 +45,7 @@ class ChildUpdate(BaseModel):
     first_name: str | None = None
     access_code: str | None = None
     frozen: bool | None = None
+
+
+class AccessCodeUpdate(BaseModel):
+    access_code: str

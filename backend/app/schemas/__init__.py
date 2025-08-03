@@ -1,4 +1,10 @@
-from .user import UserCreate, UserResponse, UserUpdate, UserMeResponse
+from .user import (
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+    UserMeResponse,
+    PasswordChange,
+)
 """Convenience imports for all schema classes used by the API."""
 
 from .child import (
@@ -9,6 +15,7 @@ from .child import (
     PenaltyRateUpdate,
     CDPenaltyRateUpdate,
     ChildUpdate,
+    AccessCodeUpdate,
 )
 from .transaction import (
     TransactionCreate,
@@ -36,9 +43,11 @@ __all__ = [
     "UserResponse",
     "UserMeResponse",
     "UserUpdate",
+    "PasswordChange",
     "ChildCreate",
     "ChildRead",
     "ChildUpdate",
+    "AccessCodeUpdate",
     "ChildLogin",
     "InterestRateUpdate",
     "PenaltyRateUpdate",
