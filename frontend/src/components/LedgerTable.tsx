@@ -134,7 +134,8 @@ export default function LedgerTable({
 
   return (
     <>
-      <table ref={tableRef} className="ledger-table">
+      <div className="table-wrapper">
+        <table ref={tableRef} className="ledger-table">
         <thead>
           <tr>
             <th className="sortable" onClick={() => handleHeaderClick('timestamp')}>
@@ -160,7 +161,8 @@ export default function LedgerTable({
           </tr>
         </thead>
         <tbody>{displayRows}</tbody>
-      </table>
+        </table>
+      </div>
       <div className="table-controls">
         <div>
           <label>

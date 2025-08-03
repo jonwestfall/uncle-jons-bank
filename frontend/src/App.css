@@ -44,6 +44,13 @@
   width: 100%;
 }
 
+.help-text {
+  font-size: 0.9em;
+  color: var(--text-color);
+  opacity: 0.8;
+  margin: 0.25em 0 1em;
+}
+
 .what-if {
   margin-top: 1em;
 }
@@ -140,6 +147,10 @@
   font-size: 0.9em;
 }
 
+.table-wrapper {
+  overflow-x: auto;
+}
+
 .ledger-table th,
 .ledger-table td {
   border: 1px solid var(--text-color);
@@ -203,4 +214,17 @@
 .success {
   color: green;
   margin-top: 0.5em;
+}
+
+@media (max-width: 600px) {
+  h2 {
+    font-size: 1.4rem;
+  }
+  .container {
+    padding: 1rem;
+    min-height: auto;
+  }
+  .ledger-table {
+    font-size: 0.8em;
+  }
 }

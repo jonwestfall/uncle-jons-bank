@@ -73,11 +73,11 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
     const t = await fetch(`${apiUrl}/admin/transactions`, { headers: uh })
     if (t.ok) setTransactions(await t.json())
     const s = await fetch(`${apiUrl}/settings/`)
-    if (s.ok) {
-      const data = (await s.json()) as SiteSettings
-      setSettings(data)
-      onSettingsChange && onSettingsChange()
-    }
+      if (s.ok) {
+        const data = (await s.json()) as SiteSettings
+        setSettings(data)
+        if (onSettingsChange) onSettingsChange()
+      }
   }
 
   useEffect(() => {
