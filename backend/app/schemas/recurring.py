@@ -1,10 +1,9 @@
-from pydantic import BaseModel
-from typing import Optional
 """Schemas for recurring charges applied to child accounts."""
 
 from datetime import date
 from typing import Optional
-from pydantic import BaseModel
+
+from pydantic import BaseModel, ConfigDict
 
 
 class RecurringChargeBase(BaseModel):
@@ -24,8 +23,7 @@ class RecurringChargeRead(RecurringChargeBase):
     child_id: int
     active: bool
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RecurringChargeUpdate(BaseModel):
