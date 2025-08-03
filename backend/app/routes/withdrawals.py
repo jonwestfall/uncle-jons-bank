@@ -102,3 +102,18 @@ async def deny_request(
     req.approver_id = current_user.id
     await save_withdrawal_request(db, req)
     return req
+
+
+@router.post("/{request_id}/cancel", response_model=WithdrawalRequestRead)
+async def cancel_request(
+    request_id: int,
+    db: AsyncSession = Depends(get_session),
+    child: Child = Depends(get_current_child),
+):
+    req = await get_withdrawal_request(db, request_id)
+    if not req or req.status != "pending" or req.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Request not found")
+    req.status = "cancelled"
+    req.responded_at = datetime.utcnow()
+    await save_withdrawal_request(db, req)
+    return req

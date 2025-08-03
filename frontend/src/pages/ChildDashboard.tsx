@@ -83,6 +83,14 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
     if (resp.ok) setWithdrawals(await resp.json())
   }, [apiUrl, token])
 
+  const cancelWithdrawal = async (id: number) => {
+    await fetch(`${apiUrl}/withdrawals/${id}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    fetchMyWithdrawals()
+  }
+
   const fetchCds = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/cds/child`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -266,12 +274,25 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
           <h4>Your Money Requests</h4>
           <p className="help-text">Pending means waiting for a grown-up to decide.</p>
           <ul className="list">
-            {withdrawals.map(w => (
-              <li key={w.id}>
-                {formatCurrency(w.amount, currencySymbol)} - {w.status}
-                {w.denial_reason ? ` (Reason: ${w.denial_reason})` : ''}
-              </li>
-            ))}
+              {withdrawals.map(w => (
+                <li key={w.id}>
+                  {formatCurrency(w.amount, currencySymbol)}{w.memo ? ` (${w.memo})` : ''} - {w.status}
+                  {w.status === 'pending' && (
+                    <button
+                      className="ml-05"
+                      onClick={() =>
+                        setConfirmAction({
+                          message: 'Cancel this request?',
+                          onConfirm: () => cancelWithdrawal(w.id),
+                        })
+                      }
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  {w.denial_reason ? ` (Reason: ${w.denial_reason})` : ''}
+                </li>
+              ))}
           </ul>
         </div>
       )}
