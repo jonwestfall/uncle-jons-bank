@@ -61,13 +61,36 @@
   text-align: left;
 }
 
-.child-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.child-card {
+  border: 1px solid var(--container-border, #ccc);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
 }
-.child-row span:first-child {
-  flex: 1;
+.child-card summary {
+  padding: 0.5rem;
+  cursor: pointer;
+}
+.child-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+.child-actions button {
+  width: 100%;
+}
+@media (min-width: 600px) {
+  .child-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .child-actions button {
+    flex: 1 0 45%;
+  }
+}
+
+.ledger-scroll {
+  overflow-x: auto;
 }
 
 .ml-1 {
@@ -203,6 +226,8 @@
   border-radius: 8px;
   max-width: 300px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-actions {
