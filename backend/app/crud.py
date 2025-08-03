@@ -23,6 +23,8 @@ from app.models import (
     UserPermissionLink,
     Settings,
     ShareCode,
+    Loan,
+    LoanTransaction,
 )
 from app.auth import get_password_hash, get_child_by_id
 from app.acl import get_default_permissions_for_role, ALL_PERMISSIONS
@@ -958,3 +960,72 @@ async def process_due_recurring_charges(db: AsyncSession) -> None:
             db.add(charge)
             await db.commit()
             await db.refresh(charge)
+
+
+# --- Loan helpers -------------------------------------------------------
+
+
+async def create_loan(db: AsyncSession, loan: Loan) -> Loan:
+    """Persist a new loan request."""
+
+    db.add(loan)
+    await db.commit()
+    await db.refresh(loan)
+    return loan
+
+
+async def get_loan(db: AsyncSession, loan_id: int) -> Loan | None:
+    result = await db.execute(select(Loan).where(Loan.id == loan_id))
+    return result.scalar_one_or_none()
+
+
+async def get_loans_by_child(db: AsyncSession, child_id: int) -> list[Loan]:
+    result = await db.execute(select(Loan).where(Loan.child_id == child_id))
+    return result.scalars().all()
+
+
+async def save_loan(db: AsyncSession, loan: Loan) -> Loan:
+    db.add(loan)
+    await db.commit()
+    await db.refresh(loan)
+    return loan
+
+
+async def record_loan_transaction(db: AsyncSession, tx: LoanTransaction) -> LoanTransaction:
+    db.add(tx)
+    await db.commit()
+    await db.refresh(tx)
+    return tx
+
+
+async def recalc_loan_interest(db: AsyncSession, loan: Loan) -> None:
+    """Accrue one day of interest on a loan if due."""
+
+    today = date.today()
+    if loan.status != "active" or loan.last_interest_applied == today:
+        return
+    interest = round(loan.principal_remaining * loan.interest_rate, 2)
+    if interest != 0:
+        loan.principal_remaining += interest
+        await record_loan_transaction(
+            db,
+            LoanTransaction(
+                loan_id=loan.id,
+                type="interest",
+                amount=interest,
+                memo="Interest",
+            ),
+        )
+    loan.last_interest_applied = today
+    await save_loan(db, loan)
+
+
+async def get_active_loans(db: AsyncSession) -> list[Loan]:
+    result = await db.execute(select(Loan).where(Loan.status == "active"))
+    return result.scalars().all()
+
+
+async def process_loan_interest(db: AsyncSession) -> None:
+    loans = await get_active_loans(db)
+    for loan in loans:
+        await recalc_loan_interest(db, loan)

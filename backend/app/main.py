@@ -24,6 +24,7 @@ from app.routes import (
     cds,
     settings,
     recurring,
+    loans,
 )
 from app.database import create_db_and_tables, async_session
 from app.crud import (
@@ -34,6 +35,7 @@ from app.crud import (
     get_settings,
     apply_service_fee,
     apply_overdraft_fee,
+    process_loan_interest,
 )
 from app.models import Child
 from app.acl import ALL_PERMISSIONS
@@ -112,6 +114,7 @@ async def daily_interest_task():
                 for account in accounts:
                     await apply_service_fee(session, account, settings, today)
                     await apply_overdraft_fee(session, account, settings, today)
+                await process_loan_interest(session)
                 from app.crud import redeem_matured_cds
 
                 # Finally, redeem any matured certificates of deposit.
@@ -132,6 +135,7 @@ app.include_router(admin.router)
 app.include_router(tests.router)
 app.include_router(settings.router)
 app.include_router(recurring.router)
+app.include_router(loans.router)
 
 
 @app.get("/docs", include_in_schema=False)
