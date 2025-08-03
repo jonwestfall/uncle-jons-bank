@@ -8,6 +8,8 @@ import EditTransactionModal from "../components/EditTransactionModal";
 import TextPromptModal from "../components/TextPromptModal";
 import ConfirmModal from "../components/ConfirmModal";
 import EditRecurringModal from "../components/EditRecurringModal";
+import ShareChildModal from "../components/ShareChildModal";
+import ManageAccessModal from "../components/ManageAccessModal";
 
 interface Child {
   id: number;
@@ -17,6 +19,14 @@ interface Child {
   penalty_interest_rate?: number;
   cd_penalty_rate?: number;
   total_interest_earned?: number;
+}
+
+interface ParentInfo {
+  user_id: number;
+  name: string;
+  email: string;
+  permissions: string[];
+  is_owner: boolean;
 }
 
 interface ChildApi {
@@ -98,6 +108,10 @@ export default function ParentDashboard({
   const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [codeChild, setCodeChild] = useState<Child | null>(null);
+  const [sharingChild, setSharingChild] = useState<Child | null>(null);
+  const [redeemOpen, setRedeemOpen] = useState(false);
+  const [accessChild, setAccessChild] = useState<Child | null>(null);
+  const [accessParents, setAccessParents] = useState<ParentInfo[]>([]);
   const [editingCharge, setEditingCharge] = useState<RecurringCharge | null>(null);
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const canEdit = permissions.includes("edit_transaction");
@@ -174,9 +188,20 @@ export default function ParentDashboard({
     fetchChildren();
   };
 
+  const openAccess = async (child: Child) => {
+    const resp = await fetch(`${apiUrl}/children/${child.id}/parents`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (resp.ok) {
+      setAccessParents(await resp.json());
+      setAccessChild(child);
+    }
+  };
+
   return (
     <div className="container">
       <h2>Your Children</h2>
+      <button onClick={() => setRedeemOpen(true)}>Redeem Share Code</button>
         {toast && (
           <div className={toast.error ? "error" : "success"}>
             <span>{toast.message}</span>
@@ -198,6 +223,8 @@ export default function ParentDashboard({
                   {c.frozen ? "Unfreeze" : "Freeze"}
                 </button>
                 <button onClick={() => setCodeChild(c)}>Change Code</button>
+                <button onClick={() => setSharingChild(c)}>Share</button>
+                <button onClick={() => openAccess(c)}>Manage Access</button>
                 <button
                   onClick={() => {
                     fetchLedger(c.id);
@@ -597,6 +624,68 @@ export default function ParentDashboard({
           }}
           onError={(msg) => {
             setToast({ message: msg, error: true });
+          }}
+        />
+      )}
+      {sharingChild && (
+        <ShareChildModal
+          onSubmit={async (perms) => {
+            const resp = await fetch(
+              `${apiUrl}/children/${sharingChild.id}/sharecode`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ permissions: perms }),
+              },
+            );
+            if (resp.ok) {
+              const data = await resp.json();
+              setToast({ message: `Share code: ${data.code}` });
+            }
+            setSharingChild(null);
+          }}
+          onCancel={() => setSharingChild(null)}
+        />
+      )}
+      {accessChild && (
+        <ManageAccessModal
+          parents={accessParents}
+          onRemove={async (pid) => {
+            await fetch(
+              `${apiUrl}/children/${accessChild.id}/parents/${pid}`,
+              {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
+            openAccess(accessChild);
+          }}
+          onClose={() => setAccessChild(null)}
+        />
+      )}
+      {redeemOpen && (
+        <TextPromptModal
+          title="Redeem Share Code"
+          label="Code"
+          onCancel={() => setRedeemOpen(false)}
+          onSubmit={async (value) => {
+            const resp = await fetch(
+              `${apiUrl}/children/sharecode/${value}`,
+              {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
+            if (resp.ok) {
+              setToast({ message: "Child linked" });
+              fetchChildren();
+            } else {
+              setToast({ message: "Invalid code", error: true });
+            }
+            setRedeemOpen(false);
           }}
         />
       )}

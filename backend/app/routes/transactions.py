@@ -21,6 +21,7 @@ from app.crud import (
     save_transaction,
     delete_transaction,
     post_transaction_update,
+    get_child_user_link,
 )
 from app.auth import require_permissions, get_current_user, get_current_identity
 from app.acl import (
@@ -56,11 +57,12 @@ async def add_transaction(
             )
 
     if current_user.role != "admin":
-        from app.crud import get_children_by_user
-
-        children = await get_children_by_user(db, current_user.id)
-        if transaction.child_id not in [c.id for c in children]:
+        link = await get_child_user_link(db, current_user.id, transaction.child_id)
+        if not link:
             raise HTTPException(status_code=404, detail="Child not found")
+        perm_needed = PERM_DEPOSIT if transaction.type == "credit" else PERM_DEBIT
+        if perm_needed not in link.permissions and not link.is_owner:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     tx_model = Transaction(
         child_id=transaction.child_id,
@@ -132,11 +134,14 @@ async def get_ledger(
             user_perms = {p.name for p in user.permissions}
             if PERM_VIEW_TRANSACTIONS not in user_perms:
                 raise HTTPException(status_code=403, detail="Insufficient permissions")
-            from app.crud import get_children_by_user
-
-            children = await get_children_by_user(db, user.id)
-            if child_id not in [c.id for c in children]:
+            link = await get_child_user_link(db, user.id, child_id)
+            if not link:
                 raise HTTPException(status_code=404, detail="Child not found")
+            if (
+                PERM_VIEW_TRANSACTIONS not in link.permissions
+                and not link.is_owner
+            ):
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
     transactions = await get_transactions_by_child(db, child_id)
     balance = await calculate_balance(db, child_id)
     return {"balance": balance, "transactions": transactions}

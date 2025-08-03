@@ -37,6 +37,7 @@ from .recurring import (
     RecurringChargeUpdate,
 )
 from .promotion import Promotion
+from .share import ShareCodeCreate, ShareCodeRead, ParentAccess
 
 __all__ = [
     "UserCreate",
@@ -69,4 +70,7 @@ __all__ = [
     "RecurringChargeRead",
     "RecurringChargeUpdate",
     "Promotion",
+    "ShareCodeCreate",
+    "ShareCodeRead",
+    "ParentAccess",
 ]

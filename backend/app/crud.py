@@ -22,9 +22,11 @@ from app.models import (
     Permission,
     UserPermissionLink,
     Settings,
+    ShareCode,
 )
 from app.auth import get_password_hash, get_child_by_id
-from app.acl import get_default_permissions_for_role
+from app.acl import get_default_permissions_for_role, ALL_PERMISSIONS
+import uuid
 
 
 async def ensure_permissions_exist(db: AsyncSession, names: list[str]) -> None:
@@ -196,7 +198,12 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
     )
     db.add(account)
 
-    link = ChildUserLink(user_id=user_id, child_id=child.id)
+    link = ChildUserLink(
+        user_id=user_id,
+        child_id=child.id,
+        permissions=ALL_PERMISSIONS,
+        is_owner=True,
+    )
     db.add(link)
 
     await db.commit()
@@ -273,6 +280,84 @@ async def set_child_frozen(
     await db.commit()
     await db.refresh(child)
     return child
+
+
+async def get_child_user_link(
+    db: AsyncSession, user_id: int, child_id: int
+) -> ChildUserLink | None:
+    result = await db.execute(
+        select(ChildUserLink).where(
+            ChildUserLink.user_id == user_id,
+            ChildUserLink.child_id == child_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def link_child_to_user(
+    db: AsyncSession, child_id: int, user_id: int, permissions: list[str], is_owner=False
+) -> ChildUserLink:
+    link = ChildUserLink(
+        user_id=user_id,
+        child_id=child_id,
+        permissions=permissions,
+        is_owner=is_owner,
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    return link
+
+
+async def remove_child_link(db: AsyncSession, child_id: int, user_id: int) -> None:
+    await db.execute(
+        delete(ChildUserLink).where(
+            ChildUserLink.child_id == child_id,
+            ChildUserLink.user_id == user_id,
+        )
+    )
+    await db.commit()
+
+
+async def get_parents_for_child(
+    db: AsyncSession, child_id: int
+) -> list[ChildUserLink]:
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(ChildUserLink)
+        .where(ChildUserLink.child_id == child_id)
+        .options(selectinload(ChildUserLink.user))
+    )
+    return result.scalars().all()
+
+
+async def create_share_code(
+    db: AsyncSession, child_id: int, creator_id: int, permissions: list[str]
+) -> ShareCode:
+    code = uuid.uuid4().hex[:8]
+    share = ShareCode(
+        code=code, child_id=child_id, created_by=creator_id, permissions=permissions
+    )
+    db.add(share)
+    await db.commit()
+    await db.refresh(share)
+    return share
+
+
+async def get_share_code(db: AsyncSession, code: str) -> ShareCode | None:
+    result = await db.execute(select(ShareCode).where(ShareCode.code == code))
+    return result.scalar_one_or_none()
+
+
+async def mark_share_code_used(
+    db: AsyncSession, share: ShareCode, user_id: int
+) -> ShareCode:
+    share.used_by = user_id
+    db.add(share)
+    await db.commit()
+    await db.refresh(share)
+    return share
 
 
 async def get_account_by_child(

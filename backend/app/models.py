@@ -9,6 +9,7 @@ definitions.
 from typing import Optional, List
 from datetime import datetime, date
 from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, JSON
 
 
 class UserPermissionLink(SQLModel, table=True):
@@ -73,11 +74,26 @@ class Child(SQLModel, table=True):
 
 class ChildUserLink(SQLModel, table=True):
     """Many‑to‑many relationship between parents and children."""
+
     user_id: int = Field(foreign_key="user.id", primary_key=True)
     child_id: int = Field(foreign_key="child.id", primary_key=True)
+    permissions: List[str] = Field(sa_column=Column(JSON), default_factory=list)
+    is_owner: bool = False
 
     user: User = Relationship(back_populates="children")
     child: Child = Relationship(back_populates="parents")
+
+
+class ShareCode(SQLModel, table=True):
+    """One‑time use share code allowing another parent to link a child."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code: str = Field(unique=True, index=True)
+    child_id: int = Field(foreign_key="child.id")
+    created_by: int = Field(foreign_key="user.id")
+    permissions: List[str] = Field(sa_column=Column(JSON), default_factory=list)
+    used_by: Optional[int] = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Account(SQLModel, table=True):

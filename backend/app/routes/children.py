@@ -10,6 +10,9 @@ from app.schemas import (
     PenaltyRateUpdate,
     CDPenaltyRateUpdate,
     AccessCodeUpdate,
+    ShareCodeCreate,
+    ShareCodeRead,
+    ParentAccess,
 )
 from app.models import Child, User
 from app.database import get_session
@@ -25,6 +28,13 @@ from app.crud import (
     get_account_by_child,
     recalc_interest,
     save_child,
+    get_child_user_link,
+    create_share_code,
+    get_share_code,
+    mark_share_code_used,
+    link_child_to_user,
+    get_parents_for_child,
+    remove_child_link,
 )
 from app.auth import (
     get_current_user,
@@ -41,6 +51,24 @@ from app.acl import (
 )
 
 router = APIRouter(prefix="/children", tags=["children"])
+
+
+async def _ensure_link(
+    db: AsyncSession,
+    user_id: int,
+    child_id: int,
+    perm: str | None = None,
+    require_owner: bool = False,
+):
+    link = await get_child_user_link(db, user_id, child_id)
+    if not link:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if require_owner and not link.is_owner:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if perm and perm not in link.permissions and link.is_owner is False:
+        # owners implicitly have all permissions
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return link
 
 
 @router.get("/me", response_model=ChildRead)
@@ -65,6 +93,93 @@ async def read_current_child(
     )
 
 
+@router.post("/{child_id}/sharecode", response_model=ShareCodeRead)
+async def generate_share_code(
+    child_id: int,
+    data: ShareCodeCreate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        await _ensure_link(db, current_user.id, child_id, require_owner=True)
+    share = await create_share_code(db, child_id, current_user.id, data.permissions)
+    return ShareCodeRead(code=share.code)
+
+
+@router.post("/sharecode/{code}", response_model=ChildRead)
+async def redeem_share_code(
+    code: str,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    share = await get_share_code(db, code)
+    if not share or share.used_by is not None:
+        raise HTTPException(status_code=404, detail="Invalid code")
+    if current_user.role != "admin":
+        existing = await get_child_user_link(db, current_user.id, share.child_id)
+        if existing:
+            raise HTTPException(status_code=400, detail="Already linked")
+    await link_child_to_user(db, share.child_id, current_user.id, share.permissions)
+    await mark_share_code_used(db, share, current_user.id)
+    child = await get_child_by_id(db, share.child_id)
+    account = await get_account_by_child(db, share.child_id)
+    return ChildRead(
+        id=child.id,
+        first_name=child.first_name,
+        account_frozen=child.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
+
+
+@router.get("/{child_id}/parents", response_model=list[ParentAccess])
+async def list_child_parents(
+    child_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        await _ensure_link(db, current_user.id, child_id, require_owner=True)
+    links = await get_parents_for_child(db, child_id)
+    return [
+        ParentAccess(
+            user_id=l.user.id,
+            name=l.user.name,
+            email=l.user.email,
+            permissions=l.permissions,
+            is_owner=l.is_owner,
+        )
+        for l in links
+    ]
+
+
+@router.delete("/{child_id}/parents/{parent_id}", status_code=204)
+async def remove_parent_access(
+    child_id: int,
+    parent_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        await _ensure_link(db, current_user.id, child_id, require_owner=True)
+    link = await get_child_user_link(db, parent_id, child_id)
+    if not link or link.is_owner:
+        raise HTTPException(status_code=404, detail="Parent not found")
+    await remove_child_link(db, child_id, parent_id)
+    return
+
+
 @router.put("/{child_id}/access-code", response_model=ChildRead)
 async def update_access_code(
     child_id: int,
@@ -78,9 +193,7 @@ async def update_access_code(
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        children = await get_children_by_user(db, current_user.id)
-        if child_id not in [c.id for c in children]:
-            raise HTTPException(status_code=404, detail="Child not found")
+        await _ensure_link(db, current_user.id, child_id, require_owner=True)
     existing = await get_child_by_access_code(db, data.access_code)
     if existing and existing.id != child_id:
         raise HTTPException(status_code=400, detail="Access code already in use")
@@ -197,9 +310,7 @@ async def freeze_child(
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        children = await get_children_by_user(db, current_user.id)
-        if child_id not in [c.id for c in children]:
-            raise HTTPException(status_code=404, detail="Child not found")
+        await _ensure_link(db, current_user.id, child_id, PERM_FREEZE_CHILD)
     updated = await set_child_frozen(db, child_id, True)
     account = await get_account_by_child(db, child_id)
     return ChildRead(
