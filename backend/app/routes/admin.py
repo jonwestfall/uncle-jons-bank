@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from app.database import get_session
 from app.auth import require_role, get_password_hash
-from app.models import User, Child, Transaction
+from app.models import User, Child, Transaction, Permission, UserPermissionLink
 from app.schemas import (
     UserResponse,
     UserUpdate,
@@ -67,8 +68,12 @@ async def add_permissions_to_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     await assign_permissions_by_names(db, user, perms.permissions)
-    await db.refresh(user)
-    return [link.permission for link in user.permission_links]
+    result = await db.execute(
+        select(Permission)
+        .join(UserPermissionLink)
+        .where(UserPermissionLink.user_id == user.id)
+    )
+    return result.scalars().all()
 
 
 @router.delete("/users/{user_id}/permissions", response_model=list[PermissionRead])
@@ -82,8 +87,12 @@ async def remove_permissions_from_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     await remove_permissions_by_names(db, user, perms.permissions)
-    await db.refresh(user)
-    return [link.permission for link in user.permission_links]
+    result = await db.execute(
+        select(Permission)
+        .join(UserPermissionLink)
+        .where(UserPermissionLink.user_id == user.id)
+    )
+    return result.scalars().all()
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
