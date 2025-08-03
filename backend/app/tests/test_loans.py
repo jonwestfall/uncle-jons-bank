@@ -105,41 +105,64 @@ def test_loan_flow():
             resp = await client.post("/children/login", json={"access_code": "KID"})
             child_headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
-            # Child requests loan
+            # Child requests first loan
             resp = await client.post(
                 "/loans/",
                 headers=child_headers,
                 json={"child_id": child_id, "amount": 50, "purpose": "Bike"},
             )
-            loan_id = resp.json()["id"]
+            loan1_id = resp.json()["id"]
 
             # Parent2 tries to approve loan -> 403
             resp = await client.post(
-                f"/loans/{loan_id}/approve",
+                f"/loans/{loan1_id}/approve",
                 headers=parent2_headers,
                 json={"interest_rate": 0.01},
             )
             assert resp.status_code == 403
 
-            # Parent1 approves loan
+            # Parent1 approves loan with terms
             resp = await client.post(
-                f"/loans/{loan_id}/approve",
+                f"/loans/{loan1_id}/approve",
+                headers=parent1_headers,
+                json={"interest_rate": 0.01, "terms": "test terms"},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["terms"] == "test terms"
+
+            # Child declines loan
+            resp = await client.post(
+                f"/loans/{loan1_id}/decline", headers=child_headers
+            )
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "declined"
+
+            # Child requests second loan
+            resp = await client.post(
+                "/loans/",
+                headers=child_headers,
+                json={"child_id": child_id, "amount": 80, "purpose": "Book"},
+            )
+            loan2_id = resp.json()["id"]
+
+            # Parent1 approves second loan
+            await client.post(
+                f"/loans/{loan2_id}/approve",
                 headers=parent1_headers,
                 json={"interest_rate": 0.01},
             )
-            assert resp.status_code == 200
 
             # Child accepts loan
             resp = await client.post(
-                f"/loans/{loan_id}/accept", headers=child_headers
+                f"/loans/{loan2_id}/accept", headers=child_headers
             )
             assert resp.status_code == 200
             assert resp.json()["status"] == "active"
-            assert resp.json()["principal_remaining"] == 50
+            assert resp.json()["principal_remaining"] == 80
 
             # Parent2 payment attempt -> 403
             resp = await client.post(
-                f"/loans/{loan_id}/payment",
+                f"/loans/{loan2_id}/payment",
                 headers=parent2_headers,
                 json={"amount": 10},
             )
@@ -147,11 +170,24 @@ def test_loan_flow():
 
             # Parent1 records payment
             resp = await client.post(
-                f"/loans/{loan_id}/payment",
+                f"/loans/{loan2_id}/payment",
                 headers=parent1_headers,
                 json={"amount": 20},
             )
             assert resp.status_code == 200
-            assert resp.json()["principal_remaining"] == 30
+            assert resp.json()["principal_remaining"] == 60
+
+            # Parent2 close attempt -> 403
+            resp = await client.post(
+                f"/loans/{loan2_id}/close", headers=parent2_headers
+            )
+            assert resp.status_code == 403
+
+            # Parent1 closes loan
+            resp = await client.post(
+                f"/loans/{loan2_id}/close", headers=parent1_headers
+            )
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "closed"
 
     asyncio.run(run())

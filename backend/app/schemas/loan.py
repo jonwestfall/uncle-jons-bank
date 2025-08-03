@@ -16,6 +16,7 @@ class LoanRead(BaseModel):
     amount: float
     purpose: Optional[str]
     interest_rate: float
+    terms: Optional[str]
     status: str
     principal_remaining: float
     created_at: datetime
@@ -26,6 +27,7 @@ class LoanRead(BaseModel):
 
 class LoanApprove(BaseModel):
     interest_rate: float
+    terms: Optional[str] = None
 
 
 class LoanPayment(BaseModel):

@@ -187,7 +187,8 @@ class Loan(SQLModel, table=True):
     amount: float
     purpose: Optional[str] = None
     interest_rate: float = 0.0
-    status: str = "requested"  # requested, approved, active, denied, closed
+    terms: Optional[str] = None
+    status: str = "requested"  # requested, approved, active, denied, declined, closed
     principal_remaining: float = 0.0
     last_interest_applied: Optional[date] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

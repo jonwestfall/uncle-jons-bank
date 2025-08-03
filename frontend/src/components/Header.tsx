@@ -19,11 +19,13 @@ export default function Header({ onLogout, isAdmin, isChild, siteName, onToggleT
           {isChild ? (
               <>
                 <li><Link to="/child">Ledger</Link></li>
+                <li><Link to="/child/loans">Loans</Link></li>
                 <li><Link to="/child/profile">Profile</Link></li>
               </>
             ) : (
               <>
                 <li><Link to="/">Dashboard</Link></li>
+                <li><Link to="/parent/loans">Loans</Link></li>
                 <li><Link to="/parent/profile">Profile</Link></li>
               </>
             )}

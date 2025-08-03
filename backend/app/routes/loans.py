@@ -78,6 +78,33 @@ async def accept_loan(
     return loan
 
 
+@router.post("/{loan_id}/close", response_model=LoanRead)
+async def close_loan(
+    loan_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_LOAN)),
+):
+    loan = await get_loan(db, loan_id)
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    if current_user.role != "admin":
+        link = await get_child_user_link(db, current_user.id, loan.child_id)
+        if not link or (PERM_MANAGE_LOAN not in link.permissions and not link.is_owner):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+    loan.status = "closed"
+    await record_loan_transaction(
+        db,
+        LoanTransaction(
+            loan_id=loan.id,
+            type="close",
+            amount=0,
+            memo="Loan closed",
+        ),
+    )
+    await save_loan(db, loan)
+    return loan
+
+
 @router.post("/{loan_id}/approve", response_model=LoanRead)
 async def approve_loan_route(
     loan_id: int,
@@ -95,6 +122,7 @@ async def approve_loan_route(
     loan.status = "approved"
     loan.parent_id = current_user.id
     loan.interest_rate = data.interest_rate
+    loan.terms = data.terms
     loan.principal_remaining = loan.amount
     await save_loan(db, loan)
     return loan
@@ -115,6 +143,22 @@ async def deny_loan_route(
             raise HTTPException(status_code=403, detail="Insufficient permissions")
     loan.status = "denied"
     loan.parent_id = current_user.id
+    await save_loan(db, loan)
+    return loan
+
+
+@router.post("/{loan_id}/decline", response_model=LoanRead)
+async def decline_loan(
+    loan_id: int,
+    child: Child = Depends(get_current_child),
+    db: AsyncSession = Depends(get_session),
+):
+    loan = await get_loan(db, loan_id)
+    if not loan or loan.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    if loan.status != "approved":
+        raise HTTPException(status_code=400, detail="Cannot decline")
+    loan.status = "declined"
     await save_loan(db, loan)
     return loan
 

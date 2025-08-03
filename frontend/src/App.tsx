@@ -8,6 +8,8 @@ import ParentProfile from './pages/ParentProfile'
 import ChildDashboard from './pages/ChildDashboard'
 import ChildProfile from './pages/ChildProfile'
 import AdminPanel from './pages/AdminPanel'
+import ChildLoans from './pages/ChildLoans'
+import ParentLoans from './pages/ParentLoans'
 import Header from './components/Header'
 import './App.css'
 
@@ -111,17 +113,31 @@ function App() {
         theme={theme}
       />
       <Routes>
-        {isChildAccount && childId !== null && (
-          <>
-            <Route path="/child" element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} currencySymbol={currencySymbol} />} />
-              <Route path="/child/profile" element={<ChildProfile token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />} />
-          </>
-        )}
+          {isChildAccount && childId !== null && (
+            <>
+              <Route
+                path="/child"
+                element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} currencySymbol={currencySymbol} />}
+              />
+              <Route
+                path="/child/loans"
+                element={<ChildLoans token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              />
+              <Route
+                path="/child/profile"
+                element={<ChildProfile token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              />
+            </>
+          )}
         {!isChildAccount && (
           <>
             <Route
               path="/"
               element={<ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} currencySymbol={currencySymbol} />}
+            />
+            <Route
+              path="/parent/loans"
+              element={<ParentLoans token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
             />
             <Route
               path="/parent/profile"
