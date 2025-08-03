@@ -50,10 +50,15 @@ async def assign_permissions_by_names(
         )
         perm = result.scalar_one_or_none()
         if perm:
-            exists = any(
-                link.permission_id == perm.id for link in user.permission_links
+            link_result = await db.execute(
+                select(UserPermissionLink)
+                    .where(
+                        UserPermissionLink.user_id == user.id,
+                        UserPermissionLink.permission_id == perm.id,
+                    )
             )
-            if not exists:
+            link = link_result.scalar_one_or_none()
+            if not link:
                 db.add(
                     UserPermissionLink(user_id=user.id, permission_id=perm.id)
                 )
@@ -70,16 +75,13 @@ async def remove_permissions_by_names(
         )
         perm = result.scalar_one_or_none()
         if perm:
-            link = next(
-                (
-                    l
-                    for l in user.permission_links
-                    if l.permission_id == perm.id
-                ),
-                None,
+            await db.execute(
+                delete(UserPermissionLink)
+                .where(
+                    UserPermissionLink.user_id == user.id,
+                    UserPermissionLink.permission_id == perm.id,
+                )
             )
-            if link:
-                await db.delete(link)
     await db.commit()
 
 
@@ -245,7 +247,15 @@ async def save_child(db: AsyncSession, child: Child) -> Child:
 
 async def delete_child(db: AsyncSession, child: Child) -> None:
     """Remove a child record."""
-
+    await db.execute(
+        delete(Transaction).where(Transaction.child_id == child.id)
+    )
+    await db.execute(
+        delete(Account).where(Account.child_id == child.id)
+    )
+    await db.execute(
+        delete(ChildUserLink).where(ChildUserLink.child_id == child.id)
+    )
     await db.delete(child)
     await db.commit()
 
