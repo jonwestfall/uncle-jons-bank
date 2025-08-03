@@ -1,3 +1,5 @@
+"""Schemas dealing with user permissions."""
+
 from pydantic import BaseModel
 
 

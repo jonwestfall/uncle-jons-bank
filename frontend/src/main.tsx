@@ -1,10 +1,13 @@
+// Entry point that mounts the React application and handles theme init.
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
+// Detect system color scheme preference and keep UI in sync.
 const media = window.matchMedia('(prefers-color-scheme: dark)')
 
+// Toggle the appropriate CSS class to apply the chosen theme.
 const applyTheme = (theme: 'light' | 'dark') => {
   if (theme === 'dark') {
     document.documentElement.classList.add('dark')

@@ -1,4 +1,10 @@
-# ACL constants and helpers
+"""Access control list constants and helpers.
+
+The API uses string permission names to authorize actions.  This module
+defines all available permissions and maps default permissions for each
+user role.  Having these values in one place makes it easy to audit and
+update the security model.
+"""
 
 PERM_ADD_TRANSACTION = "add_transaction"
 PERM_VIEW_TRANSACTIONS = "view_transactions"

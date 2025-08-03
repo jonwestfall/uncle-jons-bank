@@ -1,6 +1,10 @@
 from pydantic import BaseModel
 from typing import Optional
+"""Schemas for recurring charges applied to child accounts."""
+
 from datetime import date
+from typing import Optional
+from pydantic import BaseModel
 
 
 class RecurringChargeBase(BaseModel):

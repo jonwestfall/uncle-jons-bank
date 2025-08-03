@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+"""Routes for managing children's certificates of deposit."""
+
 from app.auth import require_role, get_current_child
 from app.models import CertificateDeposit, Child, User, Transaction
 from app.schemas import CDCreate, CDRead

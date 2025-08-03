@@ -1,5 +1,9 @@
 from pydantic import BaseModel
 
+"""Pydantic models for application configuration settings."""
+
+from pydantic import BaseModel
+
 
 class SettingsRead(BaseModel):
     site_name: str

@@ -1,3 +1,5 @@
+"""Helpers for testing certificate of deposit flows."""
+
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import (
     create_async_engine,

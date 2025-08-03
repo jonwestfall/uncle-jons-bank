@@ -1,5 +1,7 @@
 # app/routes/auth.py
 import logging
+"""Authentication endpoints: login, token generation and registration."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +27,8 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_session),
 ):
+    """OAuth2 password flow used by interactive docs and external clients."""
+
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.password_hash):
@@ -46,6 +50,8 @@ async def login_for_access_token(
 
 @router.post("/login")
 async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
+    """JSON-based login used by the frontend."""
+
     user = await authenticate_user(
         db=db, email=user_in.email, password=user_in.password
     )
@@ -66,6 +72,8 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
 
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
+    """Register a new parent user account."""
+
     result = await db.execute(select(User).where(User.email == user_in.email))
     existing_user = result.scalar_one_or_none()
 

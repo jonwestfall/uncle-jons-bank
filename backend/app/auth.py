@@ -1,4 +1,11 @@
-# app/auth.py
+"""Authentication and authorization helpers.
+
+This module centralizes password hashing, JWT handling and FastAPI
+dependency utilities for enforcing roles and permissions.  The functions
+here are used across route handlers to ensure consistent security
+behavior.
+"""
+
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -20,10 +27,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 
 
 def verify_password(plain_password, hashed_password):
+    """Verify a plaintext password against a stored hash."""
+
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password):
+    """Hash a password for storage."""
+
     return pwd_context.hash(password)
 
 
@@ -31,6 +42,8 @@ from sqlmodel import select
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str):
+    """Return the user if credentials are valid, otherwise ``None``."""
+
     result = await db.execute(
         select(User)
         .where(User.email == email)
@@ -43,6 +56,8 @@ async def authenticate_user(db: AsyncSession, email: str, password: str):
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    """Generate a signed JWT token containing ``data``."""
+
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})

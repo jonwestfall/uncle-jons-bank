@@ -1,3 +1,5 @@
+"""Routes for managing child accounts and related settings."""
+
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,6 +70,7 @@ async def create_child_route(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_ADD_CHILD)),
 ):
+    """Create a new child and associated account for the current parent."""
     existing = await get_child_by_access_code(db, child.access_code)
     if existing:
         raise HTTPException(status_code=400, detail="Access code already in use")
@@ -94,6 +97,7 @@ async def list_children(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_ADD_CHILD)),
 ):
+    """List children belonging to the authenticated parent."""
     children = await get_children_by_user(db, current_user.id)
     result = []
     for c in children:
@@ -297,6 +301,7 @@ async def child_login(
     credentials: ChildLogin,
     db: AsyncSession = Depends(get_session),
 ):
+    """Issue a token for a child using their access code."""
     child = await get_child_by_access_code(db, credentials.access_code)
     if not child:
         raise HTTPException(status_code=401, detail="Invalid access code")

@@ -1,3 +1,5 @@
+"""Regression test for recalculating interest after rate changes."""
+
 from datetime import datetime, timedelta
 
 import asyncio

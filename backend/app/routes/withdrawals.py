@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+"""Endpoints for handling child withdrawal requests."""
+
 from app.database import get_session
 from app.auth import get_current_child, require_role, get_current_user
 from app.models import WithdrawalRequest, Transaction, Child, ChildUserLink, User
@@ -27,6 +29,7 @@ async def request_withdrawal(
     db: AsyncSession = Depends(get_session),
     child: Child = Depends(get_current_child),
 ):
+    """Children create a withdrawal request for parent approval."""
     req = WithdrawalRequest(child_id=child.id, amount=data.amount, memo=data.memo)
     return await create_withdrawal_request(db, req)
 

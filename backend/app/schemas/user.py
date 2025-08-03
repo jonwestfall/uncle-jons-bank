@@ -1,6 +1,7 @@
-# app/schemas/user.py
+"""Pydantic models for user-related API schemas."""
 
 from pydantic import BaseModel, EmailStr
+
 
 class UserCreate(BaseModel):
     name: str

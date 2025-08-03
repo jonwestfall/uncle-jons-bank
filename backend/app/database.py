@@ -1,4 +1,13 @@
 import os
+"""Database configuration and helper utilities.
+
+This module configures the asynchronous SQLAlchemy engine and provides
+session helpers along with a small migration routine to keep the SQLite
+schema in sync.  Comments are added throughout to clarify the startup
+sequence and purpose of each block.
+"""
+
+import os
 import logging
 from sqlmodel import SQLModel
 from sqlalchemy import text
@@ -24,6 +33,8 @@ async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def create_db_and_tables() -> None:
+    """Create initial tables and apply simple schema migrations."""
+
     from .models import (
         User,
         Child,
@@ -42,6 +53,7 @@ async def create_db_and_tables() -> None:
         # --- simple schema migration for existing installs ---
         # add new fee-related columns if they don't exist yet
         pragma = "PRAGMA table_info('{table}')"
+
         async def has_column(table: str, column: str) -> bool:
             result = await conn.execute(text(pragma.format(table=table)))
             cols = [row[1] for row in result.fetchall()]

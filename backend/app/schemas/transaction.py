@@ -1,6 +1,9 @@
 from pydantic import BaseModel, Field
+"""Transaction-related request and response models."""
+
 from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel, Field
 
 
 class TransactionBase(BaseModel):

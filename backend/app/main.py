@@ -1,3 +1,11 @@
+"""FastAPI application entry point.
+
+This module wires together the API routers, configures middleware and
+startup tasks, and exposes the ASGI application object used by the
+server.  Adding comments throughout this file should make the overall
+application flow easier for new developers to follow.
+"""
+
 import os
 import logging
 from fastapi import FastAPI, Request
@@ -33,7 +41,9 @@ from sqlmodel import select
 import asyncio
 from datetime import date
 
-# Basic logging configuration
+# Basic logging configuration.  The log level can be controlled with an
+# environment variable so deployments can adjust verbosity without code
+# changes.
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
 logger = logging.getLogger(__name__)
@@ -42,6 +52,8 @@ app = FastAPI(docs_url=None)
 
 
 def custom_openapi():
+    """Generate an OpenAPI schema that is aware of our `/api` proxy prefix."""
+
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
@@ -50,6 +62,7 @@ def custom_openapi():
         description=app.description,
         routes=app.routes,
     )
+    # The reverse proxy serves the API under `/api`; tell Swagger about it.
     openapi_schema["servers"] = [{"url": "/api"}]
     app.openapi_schema = openapi_schema
     return app.openapi_schema
@@ -69,32 +82,43 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def on_startup():
+    """Initialize the database and kick off background tasks."""
+
     await create_db_and_tables()
     async with async_session() as session:
+        # Ensure any new permissions are inserted into the database on startup.
         await ensure_permissions_exist(session, ALL_PERMISSIONS)
+    # Run the long‑lived interest calculation loop in the background.
     asyncio.create_task(daily_interest_task())
 
 
 async def daily_interest_task():
+    """Background coroutine that runs once per day to apply account updates."""
+
     logger.info("Starting daily interest task")
     while True:
         try:
             async with async_session() as session:
+                # Process any recurring charges that are due.
                 await process_due_recurring_charges(session)
                 settings = await get_settings(session)
                 accounts = await get_all_accounts(session)
+                # Recalculate interest for every account.
                 for account in accounts:
                     await recalc_interest(session, account.child_id)
                 accounts = await get_all_accounts(session)
                 today = date.today()
+                # Apply monthly service fees and overdraft penalties.
                 for account in accounts:
                     await apply_service_fee(session, account, settings, today)
                     await apply_overdraft_fee(session, account, settings, today)
                 from app.crud import redeem_matured_cds
 
+                # Finally, redeem any matured certificates of deposit.
                 await redeem_matured_cds(session)
         except Exception as exc:
             logger.exception("Daily interest task failed: %s", exc)
+        # Sleep for roughly one day before running again.
         await asyncio.sleep(60 * 60 * 24)
 
 
@@ -112,6 +136,8 @@ app.include_router(recurring.router)
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
+    """Serve the interactive docs with the correct API prefix."""
+
     # The API is served behind a `/api` prefix by the reverse proxy. The default
     # FastAPI docs expect the OpenAPI schema at `/openapi.json`, which lives
     # outside that prefix and results in the Swagger UI failing to load.

@@ -1,3 +1,5 @@
+"""Integration tests for API endpoints."""
+
 from typing import List
 import asyncio
 
