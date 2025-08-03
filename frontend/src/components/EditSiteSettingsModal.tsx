@@ -10,6 +10,7 @@ interface SiteSettings {
   overdraft_fee_amount: number
   overdraft_fee_is_percentage: boolean
   overdraft_fee_daily: boolean
+  currency_symbol: string
 }
 
 interface Props {
@@ -31,6 +32,7 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
     overdraft_fee_amount: settings.overdraft_fee_amount.toString(),
     overdraft_fee_is_percentage: settings.overdraft_fee_is_percentage,
     overdraft_fee_daily: settings.overdraft_fee_daily,
+    currency_symbol: settings.currency_symbol,
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,6 +55,7 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
         overdraft_fee_amount: Number(form.overdraft_fee_amount),
         overdraft_fee_is_percentage: form.overdraft_fee_is_percentage,
         overdraft_fee_daily: form.overdraft_fee_daily,
+        currency_symbol: form.currency_symbol,
       })
     })
     onSaved()
@@ -67,6 +70,10 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
           <label>
             Site Name
             <input name="site_name" value={form.site_name} onChange={handleChange} required />
+          </label>
+          <label>
+            Currency Symbol
+            <input name="currency_symbol" value={form.currency_symbol} onChange={handleChange} required />
           </label>
           <label>
             Default Interest Rate

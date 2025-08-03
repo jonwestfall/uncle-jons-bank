@@ -37,18 +37,38 @@ def test_recurring_charge_posts_transaction():
             child = await create_child_for_user(
                 session, Child(first_name="Kid", access_code="K1"), parent.id
             )
-            rc = RecurringCharge(
+            rc_debit = RecurringCharge(
                 child_id=child.id,
                 amount=5,
+                type="debit",
                 memo="Allowance",
                 interval_days=7,
                 next_run=date.today() - timedelta(days=7),
             )
-            await create_recurring_charge(session, rc)
+            rc_credit = RecurringCharge(
+                child_id=child.id,
+                amount=10,
+                type="credit",
+                memo="Chore Pay",
+                interval_days=7,
+                next_run=date.today() - timedelta(days=7),
+            )
+            await create_recurring_charge(session, rc_debit)
+            await create_recurring_charge(session, rc_credit)
             await process_due_recurring_charges(session)
             txs = await get_transactions_by_child(session, child.id)
-            assert any(t.memo == "Allowance" and t.amount == 5 for t in txs)
-            result = await session.execute(select(RecurringCharge).where(RecurringCharge.id == rc.id))
-            updated = result.scalar_one()
-            assert updated.next_run > date.today()
+            assert any(
+                t.memo == "Allowance" and t.amount == 5 and t.type == "debit"
+                for t in txs
+            )
+            assert any(
+                t.memo == "Chore Pay" and t.amount == 10 and t.type == "credit"
+                for t in txs
+            )
+            result = await session.execute(select(RecurringCharge).where(RecurringCharge.id == rc_debit.id))
+            updated_debit = result.scalar_one()
+            assert updated_debit.next_run > date.today()
+            result = await session.execute(select(RecurringCharge).where(RecurringCharge.id == rc_credit.id))
+            updated_credit = result.scalar_one()
+            assert updated_credit.next_run > date.today()
     asyncio.run(run())

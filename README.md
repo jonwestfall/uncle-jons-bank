@@ -26,9 +26,10 @@ The goal is to teach kids about money through experience — without handing ove
 - Ability to accept offers on Certificates of Deposit (CDs) given by parents.
 - Daily **compound interest**, with optional **bonus tiers** or promotions (Parents can change interest rates at any time)
 - Full ledger of transactions: amount, memo, date, creator, type, promo ID (optional)
+- Monetary amounts display a configurable currency symbol (default `$`).
 
 ### 📆 Recurring Charges, Fees & Promotions
-- **Recurring charges** let parents schedule automatic deductions for regular expenses, like a monthly cell phone plan or an online game subscription.
+- **Recurring charges** let parents schedule automatic deductions for regular expenses, like a monthly cell phone plan or an online game subscription, and now support recurring **credits** for direct deposits.
 - Configure site-wide **service fees** or **overdraft penalties** to teach kids about the cost of banking.
 - Run **promotions** that match deposits, waive fees, or boost interest rates to encourage saving and responsible spending.
 
@@ -144,6 +145,8 @@ and password. Once logged in, visiting `/admin` will attempt to load the admin
 interface. The React app checks your role by calling the `/users/me` endpoint in
 `frontend/src/App.tsx`; if it returns an account with the `admin` role, the
 admin panel is displayed.
+
+Admins can also set the site's default currency symbol (defaults to `$`), which is used throughout the interface when displaying monetary amounts.
 
 ## 🧪 Testing
 

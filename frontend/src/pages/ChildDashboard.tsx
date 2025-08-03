@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import LedgerTable from '../components/LedgerTable'
 import ConfirmModal from '../components/ConfirmModal'
+import { formatCurrency } from '../utils/currency'
 
 interface Transaction {
   id: number
@@ -33,6 +34,7 @@ interface RecurringCharge {
   id: number
   child_id: number
   amount: number
+  type: string
   memo?: string | null
   interval_days: number
   next_run: string
@@ -44,6 +46,7 @@ interface Props {
   childId: number
   apiUrl: string
   onLogout: () => void
+  currencySymbol: string
 }
 
 interface CdOffer {
@@ -55,7 +58,7 @@ interface CdOffer {
   matures_at?: string | null
 }
 
-export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Props) {
+export default function ChildDashboard({ token, childId, apiUrl, onLogout, currencySymbol }: Props) {
   const [ledger, setLedger] = useState<LedgerResponse | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
   const [cds, setCds] = useState<CdOffer[]>([])
@@ -117,21 +120,21 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
       <h2>{childName ? `${childName}'s Account` : 'Your Ledger'}</h2>
       {ledger && (
         <>
-          <p>Balance: {ledger.balance.toFixed(2)}</p>
+          <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
           <LedgerTable
             transactions={ledger.transactions}
             onWidth={w => !tableWidth && setTableWidth(w)}
+            currencySymbol={currencySymbol}
           />
         </>
       )}
       {charges.length > 0 && (
         <div>
-          <h4>Recurring Charges</h4>
+          <h4>Recurring Transactions</h4>
           <ul className="list">
             {charges.map(c => (
               <li key={c.id}>
-                {c.amount.toFixed(2)} every {c.interval_days} days next on{' '}
-                {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ''}
+                {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ''}
               </li>
             ))}
           </ul>
@@ -147,7 +150,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
                 : null
               return (
                 <li key={cd.id}>
-                  {cd.amount} for {cd.term_days} days at {(cd.interest_rate * 100).toFixed(2)}% - {cd.status}
+                  {formatCurrency(cd.amount, currencySymbol)} for {cd.term_days} days at {(cd.interest_rate * 100).toFixed(2)}% - {cd.status}
                   {cd.status === 'accepted' && daysLeft !== null && (
                     <span> (redeems in {daysLeft} days)</span>
                   )}
@@ -252,7 +255,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
           <ul className="list">
             {withdrawals.map(w => (
               <li key={w.id}>
-                {w.amount} - {w.status}
+                {formatCurrency(w.amount, currencySymbol)} - {w.status}
                 {w.denial_reason ? ` (Reason: ${w.denial_reason})` : ''}
               </li>
             ))}

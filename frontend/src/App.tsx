@@ -18,6 +18,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [permissions, setPermissions] = useState<string[]>([])
   const [siteName, setSiteName] = useState("Uncle Jon's Bank")
+  const [currencySymbol, setCurrencySymbol] = useState('$')
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   )
@@ -75,6 +76,7 @@ function App() {
     if (resp.ok) {
       const data = await resp.json()
       setSiteName(data.site_name)
+      setCurrencySymbol(data.currency_symbol || '$')
       document.title = data.site_name
     }
   }, [apiUrl])
@@ -101,17 +103,22 @@ function App() {
       <Routes>
         {isChildAccount && childId !== null && (
           <>
-            <Route path="/child" element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} />} />
+            <Route path="/child" element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} currencySymbol={currencySymbol} />} />
             <Route path="/child/profile" element={<ChildProfile token={token} apiUrl={apiUrl} />} />
           </>
         )}
         {!isChildAccount && (
           <Route
             path="/"
-            element={<ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} />}
+            element={<ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} currencySymbol={currencySymbol} />}
           />
         )}
-        {isAdmin && <Route path="/admin" element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} siteName={siteName} />} />}
+        {isAdmin && (
+          <Route
+            path="/admin"
+            element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} siteName={siteName} currencySymbol={currencySymbol} onSettingsChange={fetchSettings} />}
+          />
+        )}
         <Route path="*" element={<Navigate to={isChildAccount ? '/child' : '/'} replace />} />
       </Routes>
     </BrowserRouter>

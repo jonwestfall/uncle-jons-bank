@@ -770,7 +770,7 @@ async def process_due_recurring_charges(db: AsyncSession) -> None:
                 db,
                 Transaction(
                     child_id=charge.child_id,
-                    type="debit",
+                    type=charge.type,
                     amount=charge.amount,
                     memo=charge.memo,
                     initiated_by="system",
