@@ -65,30 +65,24 @@
   border: 1px solid var(--container-border, #ccc);
   border-radius: 4px;
   margin-bottom: 0.5rem;
+}
+.child-card summary {
   padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
+  cursor: pointer;
 }
 .child-actions {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  padding: 0.5rem;
 }
 .child-actions button {
   width: 100%;
 }
 @media (min-width: 600px) {
-  .child-card {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
   .child-actions {
     flex-direction: row;
     flex-wrap: wrap;
-    margin-top: 0;
-    justify-content: flex-end;
   }
   .child-actions button {
     flex: 1 0 45%;

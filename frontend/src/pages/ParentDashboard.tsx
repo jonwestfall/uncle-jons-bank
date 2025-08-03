@@ -112,7 +112,7 @@ export default function ParentDashboard({
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [accessChild, setAccessChild] = useState<Child | null>(null);
   const [accessParents, setAccessParents] = useState<ParentInfo[]>([]);
-  const [childTab, setChildTab] = useState<'ledger' | 'actions'>('ledger');
+  const [actionChild, setActionChild] = useState<Child | null>(null);
   const [editingCharge, setEditingCharge] = useState<RecurringCharge | null>(null);
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const canEdit = permissions.includes("edit_transaction");
@@ -223,50 +223,100 @@ export default function ParentDashboard({
         )}
       <ul className="list">
         {children.map((c) => (
-          <li key={c.id} className="child-card">
-            <span>{c.first_name} {c.frozen && "(Frozen)"}</span>
-            <div className="child-actions">
-              <button onClick={() => setEditingChild(c)}>Rates</button>
-              <button onClick={() => toggleFreeze(c.id, c.frozen)}>
-                {c.frozen ? "Unfreeze" : "Freeze"}
-              </button>
-              <button onClick={() => setCodeChild(c)}>Change Code</button>
-              <button onClick={() => setSharingChild(c)}>Share</button>
-              <button onClick={() => openAccess(c)}>Manage Access</button>
-              <button
-                onClick={() => {
-                  fetchLedger(c.id);
-                  fetchCharges(c.id);
-                  setSelectedChild(c.id);
-                  setChildTab('ledger');
-                }}
-              >
-                Ledger
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedChild(c.id);
-                  setChildTab('actions');
-                }}
-              >
-                Actions
-              </button>
-            </div>
+          <li key={c.id}>
+            <details className="child-card">
+              <summary>
+                {c.first_name} {c.frozen && "(Frozen)"}
+              </summary>
+              <div className="child-actions">
+                <button onClick={() => setActionChild(c)}>Actions</button>
+              </div>
+            </details>
           </li>
         ))}
       </ul>
-      {selectedChild !== null && (
+      {actionChild && (
+        <div
+          className="modal-overlay"
+          onClick={() => setActionChild(null)}
+        >
+          <div
+            className="modal"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <h3>Actions for {actionChild.first_name}</h3>
+            <div className="child-actions">
+              <button
+                onClick={() => {
+                  setEditingChild(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Rates
+              </button>
+              <button
+                onClick={() => {
+                  toggleFreeze(actionChild.id, actionChild.frozen);
+                  setActionChild(null);
+                }}
+              >
+                {actionChild.frozen ? "Unfreeze" : "Freeze"}
+              </button>
+              <button
+                onClick={() => {
+                  setCodeChild(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Change Code
+              </button>
+              <button
+                onClick={() => {
+                  setSharingChild(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Share
+              </button>
+              <button
+                onClick={() => {
+                  openAccess(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Manage Access
+              </button>
+              <button
+                onClick={() => {
+                  fetchLedger(actionChild.id);
+                  fetchCharges(actionChild.id);
+                  setSelectedChild(actionChild.id);
+                  setActionChild(null);
+                }}
+              >
+                View Ledger
+              </button>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setActionChild(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {ledger && selectedChild !== null && (
         <div>
-          <h4>Child #{selectedChild}</h4>
-          {childTab === 'ledger' && ledger && (
-            <>
-              <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
-              <div className="ledger-scroll">
-                <LedgerTable
-                  transactions={ledger.transactions}
-                  allowDownload
-                  currencySymbol={currencySymbol}
-                  renderActions={(tx) => (
+          <h4>Ledger for child #{selectedChild}</h4>
+          <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
+          <div className="ledger-scroll">
+            <LedgerTable
+              transactions={ledger.transactions}
+              allowDownload
+              currencySymbol={currencySymbol}
+              renderActions={(tx) => (
               <>
                 {canEdit && tx.initiated_by !== "system" && (
                   <button
@@ -340,231 +390,225 @@ export default function ParentDashboard({
               </li>
             ))}
           </ul>
-            </>
-          )}
-          {childTab === 'actions' && (
-            <>
-              {canAddRecurring && (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const nextDate = new Date(rcNext + 'T00:00:00');
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    if (nextDate < today) {
-                      setToast({ message: 'Next run cannot be in the past', error: true });
-                      return;
-                    }
-                    const resp = await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                      },
-                      body: JSON.stringify({
-                        amount: Number(rcAmount),
-                        memo: rcMemo || null,
-                        interval_days: Number(rcInterval),
-                        next_run: rcNext,
-                        type: rcType,
-                      }),
-                    });
-                    if (!resp.ok) {
-                      const data = await resp.json().catch(() => null);
-                      setToast({
-                        message: data?.detail || 'Action failed',
-                        error: true,
-                      });
-                      return;
-                    }
-                    setRcAmount('');
-                    setRcType('debit');
-                    setRcMemo('');
-                    setRcInterval('');
-                    setRcNext('');
-                    fetchCharges(selectedChild);
-                  }}
-                  className="form"
-                >
-                  <h4>Add Recurring Transaction</h4>
-                  <label>
-                    Type
-                    <select value={rcType} onChange={(e) => setRcType(e.target.value)}>
-                      <option value="debit">Debit</option>
-                      <option value="credit">Credit</option>
-                    </select>
-                  </label>
-                  <label>
-                    Amount
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={rcAmount}
-                      onChange={(e) => setRcAmount(e.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Memo
-                    <input
-                      value={rcMemo}
-                      onChange={(e) => setRcMemo(e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Interval days
-                    <input
-                      type="number"
-                      value={rcInterval}
-                      onChange={(e) => setRcInterval(e.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Next run
-                    <input
-                      type="date"
-                      value={rcNext}
-                      onChange={(e) => setRcNext(e.target.value)}
-                      required
-                    />
-                  </label>
-                  <button type="submit">Add</button>
-                </form>
-              )}
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const resp = await fetch(`${apiUrl}/transactions/`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      child_id: selectedChild,
-                      type: txType,
-                      amount: Number(txAmount),
-                      memo: txMemo || null,
-                      initiated_by: 'parent',
-                      initiator_id: 0,
-                    }),
+          {canAddRecurring && (
+            <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+                const nextDate = new Date(rcNext + "T00:00:00");
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (nextDate < today) {
+                  setToast({ message: "Next run cannot be in the past", error: true });
+                  return;
+                }
+                const resp = await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    amount: Number(rcAmount),
+                    memo: rcMemo || null,
+                    interval_days: Number(rcInterval),
+                    next_run: rcNext,
+                    type: rcType,
+                  }),
+                });
+                if (!resp.ok) {
+                  const data = await resp.json().catch(() => null);
+                  setToast({
+                    message: data?.detail || "Action failed",
+                    error: true,
                   });
-                  setTxAmount('');
-                  setTxMemo('');
-                  setTxType('credit');
-                  if (resp.ok && selectedChild !== null) {
-                    await fetchLedger(selectedChild);
-                  } else if (!resp.ok) {
-                    const data = await resp.json().catch(() => null);
-                    setToast({
-                      message: data?.detail || 'Action failed',
-                      error: true,
-                    });
-                  }
-                }}
-                className="form"
-              >
-                <h4>Add Transaction</h4>
-                <label>
-                  Type
-                  <select
-                    value={txType}
-                    onChange={(e) => setTxType(e.target.value)}
-                  >
-                    <option value="credit">Credit</option>
-                    <option value="debit">Debit</option>
-                  </select>
-                </label>
-                <label>
-                  Amount
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={txAmount}
-                    onChange={(e) => setTxAmount(e.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  Memo
-                  <input
-                    value={txMemo}
-                    onChange={(e) => setTxMemo(e.target.value)}
-                  />
-                </label>
-                <button type="submit">Add</button>
-              </form>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const resp = await fetch(`${apiUrl}/cds/`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      child_id: selectedChild,
-                      amount: Number(cdAmount),
-                      interest_rate: Number(cdRate) / 100,
-                      term_days: Number(cdDays),
-                    }),
-                  });
-                  if (resp.ok) {
-                    alert('CD offer sent!');
-                  } else {
-                    let msg = 'Failed to send CD offer';
-                    try {
-                      const data = await resp.json();
-                      if (data.detail) msg = data.detail;
-                    } catch {
-                      // ignore
-                    }
-                    alert(msg);
-                  }
-                  setCdAmount('');
-                  setCdRate('');
-                  setCdDays('');
-                }}
-                className="form"
-              >
-                <h4>Offer CD</h4>
-                <label>
-                  Amount
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={cdAmount}
-                    onChange={(e) => setCdAmount(e.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  Rate (%)
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={cdRate}
-                    onChange={(e) => setCdRate(e.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  Days
-                  <input
-                    type="number"
-                    value={cdDays}
-                    onChange={(e) => setCdDays(e.target.value)}
-                    required
-                  />
-                </label>
-                <button type="submit">Send</button>
-              </form>
-            </>
+                  return;
+                }
+                setRcAmount("");
+                setRcType("debit");
+                setRcMemo("");
+                setRcInterval("");
+                setRcNext("");
+                fetchCharges(selectedChild);
+              }}
+              className="form"
+            >
+              <h4>Add Recurring Transaction</h4>
+              <label>
+                Type
+                <select value={rcType} onChange={(e) => setRcType(e.target.value)}>
+                  <option value="debit">Debit</option>
+                  <option value="credit">Credit</option>
+                </select>
+              </label>
+              <label>
+                Amount
+                <input
+                  type="number"
+                  step="0.01"
+                  value={rcAmount}
+                  onChange={(e) => setRcAmount(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Memo
+                <input
+                  value={rcMemo}
+                  onChange={(e) => setRcMemo(e.target.value)}
+                />
+              </label>
+              <label>
+                Interval days
+                <input
+                  type="number"
+                  value={rcInterval}
+                  onChange={(e) => setRcInterval(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Next run
+                <input
+                  type="date"
+                  value={rcNext}
+                  onChange={(e) => setRcNext(e.target.value)}
+                  required
+                />
+              </label>
+              <button type="submit">Add</button>
+            </form>
           )}
-        </div>
-      )}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const resp = await fetch(`${apiUrl}/transactions/`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  child_id: selectedChild,
+                  type: txType,
+                  amount: Number(txAmount),
+                  memo: txMemo || null,
+                  initiated_by: "parent",
+                  initiator_id: 0,
+                }),
+              });
+              setTxAmount("");
+              setTxMemo("");
+              setTxType("credit");
+              if (resp.ok && selectedChild !== null) {
+                await fetchLedger(selectedChild);
+              } else if (!resp.ok) {
+                const data = await resp.json().catch(() => null);
+                setToast({
+                  message: data?.detail || "Action failed",
+                  error: true,
+                });
+              }
+            }}
+            className="form"
+          >
+            <h4>Add Transaction</h4>
+            <label>
+              Type
+              <select
+                value={txType}
+                onChange={(e) => setTxType(e.target.value)}
+              >
+                <option value="credit">Credit</option>
+                <option value="debit">Debit</option>
+              </select>
+            </label>
+            <label>
+              Amount
+              <input
+                type="number"
+                step="0.01"
+                value={txAmount}
+                onChange={(e) => setTxAmount(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Memo
+              <input
+                value={txMemo}
+                onChange={(e) => setTxMemo(e.target.value)}
+              />
+            </label>
+          <button type="submit">Add</button>
+        </form>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const resp = await fetch(`${apiUrl}/cds/`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                child_id: selectedChild,
+                amount: Number(cdAmount),
+                interest_rate: Number(cdRate),
+                term_days: Number(cdDays),
+              }),
+            });
+            if (resp.ok) {
+              alert("CD offer sent!");
+            } else {
+              let msg = "Failed to send CD offer";
+              try {
+                const data = await resp.json();
+                if (data.detail) msg = data.detail;
+              } catch {
+                // ignore
+              }
+              alert(msg);
+            }
+            setCdAmount("");
+            setCdRate("");
+            setCdDays("");
+          }}
+          className="form"
+        >
+        <h4>Offer CD</h4>
+        <label>
+          Amount
+          <input
+            type="number"
+            step="0.01"
+            value={cdAmount}
+            onChange={(e) => setCdAmount(e.target.value)}
+            required
+          />
+        </label>
+        <label>
+          Rate
+          <input
+            type="number"
+            step="0.0001"
+            value={cdRate}
+            onChange={(e) => setCdRate(e.target.value)}
+            required
+          />
+        </label>
+        <label>
+          Days
+          <input
+            type="number"
+            value={cdDays}
+            onChange={(e) => setCdDays(e.target.value)}
+            required
+          />
+        </label>
+        <button type="submit">Send</button>
+      </form>
+      </div>
+    )}
       {pendingWithdrawals.length > 0 && (
         <div>
           <h4>Pending Withdrawal Requests</h4>
