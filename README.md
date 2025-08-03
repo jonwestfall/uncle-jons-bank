@@ -20,6 +20,7 @@ The goal is to teach kids about money through experience — without handing ove
   - **Depositor**: can add funds
   - **Approver**: can approve withdrawals
 - Children have their own logins with a simplified UI through a secret code.
+- Parents can generate one-time share codes to link additional guardians with custom permissions.
 
 ### 💸 Banking & Ledger
 - One main balance per child
@@ -43,6 +44,10 @@ early themselves using `POST /cds/{cd_id}/redeem-early`. Early redemptions retur
 the principal and charge a 10% penalty. The `/tests/cd-issue` and
 `/tests/cd-redeem` endpoints help generate and redeem CDs for integration tests.
 
+### 🏦 Loans
+Children can request loans that parents approve or deny. Approved loans disburse
+funds into the child's balance, accrue daily interest, and track payments. Parents
+can adjust interest rates, record payments, or close loans early.
 ### 🔐 Permissions & Controls
 - Withdrawals are **requested** by the child, and **approved/denied** by guardians
 - Accounts can be **frozen**.
@@ -74,15 +79,23 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - `AccessCode`: For child login
 - `AccountSettings`: Interest rates, lock flags, etc.
 - `ChildUserLink`: Associates guardians and children (many-to-many)
+- `Loan`: Parent-approved loans for children
+- `LoanTransaction`: Payment and interest ledger for loans
+- `ShareCode`: One-time code to link additional guardians
 
 ### 📡 API Endpoints (sample MVP endpoints)
 - `POST /register`: Create parent account
 - `POST /token`: Log in and get JWT
 - `POST /children`: Add a child account (linked to current user)
 - `GET /children`: List children linked to user
+- `POST /children/{child_id}/sharecode`: Generate a one-time share code
+- `POST /children/sharecode/{code}`: Redeem a share code to link a child
 - `POST /transactions`: Add a deposit, withdrawal request, etc.
 - `POST /withdrawals/{id}/approve`: Approve pending withdrawal
 - `POST /withdrawals/{id}/deny`: Deny request with reason
+- `POST /loans`: Child requests a loan
+- `POST /loans/{id}/approve`: Parent approves and sets terms
+- `POST /loans/{id}/payment`: Record a loan payment
 
 ---
 
@@ -95,6 +108,8 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - Authentication & JWT token issuing
 - Role-based permissions across endpoints
 - Ledger transactions with daily interest accrual
+- One-time share codes to link additional guardians
+- Loan management with interest accrual and payments
 - Withdrawal request & approval workflow
 - Admin panel for managing users, children and transactions
 - React frontend with dark mode and custom logo
