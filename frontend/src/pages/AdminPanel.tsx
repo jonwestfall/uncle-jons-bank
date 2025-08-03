@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react'
+import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
+import RunPromotionModal from '../components/RunPromotionModal'
+import TextPromptModal from '../components/TextPromptModal'
+import ConfirmModal from '../components/ConfirmModal'
 
 interface Props {
   token: string
@@ -50,6 +54,11 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
   const [children, setChildren] = useState<Child[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [settings, setSettings] = useState<SiteSettings | null>(null)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showPromoModal, setShowPromoModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingChild, setEditingChild] = useState<Child | null>(null)
+  const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null)
 
   const fetchData = async () => {
     const uh = { Authorization: `Bearer ${token}` }
@@ -69,7 +78,9 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
 
   return (
     <div className="container">
-      <center><img src="/unclejon.jpg" alt={`${siteName} Logo`} className="logo" /></center>
+      <div className="logo-wrapper">
+        <img src="/unclejon.jpg" alt={`${siteName} Logo`} className="logo" />
+      </div>
       <h1>Admin Panel</h1>
       {settings && (
         <div>
@@ -87,96 +98,35 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
             {settings.overdraft_fee_is_percentage ? '%' : ''}
             {settings.overdraft_fee_daily ? ' (daily)' : ' (once)'}
           </p>
-          <button
-            onClick={async () => {
-              const name = window.prompt('Site name', settings.site_name)
-              if (name === null) return
-              const ir = window.prompt('Interest rate', String(settings.default_interest_rate))
-              if (ir === null) return
-              const pr = window.prompt('Penalty rate', String(settings.default_penalty_interest_rate))
-              if (pr === null) return
-              const cd = window.prompt('CD penalty rate', String(settings.default_cd_penalty_rate))
-              if (cd === null) return
-              const sf = window.prompt('Service fee amount', String(settings.service_fee_amount))
-              if (sf === null) return
-              const sfp = window.confirm('Is service fee a percentage?')
-              const of = window.prompt('Overdraft fee amount', String(settings.overdraft_fee_amount))
-              if (of === null) return
-              const ofp = window.confirm('Is overdraft fee a percentage?')
-              const ofd = window.confirm('Charge overdraft fee daily?')
-              await fetch(`${apiUrl}/settings/`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                  site_name: name,
-                  default_interest_rate: Number(ir),
-                  default_penalty_interest_rate: Number(pr),
-                  default_cd_penalty_rate: Number(cd),
-                  service_fee_amount: Number(sf),
-                  service_fee_is_percentage: sfp,
-                  overdraft_fee_amount: Number(of),
-                  overdraft_fee_is_percentage: ofp,
-                  overdraft_fee_daily: ofd,
-                })
-              })
-              fetchData()
-            }}
-          >Edit</button>
+          <button onClick={() => setShowSettingsModal(true)}>Edit</button>
         </div>
       )}
       <h2>Promotions</h2>
-      <button
-        onClick={async () => {
-          const amt = window.prompt('Amount or percentage', '0')
-          if (amt === null) return
-          const isPct = window.confirm('Is this a percentage?')
-          const credit = window.confirm('Credit accounts? Cancel for charge')
-          const memo = window.prompt('Memo', 'Promotion') || 'Promotion'
-          await fetch(`${apiUrl}/admin/promotions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              amount: Number(amt),
-              is_percentage: isPct,
-              credit,
-              memo
-            })
-          })
-          fetchData()
-        }}
-      >Run Promotion</button>
+      <button onClick={() => setShowPromoModal(true)}>Run Promotion</button>
       <h2>Users</h2>
       <ul className="list">
         {users.map(u => (
           <li key={u.id}>
             {u.name} ({u.email}) [{u.role}]
             <button
-              onClick={async () => {
-                const name = window.prompt('Name', u.name)
-                if (name === null) return
-                await fetch(`${apiUrl}/admin/users/${u.id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                  },
-                  body: JSON.stringify({ name })
-                })
-                fetchData()
-              }}
+              onClick={() => setEditingUser(u)}
               className="ml-1"
             >
               Edit
             </button>
             <button
-              onClick={async () => {
-                if (!confirm('Delete user?')) return
-                await fetch(`${apiUrl}/admin/users/${u.id}`, {
-                  method: 'DELETE',
-                  headers: { Authorization: `Bearer ${token}` }
+              onClick={() =>
+                setConfirm({
+                  message: 'Delete user?',
+                  onConfirm: async () => {
+                    await fetch(`${apiUrl}/admin/users/${u.id}`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${token}` },
+                    })
+                    fetchData()
+                  },
                 })
-                fetchData()
-              }}
+              }
               className="ml-05"
             >
               Delete
@@ -190,32 +140,24 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
           <li key={c.id}>
             {c.first_name} {c.account_frozen && '(Frozen)'}
             <button
-              onClick={async () => {
-                const name = window.prompt('Name', c.first_name)
-                if (name === null) return
-                await fetch(`${apiUrl}/admin/children/${c.id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                  },
-                  body: JSON.stringify({ first_name: name })
-                })
-                fetchData()
-              }}
+              onClick={() => setEditingChild(c)}
               className="ml-1"
             >
               Edit
             </button>
             <button
-              onClick={async () => {
-                if (!confirm('Delete child?')) return
-                await fetch(`${apiUrl}/admin/children/${c.id}`, {
-                  method: 'DELETE',
-                  headers: { Authorization: `Bearer ${token}` }
+              onClick={() =>
+                setConfirm({
+                  message: 'Delete child?',
+                  onConfirm: async () => {
+                    await fetch(`${apiUrl}/admin/children/${c.id}`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${token}` },
+                    })
+                    fetchData()
+                  },
                 })
-                fetchData()
-              }}
+              }
               className="ml-05"
             >
               Delete
@@ -230,14 +172,18 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
             #{t.id} Child {t.child_id} {t.type} {t.amount}
             {t.memo ? ` (${t.memo})` : ''}
             <button
-              onClick={async () => {
-                if (!confirm('Delete transaction?')) return
-                await fetch(`${apiUrl}/admin/transactions/${t.id}`, {
-                  method: 'DELETE',
-                  headers: { Authorization: `Bearer ${token}` }
+              onClick={() =>
+                setConfirm({
+                  message: 'Delete transaction?',
+                  onConfirm: async () => {
+                    await fetch(`${apiUrl}/admin/transactions/${t.id}`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${token}` },
+                    })
+                    fetchData()
+                  },
                 })
-                fetchData()
-              }}
+              }
               className="ml-05"
             >
               Delete
@@ -246,6 +192,74 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName }: Props)
         ))}
       </ul>
       <button onClick={onLogout}>Logout</button>
+
+      {showSettingsModal && settings && (
+        <EditSiteSettingsModal
+          settings={settings}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setShowSettingsModal(false)}
+          onSaved={fetchData}
+        />
+      )}
+      {showPromoModal && (
+        <RunPromotionModal
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setShowPromoModal(false)}
+          onSaved={fetchData}
+        />
+      )}
+      {editingUser && (
+        <TextPromptModal
+          title="Edit User"
+          label="Name"
+          defaultValue={editingUser.name}
+          onCancel={() => setEditingUser(null)}
+          onSubmit={async (value) => {
+            await fetch(`${apiUrl}/admin/users/${editingUser.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ name: value }),
+            })
+            setEditingUser(null)
+            fetchData()
+          }}
+        />
+      )}
+      {editingChild && (
+        <TextPromptModal
+          title="Edit Child"
+          label="Name"
+          defaultValue={editingChild.first_name}
+          onCancel={() => setEditingChild(null)}
+          onSubmit={async (value) => {
+            await fetch(`${apiUrl}/admin/children/${editingChild.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ first_name: value }),
+            })
+            setEditingChild(null)
+            fetchData()
+          }}
+        />
+      )}
+      {confirm && (
+        <ConfirmModal
+          message={confirm.message}
+          onConfirm={() => {
+            confirm.onConfirm()
+            setConfirm(null)
+          }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   )
 }

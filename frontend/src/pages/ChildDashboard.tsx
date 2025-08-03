@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import LedgerTable from '../components/LedgerTable'
+import ConfirmModal from '../components/ConfirmModal'
 
 interface Transaction {
   id: number
@@ -58,9 +59,10 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
   const [ledger, setLedger] = useState<LedgerResponse | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
   const [cds, setCds] = useState<CdOffer[]>([])
-   const [charges, setCharges] = useState<RecurringCharge[]>([])
+  const [charges, setCharges] = useState<RecurringCharge[]>([])
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [withdrawMemo, setWithdrawMemo] = useState('')
+  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null)
   const [childName, setChildName] = useState('')
   const [tableWidth, setTableWidth] = useState<number>()
 
@@ -151,20 +153,20 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
                   )}
                   {cd.status === 'accepted' && daysLeft !== null && daysLeft > 0 && (
                     <button
-                      onClick={async () => {
-                        if (
-                          !confirm(
-                            'Redeem this CD early? A 10% penalty will be charged.'
-                          )
-                        )
-                          return
-                        await fetch(`${apiUrl}/cds/${cd.id}/redeem-early`, {
-                          method: 'POST',
-                          headers: { Authorization: `Bearer ${token}` },
+                      onClick={() =>
+                        setConfirmAction({
+                          message:
+                            'Redeem this CD early? A 10% penalty will be charged.',
+                          onConfirm: async () => {
+                            await fetch(`${apiUrl}/cds/${cd.id}/redeem-early`, {
+                              method: 'POST',
+                              headers: { Authorization: `Bearer ${token}` },
+                            })
+                            fetchCds()
+                            fetchLedger()
+                          },
                         })
-                        fetchCds()
-                        fetchLedger()
-                      }}
+                      }
                       className="ml-05"
                     >
                       Redeem Early
@@ -224,8 +226,24 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
         className="form"
       >
         <h4>Request Withdrawal</h4>
-        <input type="number" step="0.01" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} required />
-        <input placeholder="Memo" value={withdrawMemo} onChange={e => setWithdrawMemo(e.target.value)} />
+        <label>
+          Amount
+          <input
+            type="number"
+            step="0.01"
+            value={withdrawAmount}
+            onChange={e => setWithdrawAmount(e.target.value)}
+            required
+          />
+        </label>
+        <label>
+          Memo
+          <input
+            placeholder="Memo"
+            value={withdrawMemo}
+            onChange={e => setWithdrawMemo(e.target.value)}
+          />
+        </label>
         <button type="submit">Submit</button>
       </form>
       {withdrawals.length > 0 && (
@@ -242,6 +260,16 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout }: Pro
         </div>
       )}
       <button onClick={onLogout}>Logout</button>
+      {confirmAction && (
+        <ConfirmModal
+          message={confirmAction.message}
+          onConfirm={() => {
+            confirmAction.onConfirm()
+            setConfirmAction(null)
+          }}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   )
 }

@@ -64,12 +64,16 @@ export default function LedgerTable({
   }, [transactions, sortColumn, sortDir])
 
   const pageCount = Math.ceil(sorted.length / pageSize) || 1
+  const startIndex = currentPage * pageSize
   const currentItems = sorted.slice(
-    currentPage * pageSize,
-    currentPage * pageSize + pageSize,
+    startIndex,
+    startIndex + pageSize,
   )
 
-  let runningBalance = 0
+  const startingBalance = sorted
+    .slice(0, startIndex)
+    .reduce((bal, tx) => (tx.type === 'credit' ? bal + tx.amount : bal - tx.amount), 0)
+  let runningBalance = startingBalance
   const displayRows = currentItems.map(tx => {
     if (tx.type === 'credit') {
       runningBalance += tx.amount
