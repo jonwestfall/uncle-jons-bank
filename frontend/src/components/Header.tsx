@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import './Header.css'
 
 interface Props {
@@ -18,18 +18,18 @@ export default function Header({ onLogout, isAdmin, isChild, siteName, onToggleT
         <ul>
           {isChild ? (
               <>
-                <li><Link to="/child">Ledger</Link></li>
-                <li><Link to="/child/loans">Loans</Link></li>
-                <li><Link to="/child/profile">Profile</Link></li>
+                <li><NavLink to="/child" className={({isActive}) => isActive ? 'active' : undefined}>Ledger</NavLink></li>
+                <li><NavLink to="/child/loans" className={({isActive}) => isActive ? 'active' : undefined}>Loans</NavLink></li>
+                <li><NavLink to="/child/profile" className={({isActive}) => isActive ? 'active' : undefined}>Profile</NavLink></li>
               </>
             ) : (
               <>
-                <li><Link to="/">Dashboard</Link></li>
-                <li><Link to="/parent/loans">Loans</Link></li>
-                <li><Link to="/parent/profile">Profile</Link></li>
+                <li><NavLink to="/" className={({isActive}) => isActive ? 'active' : undefined}>Dashboard</NavLink></li>
+                <li><NavLink to="/parent/loans" className={({isActive}) => isActive ? 'active' : undefined}>Loans</NavLink></li>
+                <li><NavLink to="/parent/profile" className={({isActive}) => isActive ? 'active' : undefined}>Profile</NavLink></li>
               </>
             )}
-          {isAdmin && <li><Link to="/admin">Admin</Link></li>}
+          {isAdmin && <li><NavLink to="/admin" className={({isActive}) => isActive ? 'active' : undefined}>Admin</NavLink></li>}
           <li><button onClick={onToggleTheme}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button></li>
           <li><button onClick={onLogout}>Logout</button></li>
         </ul>

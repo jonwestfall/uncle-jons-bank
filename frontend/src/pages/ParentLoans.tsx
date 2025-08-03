@@ -58,7 +58,7 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
 
   const approveLoan = async (loanId: number) => {
     const body = {
-      interest_rate: parseFloat(approveRate[loanId] || '0'),
+      interest_rate: parseFloat(approveRate[loanId] || '0') / 100,
       terms: approveTerms[loanId] || undefined,
     }
     await fetch(`${apiUrl}/loans/${loanId}/approve`, {
@@ -100,7 +100,7 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ interest_rate: parseFloat(newRate[loanId] || '0') }),
+      body: JSON.stringify({ interest_rate: parseFloat(newRate[loanId] || '0') / 100 }),
     })
     setNewRate({ ...newRate, [loanId]: '' })
     fetchLoans(selectedChild!)
@@ -142,9 +142,9 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
               {formatCurrency(l.amount, currencySymbol)} for {l.purpose || 'n/a'} - {l.status}
               {['approved', 'active'].includes(l.status) && (
                 <div>
-                  Rate: {l.interest_rate}
+                  Rate: {(l.interest_rate * 100).toFixed(2)}%
                   <input
-                    placeholder="New rate"
+                    placeholder="New rate (%)"
                     value={newRate[l.id] || ''}
                     onChange={e =>
                       setNewRate({ ...newRate, [l.id]: e.target.value })
@@ -156,7 +156,7 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
               {l.status === 'requested' && (
                 <div>
                   <input
-                    placeholder="Interest rate"
+                    placeholder="Interest rate (%)"
                     value={approveRate[l.id] || ''}
                     onChange={e =>
                       setApproveRate({ ...approveRate, [l.id]: e.target.value })

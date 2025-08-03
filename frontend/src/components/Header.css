@@ -16,6 +16,11 @@
   color: var(--text-color);
   text-decoration: none;
 }
+
+.header a.active {
+  text-decoration: underline;
+  font-weight: bold;
+}
 .header button {
   background: var(--button-bg);
   color: white;
