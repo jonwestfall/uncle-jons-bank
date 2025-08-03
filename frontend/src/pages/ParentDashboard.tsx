@@ -99,6 +99,7 @@ export default function ParentDashboard({
   const [ratesMessage, setRatesMessage] = useState<string | null>(null);
   const [ratesError, setRatesError] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [codeChild, setCodeChild] = useState<Child | null>(null);
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
   const canAddRecurring = permissions.includes("add_recurring_charge");
@@ -194,6 +195,12 @@ export default function ParentDashboard({
                 className="ml-1"
               >
                 {c.frozen ? "Unfreeze" : "Freeze"}
+              </button>
+              <button
+                onClick={() => setCodeChild(c)}
+                className="ml-1"
+              >
+                Change Code
               </button>
               <button
                 onClick={() => {
@@ -588,6 +595,31 @@ export default function ParentDashboard({
           onError={(msg) => {
             setRatesMessage(msg);
             setRatesError(true);
+          }}
+        />
+      )}
+      {codeChild && (
+        <TextPromptModal
+          title={`New access code for ${codeChild.first_name}`}
+          label="Access Code"
+          onCancel={() => setCodeChild(null)}
+          onSubmit={async (value) => {
+            const resp = await fetch(
+              `${apiUrl}/children/${codeChild.id}/access-code`,
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ access_code: value }),
+              },
+            );
+            if (!resp.ok) {
+              alert("Failed to update access code");
+            }
+            setCodeChild(null);
+            fetchChildren();
           }}
         />
       )}

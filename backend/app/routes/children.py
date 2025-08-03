@@ -9,6 +9,7 @@ from app.schemas import (
     InterestRateUpdate,
     PenaltyRateUpdate,
     CDPenaltyRateUpdate,
+    AccessCodeUpdate,
 )
 from app.models import Child, User
 from app.database import get_session
@@ -23,6 +24,7 @@ from app.crud import (
     set_cd_penalty_rate,
     get_account_by_child,
     recalc_interest,
+    save_child,
 )
 from app.auth import (
     get_current_user,
@@ -56,6 +58,39 @@ async def read_current_child(
         id=child.id,
         first_name=child.first_name,
         account_frozen=child.account_frozen,
+        interest_rate=account.interest_rate if account else None,
+        penalty_interest_rate=account.penalty_interest_rate if account else None,
+        cd_penalty_rate=account.cd_penalty_rate if account else None,
+        total_interest_earned=account.total_interest_earned if account else None,
+    )
+
+
+@router.put("/{child_id}/access-code", response_model=ChildRead)
+async def update_access_code(
+    child_id: int,
+    data: AccessCodeUpdate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("parent", "admin")),
+):
+    """Update the login access code for a child."""
+
+    child = await get_child_by_id(db, child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail="Child not found")
+    if current_user.role != "admin":
+        children = await get_children_by_user(db, current_user.id)
+        if child_id not in [c.id for c in children]:
+            raise HTTPException(status_code=404, detail="Child not found")
+    existing = await get_child_by_access_code(db, data.access_code)
+    if existing and existing.id != child_id:
+        raise HTTPException(status_code=400, detail="Access code already in use")
+    child.access_code = data.access_code
+    updated = await save_child(db, child)
+    account = await get_account_by_child(db, updated.id)
+    return ChildRead(
+        id=updated.id,
+        first_name=updated.first_name,
+        account_frozen=updated.account_frozen,
         interest_rate=account.interest_rate if account else None,
         penalty_interest_rate=account.penalty_interest_rate if account else None,
         cd_penalty_rate=account.cd_penalty_rate if account else None,

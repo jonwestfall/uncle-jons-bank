@@ -22,7 +22,10 @@ export default function Header({ onLogout, isAdmin, isChild, siteName, onToggleT
                 <li><Link to="/child/profile">Profile</Link></li>
               </>
             ) : (
-              <li><Link to="/">Dashboard</Link></li>
+              <>
+                <li><Link to="/">Dashboard</Link></li>
+                <li><Link to="/parent/profile">Profile</Link></li>
+              </>
             )}
           {isAdmin && <li><Link to="/admin">Admin</Link></li>}
           <li><button onClick={onToggleTheme}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button></li>

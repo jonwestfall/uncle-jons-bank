@@ -32,3 +32,7 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     role: str | None = None
     password: str | None = None
+
+
+class PasswordChange(BaseModel):
+    password: str
