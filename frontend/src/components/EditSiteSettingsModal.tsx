@@ -24,9 +24,9 @@ interface Props {
 export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
     site_name: settings.site_name,
-    default_interest_rate: settings.default_interest_rate.toString(),
-    default_penalty_interest_rate: settings.default_penalty_interest_rate.toString(),
-    default_cd_penalty_rate: settings.default_cd_penalty_rate.toString(),
+    default_interest_rate: (settings.default_interest_rate * 100).toString(),
+    default_penalty_interest_rate: (settings.default_penalty_interest_rate * 100).toString(),
+    default_cd_penalty_rate: (settings.default_cd_penalty_rate * 100).toString(),
     service_fee_amount: settings.service_fee_amount.toString(),
     service_fee_is_percentage: settings.service_fee_is_percentage,
     overdraft_fee_amount: settings.overdraft_fee_amount.toString(),
@@ -47,9 +47,9 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         site_name: form.site_name,
-        default_interest_rate: Number(form.default_interest_rate),
-        default_penalty_interest_rate: Number(form.default_penalty_interest_rate),
-        default_cd_penalty_rate: Number(form.default_cd_penalty_rate),
+        default_interest_rate: Number(form.default_interest_rate) / 100,
+        default_penalty_interest_rate: Number(form.default_penalty_interest_rate) / 100,
+        default_cd_penalty_rate: Number(form.default_cd_penalty_rate) / 100,
         service_fee_amount: Number(form.service_fee_amount),
         service_fee_is_percentage: form.service_fee_is_percentage,
         overdraft_fee_amount: Number(form.overdraft_fee_amount),
@@ -76,16 +76,16 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
             <input name="currency_symbol" value={form.currency_symbol} onChange={handleChange} required />
           </label>
           <label>
-            Default Interest Rate
-            <input name="default_interest_rate" type="number" step="0.0001" value={form.default_interest_rate} onChange={handleChange} required />
+            Default Interest Rate (%)
+            <input name="default_interest_rate" type="number" step="0.01" value={form.default_interest_rate} onChange={handleChange} required />
           </label>
           <label>
-            Penalty Interest Rate
-            <input name="default_penalty_interest_rate" type="number" step="0.0001" value={form.default_penalty_interest_rate} onChange={handleChange} required />
+            Penalty Interest Rate (%)
+            <input name="default_penalty_interest_rate" type="number" step="0.01" value={form.default_penalty_interest_rate} onChange={handleChange} required />
           </label>
           <label>
-            CD Penalty Rate
-            <input name="default_cd_penalty_rate" type="number" step="0.0001" value={form.default_cd_penalty_rate} onChange={handleChange} required />
+            CD Penalty Rate (%)
+            <input name="default_cd_penalty_rate" type="number" step="0.01" value={form.default_cd_penalty_rate} onChange={handleChange} required />
           </label>
           <label>
             Service Fee Amount

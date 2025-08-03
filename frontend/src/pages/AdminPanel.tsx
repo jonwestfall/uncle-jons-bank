@@ -94,9 +94,9 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
         <div>
           <h2>Site Settings</h2>
           <p>Name: {settings.site_name}</p>
-          <p>Default Interest Rate: {settings.default_interest_rate}</p>
-          <p>Penalty Interest Rate: {settings.default_penalty_interest_rate}</p>
-          <p>CD Penalty Rate: {settings.default_cd_penalty_rate}</p>
+          <p>Default Interest Rate: {(settings.default_interest_rate * 100).toFixed(2)}%</p>
+          <p>Penalty Interest Rate: {(settings.default_penalty_interest_rate * 100).toFixed(2)}%</p>
+          <p>CD Penalty Rate: {(settings.default_cd_penalty_rate * 100).toFixed(2)}%</p>
           <p>Currency Symbol: {settings.currency_symbol}</p>
           <p>
             Service Fee: {settings.service_fee_is_percentage ? `${settings.service_fee_amount}%` : formatCurrency(settings.service_fee_amount, currencySymbol)}

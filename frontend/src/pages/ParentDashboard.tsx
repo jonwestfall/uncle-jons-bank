@@ -112,6 +112,7 @@ export default function ParentDashboard({
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [accessChild, setAccessChild] = useState<Child | null>(null);
   const [accessParents, setAccessParents] = useState<ParentInfo[]>([]);
+  const [actionChild, setActionChild] = useState<Child | null>(null);
   const [editingCharge, setEditingCharge] = useState<RecurringCharge | null>(null);
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const canEdit = permissions.includes("edit_transaction");
@@ -124,6 +125,12 @@ export default function ParentDashboard({
   const [rcMemo, setRcMemo] = useState("");
   const [rcInterval, setRcInterval] = useState("");
   const [rcNext, setRcNext] = useState("");
+
+  const closeLedger = () => {
+    setLedger(null);
+    setSelectedChild(null);
+    setCharges([]);
+  };
 
   const fetchChildren = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/children/`, {
@@ -228,30 +235,103 @@ export default function ParentDashboard({
                 {c.first_name} {c.frozen && "(Frozen)"}
               </summary>
               <div className="child-actions">
-                <button onClick={() => setEditingChild(c)}>Rates</button>
-                <button onClick={() => toggleFreeze(c.id, c.frozen)}>
-                  {c.frozen ? "Unfreeze" : "Freeze"}
-                </button>
-                <button onClick={() => setCodeChild(c)}>Change Code</button>
-                <button onClick={() => setSharingChild(c)}>Share</button>
-                <button onClick={() => openAccess(c)}>Manage Access</button>
                 <button
                   onClick={() => {
-                    fetchLedger(c.id);
-                    fetchCharges(c.id);
-                    setSelectedChild(c.id);
+                    closeLedger();
+                    setActionChild(c);
                   }}
                 >
-                  View Ledger
+                  Actions
                 </button>
               </div>
             </details>
           </li>
         ))}
       </ul>
+      {actionChild && (
+        <div
+          className="modal-overlay"
+          onClick={() => setActionChild(null)}
+        >
+          <div
+            className="modal"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <h3>Actions for {actionChild.first_name}</h3>
+            <div className="child-actions">
+              <button
+                onClick={() => {
+                  closeLedger();
+                  setEditingChild(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Rates
+              </button>
+              <button
+                onClick={() => {
+                  closeLedger();
+                  toggleFreeze(actionChild.id, actionChild.frozen);
+                  setActionChild(null);
+                }}
+              >
+                {actionChild.frozen ? "Unfreeze" : "Freeze"}
+              </button>
+              <button
+                onClick={() => {
+                  closeLedger();
+                  setCodeChild(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Change Code
+              </button>
+              <button
+                onClick={() => {
+                  closeLedger();
+                  setSharingChild(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Share
+              </button>
+              <button
+                onClick={() => {
+                  closeLedger();
+                  openAccess(actionChild);
+                  setActionChild(null);
+                }}
+              >
+                Manage Access
+              </button>
+              <button
+                onClick={() => {
+                  closeLedger();
+                  fetchLedger(actionChild.id);
+                  fetchCharges(actionChild.id);
+                  setSelectedChild(actionChild.id);
+                  setActionChild(null);
+                }}
+              >
+                View Ledger
+              </button>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setActionChild(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {ledger && selectedChild !== null && (
-        <div>
-          <h4>Ledger for child #{selectedChild}</h4>
+        <div className="ledger-area">
+          <div className="ledger-header">
+            <h4>Ledger for child #{selectedChild}</h4>
+            <button onClick={closeLedger}>Close Ledger</button>
+          </div>
           <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
           <div className="ledger-scroll">
             <LedgerTable

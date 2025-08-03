@@ -19,7 +19,7 @@ export default function RunPromotionModal({ token, apiUrl, onClose, onSaved }: P
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        amount: Number(amount),
+        amount: isPct ? Number(amount) / 100 : Number(amount),
         is_percentage: isPct,
         credit,
         memo,
@@ -35,8 +35,8 @@ export default function RunPromotionModal({ token, apiUrl, onClose, onSaved }: P
         <h3>Run Promotion</h3>
         <form onSubmit={handleSubmit} className="form">
           <label>
-            Amount or Percentage
-            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
+            Amount or Percentage {isPct ? '(%)' : ''}
+            <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />{isPct && '%'}
           </label>
           <label>
             <input type="checkbox" checked={isPct} onChange={e => setIsPct(e.target.checked)} /> Percentage?
