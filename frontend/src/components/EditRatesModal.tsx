@@ -96,7 +96,7 @@ export default function EditRatesModal({
       <div className="modal">
         <h3>Edit Rates for {child.first_name}</h3>
         <form onSubmit={handleSubmit} className="form">
-          <label>
+          <label title="Annual percentage yield paid on savings">
             Interest rate
             <input
               type="number"
@@ -106,7 +106,7 @@ export default function EditRatesModal({
               required
             />%
           </label>
-          <label>
+          <label title="Rate charged when an account is overdrawn or in penalty">
             Penalty interest rate
             <input
               type="number"
@@ -116,7 +116,7 @@ export default function EditRatesModal({
               required
             />%
           </label>
-          <label>
+          <label title="Penalty for early withdrawal from a certificate of deposit">
             CD penalty rate
             <input
               type="number"

@@ -7,6 +7,7 @@ import { formatCurrency } from "../utils/currency";
 import EditTransactionModal from "../components/EditTransactionModal";
 import TextPromptModal from "../components/TextPromptModal";
 import ConfirmModal from "../components/ConfirmModal";
+import EditRecurringModal from "../components/EditRecurringModal";
 
 interface Child {
   id: number;
@@ -91,15 +92,14 @@ export default function ParentDashboard({
     message: string;
     onConfirm: () => void;
   } | null>(null);
-  const [tableWidth, setTableWidth] = useState<number>();
   const [cdAmount, setCdAmount] = useState("");
   const [cdRate, setCdRate] = useState("");
   const [cdDays, setCdDays] = useState("");
   const [editingChild, setEditingChild] = useState<Child | null>(null);
-  const [ratesMessage, setRatesMessage] = useState<string | null>(null);
-  const [ratesError, setRatesError] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [codeChild, setCodeChild] = useState<Child | null>(null);
+  const [editingCharge, setEditingCharge] = useState<RecurringCharge | null>(null);
+  const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
   const canAddRecurring = permissions.includes("add_recurring_charge");
@@ -164,6 +164,13 @@ export default function ParentDashboard({
     fetchPendingWithdrawals();
   }, [fetchChildren, fetchPendingWithdrawals]);
 
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
   const toggleFreeze = async (childId: number, frozen: boolean) => {
     const endpoint = frozen ? "unfreeze" : "freeze";
     await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
@@ -174,45 +181,35 @@ export default function ParentDashboard({
   };
 
   return (
-    <div
-      className="container"
-      style={{ width: tableWidth ? `${tableWidth}px` : undefined }}
-    >
+    <div className="container">
       <h2>Your Children</h2>
-      {ratesMessage && (
-        <p className={ratesError ? "error" : "success"}>{ratesMessage}</p>
+      {toast && (
+        <p className={toast.error ? "error" : "success"}>{toast.message}</p>
       )}
       <ul className="list">
         {children.map((c) => (
-          <li key={c.id} className="child-row">
-            <span>
-              {c.first_name} {c.frozen && "(Frozen)"}
-            </span>
-            <span>
-              <button onClick={() => setEditingChild(c)}>Rates</button>
-              <button
-                onClick={() => toggleFreeze(c.id, c.frozen)}
-                className="ml-1"
-              >
-                {c.frozen ? "Unfreeze" : "Freeze"}
-              </button>
-              <button
-                onClick={() => setCodeChild(c)}
-                className="ml-1"
-              >
-                Change Code
-              </button>
-              <button
-                onClick={() => {
-                  fetchLedger(c.id);
-                  fetchCharges(c.id);
-                  setSelectedChild(c.id);
-                }}
-                className="ml-1"
-              >
-                View Ledger
-              </button>
-            </span>
+          <li key={c.id}>
+            <details className="child-card">
+              <summary>
+                {c.first_name} {c.frozen && "(Frozen)"}
+              </summary>
+              <div className="child-actions">
+                <button onClick={() => setEditingChild(c)}>Rates</button>
+                <button onClick={() => toggleFreeze(c.id, c.frozen)}>
+                  {c.frozen ? "Unfreeze" : "Freeze"}
+                </button>
+                <button onClick={() => setCodeChild(c)}>Change Code</button>
+                <button
+                  onClick={() => {
+                    fetchLedger(c.id);
+                    fetchCharges(c.id);
+                    setSelectedChild(c.id);
+                  }}
+                >
+                  View Ledger
+                </button>
+              </div>
+            </details>
           </li>
         ))}
       </ul>
@@ -220,12 +217,12 @@ export default function ParentDashboard({
         <div>
           <h4>Ledger for child #{selectedChild}</h4>
           <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
-          <LedgerTable
-            transactions={ledger.transactions}
-            onWidth={(w) => !tableWidth && setTableWidth(w)}
-            allowDownload
-            currencySymbol={currencySymbol}
-            renderActions={(tx) => (
+          <div className="ledger-scroll">
+            <LedgerTable
+              transactions={ledger.transactions}
+              allowDownload
+              currencySymbol={currencySymbol}
+              renderActions={(tx) => (
               <>
                 {canEdit && tx.initiated_by !== "system" && (
                   <button
@@ -261,8 +258,9 @@ export default function ParentDashboard({
                   </button>
                 )}
               </>
-            )}
-          />
+              )}
+            />
+          </div>
           <h4>Recurring Transactions</h4>
           <ul className="list">
             {charges.map((c) => (
@@ -270,37 +268,7 @@ export default function ParentDashboard({
                 {c.type} {formatCurrency(c.amount, currencySymbol)} every {c.interval_days} days next on {new Date(c.next_run).toLocaleDateString()} {c.memo ? `(${c.memo})` : ""}
                 {canEditRecurring && (
                   <button
-                    onClick={async () => {
-                      const amt = prompt("Amount", String(c.amount));
-                      if (!amt) return;
-                      const interval = prompt(
-                        "Interval days",
-                        String(c.interval_days),
-                      );
-                      if (!interval) return;
-                      const memo = prompt("Memo", c.memo || "") || null;
-                      const type = prompt("Type (credit/debit)", c.type) || c.type;
-                      const next =
-                        prompt(
-                          "Next run (YYYY-MM-DD)",
-                          c.next_run.slice(0, 10),
-                        ) || c.next_run.slice(0, 10);
-                      await fetch(`${apiUrl}/recurring/${c.id}`, {
-                        method: "PUT",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
-                          amount: Number(amt),
-                          interval_days: Number(interval),
-                          memo,
-                          next_run: next,
-                          type,
-                        }),
-                      });
-                      fetchCharges(selectedChild);
-                    }}
+                    onClick={() => setEditingCharge(c)}
                     className="ml-1"
                   >
                     Edit
@@ -363,32 +331,41 @@ export default function ParentDashboard({
                   <option value="credit">Credit</option>
                 </select>
               </label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Amount"
-                value={rcAmount}
-                onChange={(e) => setRcAmount(e.target.value)}
-                required
-              />
-              <input
-                placeholder="Memo"
-                value={rcMemo}
-                onChange={(e) => setRcMemo(e.target.value)}
-              />
-              <input
-                type="number"
-                placeholder="Interval days"
-                value={rcInterval}
-                onChange={(e) => setRcInterval(e.target.value)}
-                required
-              />
-              <input
-                type="date"
-                value={rcNext}
-                onChange={(e) => setRcNext(e.target.value)}
-                required
-              />
+              <label>
+                Amount
+                <input
+                  type="number"
+                  step="0.01"
+                  value={rcAmount}
+                  onChange={(e) => setRcAmount(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Memo
+                <input
+                  value={rcMemo}
+                  onChange={(e) => setRcMemo(e.target.value)}
+                />
+              </label>
+              <label>
+                Interval days
+                <input
+                  type="number"
+                  value={rcInterval}
+                  onChange={(e) => setRcInterval(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Next run
+                <input
+                  type="date"
+                  value={rcNext}
+                  onChange={(e) => setRcNext(e.target.value)}
+                  required
+                />
+              </label>
               <button type="submit">Add</button>
             </form>
           )}
@@ -443,7 +420,6 @@ export default function ParentDashboard({
             <label>
               Memo
               <input
-                placeholder="Memo"
                 value={txMemo}
                 onChange={(e) => setTxMemo(e.target.value)}
               />
@@ -472,32 +448,38 @@ export default function ParentDashboard({
           }}
           className="form"
         >
-          <h4>Offer CD</h4>
+        <h4>Offer CD</h4>
+        <label>
+          Amount
           <input
             type="number"
             step="0.01"
-            placeholder="Amount"
             value={cdAmount}
             onChange={(e) => setCdAmount(e.target.value)}
             required
           />
+        </label>
+        <label>
+          Rate
           <input
             type="number"
             step="0.0001"
-            placeholder="Rate"
             value={cdRate}
             onChange={(e) => setCdRate(e.target.value)}
             required
           />
+        </label>
+        <label>
+          Days
           <input
             type="number"
-            placeholder="Days"
             value={cdDays}
             onChange={(e) => setCdDays(e.target.value)}
             required
           />
-          <button type="submit">Send</button>
-        </form>
+        </label>
+        <button type="submit">Send</button>
+      </form>
       </div>
     )}
       {pendingWithdrawals.length > 0 && (
@@ -567,18 +549,22 @@ export default function ParentDashboard({
       >
         <h4>Add Child</h4>
         {errorMessage && <p className="error">{errorMessage}</p>}
-        <input
-          placeholder="First name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          required
-        />
-        <input
-          placeholder="Access code"
-          value={accessCode}
-          onChange={(e) => setAccessCode(e.target.value)}
-          required
-        />
+        <label>
+          First name
+          <input
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+          />
+        </label>
+        <label>
+          Access code
+          <input
+            value={accessCode}
+            onChange={(e) => setAccessCode(e.target.value)}
+            required
+          />
+        </label>
         <button type="submit">Add</button>
       </form>
       {editingChild && (
@@ -588,13 +574,11 @@ export default function ParentDashboard({
           apiUrl={apiUrl}
           onClose={() => setEditingChild(null)}
           onSuccess={(msg) => {
-            setRatesMessage(msg);
-            setRatesError(false);
+            setToast({ message: msg });
             fetchChildren();
           }}
           onError={(msg) => {
-            setRatesMessage(msg);
-            setRatesError(true);
+            setToast({ message: msg, error: true });
           }}
         />
       )}
@@ -616,7 +600,13 @@ export default function ParentDashboard({
               },
             );
             if (!resp.ok) {
-              alert("Failed to update access code");
+              const data = await resp.json().catch(() => null);
+              setToast({
+                message: data?.message || "Failed to update access code",
+                error: true,
+              });
+            } else {
+              setToast({ message: "Access code updated" });
             }
             setCodeChild(null);
             fetchChildren();
@@ -651,6 +641,17 @@ export default function ParentDashboard({
           onClose={() => setEditingTx(null)}
           onSuccess={async () => {
             await fetchLedger(selectedChild);
+          }}
+        />
+      )}
+      {editingCharge && selectedChild !== null && (
+        <EditRecurringModal
+          charge={editingCharge}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingCharge(null)}
+          onSaved={async () => {
+            await fetchCharges(selectedChild);
           }}
         />
       )}
