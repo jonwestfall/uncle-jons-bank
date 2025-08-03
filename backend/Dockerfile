@@ -4,11 +4,13 @@ WORKDIR /app
 
 # Install dependencies first
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt fastapi[all] sqlmodel uvicorn
+RUN pip install --no-cache-dir -r requirements.txt fastapi[all] sqlmodel uvicorn pytest
 
 # Copy application code
 COPY ./app ./app
+COPY ./entrypoint.sh ./entrypoint.sh
+RUN chmod +x entrypoint.sh
 
 ENV PYTHONPATH=/app
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./entrypoint.sh"]
