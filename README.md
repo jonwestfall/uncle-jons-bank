@@ -128,6 +128,7 @@ docker compose up --build
 
 Visit [http://localhost](http://localhost) for the frontend.
 FastAPI's interactive docs are available at [http://localhost/api/docs](http://localhost/api/docs).
+The eaiest way to get a username and password to login is to use the API's interactive docs and run the /tests/run test with Persist = True. This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab.
 
 ### Migrate DB
 
