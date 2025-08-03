@@ -10,6 +10,7 @@ const PERMISSIONS = [
   "deposit",
   "debit",
   "freeze_child",
+  "offer_cd",
 ];
 
 export default function ShareChildModal({ onSubmit, onCancel }: Props) {

@@ -181,10 +181,17 @@ export default function ParentDashboard({
 
   const toggleFreeze = async (childId: number, frozen: boolean) => {
     const endpoint = frozen ? "unfreeze" : "freeze";
-    await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
+    const resp = await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => null);
+      setToast({
+        message: data?.detail || "Action failed",
+        error: true,
+      });
+    }
     fetchChildren();
   };
 
@@ -195,6 +202,9 @@ export default function ParentDashboard({
     if (resp.ok) {
       setAccessParents(await resp.json());
       setAccessChild(child);
+    } else {
+      const data = await resp.json().catch(() => null);
+      setToast({ message: data?.detail || "Failed to load access", error: true });
     }
   };
 
@@ -333,7 +343,7 @@ export default function ParentDashboard({
                   setToast({ message: "Next run cannot be in the past", error: true });
                   return;
                 }
-                await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
+                const resp = await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -347,6 +357,14 @@ export default function ParentDashboard({
                     type: rcType,
                   }),
                 });
+                if (!resp.ok) {
+                  const data = await resp.json().catch(() => null);
+                  setToast({
+                    message: data?.detail || "Action failed",
+                    error: true,
+                  });
+                  return;
+                }
                 setRcAmount("");
                 setRcType("debit");
                 setRcMemo("");
@@ -425,6 +443,12 @@ export default function ParentDashboard({
               setTxType("credit");
               if (resp.ok && selectedChild !== null) {
                 await fetchLedger(selectedChild);
+              } else if (!resp.ok) {
+                const data = await resp.json().catch(() => null);
+                setToast({
+                  message: data?.detail || "Action failed",
+                  error: true,
+                });
               }
             }}
             className="form"
@@ -644,6 +668,12 @@ export default function ParentDashboard({
             if (resp.ok) {
               const data = await resp.json();
               setToast({ message: `Share code: ${data.code}` });
+            } else {
+              const data = await resp.json().catch(() => null);
+              setToast({
+                message: data?.detail || "Failed to generate code",
+                error: true,
+              });
             }
             setSharingChild(null);
           }}
@@ -654,14 +684,22 @@ export default function ParentDashboard({
         <ManageAccessModal
           parents={accessParents}
           onRemove={async (pid) => {
-            await fetch(
+            const resp = await fetch(
               `${apiUrl}/children/${accessChild.id}/parents/${pid}`,
               {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
               },
             );
-            openAccess(accessChild);
+            if (resp.ok) {
+              openAccess(accessChild);
+            } else {
+              const data = await resp.json().catch(() => null);
+              setToast({
+                message: data?.detail || "Failed to remove access",
+                error: true,
+              });
+            }
           }}
           onClose={() => setAccessChild(null)}
         />

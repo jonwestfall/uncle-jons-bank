@@ -76,7 +76,7 @@ def test_share_and_unshare():
             resp = await client.post(
                 f"/children/{child_id}/sharecode",
                 headers=headers1,
-                json={"permissions": ["view_transactions", "deposit"]},
+                json={"permissions": ["view_transactions", "deposit", "offer_cd"]},
             )
             code = resp.json()["code"]
             resp = await client.post(
@@ -93,6 +93,18 @@ def test_share_and_unshare():
                     "memo": None,
                     "initiated_by": "parent",
                     "initiator_id": 0,
+                },
+            )
+            assert resp.status_code == 200
+            # Shared parent can offer a CD
+            resp = await client.post(
+                "/cds/",
+                headers=headers2,
+                json={
+                    "child_id": child_id,
+                    "amount": 10,
+                    "interest_rate": 0.1,
+                    "term_days": 0,
                 },
             )
             assert resp.status_code == 200
@@ -114,6 +126,18 @@ def test_share_and_unshare():
                     "memo": None,
                     "initiated_by": "parent",
                     "initiator_id": 0,
+                },
+            )
+            assert resp.status_code in (403, 404)
+            # Cannot offer CD after removal
+            resp = await client.post(
+                "/cds/",
+                headers=headers2,
+                json={
+                    "child_id": child_id,
+                    "amount": 10,
+                    "interest_rate": 0.1,
+                    "term_days": 0,
                 },
             )
             assert resp.status_code in (403, 404)
