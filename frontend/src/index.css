@@ -32,12 +32,18 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 2rem;
+  padding: 1rem;
   min-width: 320px;
   min-height: 100vh;
   color: var(--text-color);
   background-color: var(--bg-color);
   font-size: 1.125rem;
+}
+
+@media (min-width: 768px) {
+  body {
+    padding: 2rem;
+  }
 }
 
 h1 {
@@ -71,4 +77,9 @@ button:focus-visible {
   --text-color: rgba(255, 255, 255, 0.87);
   --button-bg: #1a1a1a;
   --container-bg: #333333;
+}
+
+.logo-wrapper {
+  display: flex;
+  justify-content: center;
 }

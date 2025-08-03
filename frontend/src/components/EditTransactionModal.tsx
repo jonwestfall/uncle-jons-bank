@@ -64,61 +64,52 @@ export default function EditTransactionModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.3)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          background: "white",
-          padding: "1rem",
-          borderRadius: "4px",
-          minWidth: "300px",
-        }}
-      >
+    <div className="modal-overlay">
+      <div className="modal">
         <h4>Edit Transaction</h4>
         {error && <p className="error">{error}</p>}
-        <input
-          type="number"
-          step="0.01"
-          placeholder="Amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-        <input
-          placeholder="Memo"
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-        />
-        <select value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="credit">credit</option>
-          <option value="debit">debit</option>
-        </select>
-        <div style={{ marginTop: "0.5rem" }}>
-          <button type="submit" disabled={loading}>
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-05"
-            disabled={loading}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+        <form onSubmit={handleSubmit} className="form">
+          <label>
+            Amount
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Memo
+            <input
+              placeholder="Memo"
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+            />
+          </label>
+          <label>
+            Type
+            <select value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="credit">credit</option>
+              <option value="debit">debit</option>
+            </select>
+          </label>
+          <div className="modal-actions">
+            <button type="submit" disabled={loading}>
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-05"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

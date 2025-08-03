@@ -18,6 +18,9 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [permissions, setPermissions] = useState<string[]>([])
   const [siteName, setSiteName] = useState("Uncle Jon's Bank")
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+  )
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
   const handleLogin = (tok: string, child: boolean) => {
@@ -42,6 +45,17 @@ function App() {
     localStorage.removeItem('token')
     localStorage.removeItem('isChild')
     localStorage.removeItem('childId')
+  }
+
+  const toggleTheme = () => {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    localStorage.setItem('theme', next)
+    if (next === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
   }
 
   const fetchMe = useCallback(async () => {
@@ -76,7 +90,14 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Header onLogout={handleLogout} isAdmin={isAdmin} isChild={isChildAccount} siteName={siteName} />
+      <Header
+        onLogout={handleLogout}
+        isAdmin={isAdmin}
+        isChild={isChildAccount}
+        siteName={siteName}
+        onToggleTheme={toggleTheme}
+        theme={theme}
+      />
       <Routes>
         {isChildAccount && childId !== null && (
           <>

@@ -4,6 +4,8 @@ import type { Transaction } from "../components/LedgerTable";
 import EditRatesModal from "../components/EditRatesModal";
 
 import EditTransactionModal from "../components/EditTransactionModal";
+import TextPromptModal from "../components/TextPromptModal";
+import ConfirmModal from "../components/ConfirmModal";
 
 interface Child {
   id: number;
@@ -71,6 +73,9 @@ export default function ParentDashboard({
   const [pendingWithdrawals, setPendingWithdrawals] = useState<
     WithdrawalRequest[]
   >([]);
+  const [denyRequest, setDenyRequest] = useState<WithdrawalRequest | null>(
+    null,
+  );
   const [charges, setCharges] = useState<RecurringCharge[]>([]);
   const [txType, setTxType] = useState("credit");
   const [txAmount, setTxAmount] = useState("");
@@ -78,6 +83,10 @@ export default function ParentDashboard({
   const [firstName, setFirstName] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
   const [tableWidth, setTableWidth] = useState<number>();
   const [cdAmount, setCdAmount] = useState("");
   const [cdRate, setCdRate] = useState("");
@@ -216,19 +225,23 @@ export default function ParentDashboard({
                 {canDelete && tx.initiated_by !== "system" && (
                   <button
                     aria-label="Delete transaction"
-                    onClick={async () => {
-                      if (!confirm("Delete transaction?")) return;
-                      const resp = await fetch(
-                        `${apiUrl}/transactions/${tx.id}`,
-                        {
-                          method: "DELETE",
-                          headers: { Authorization: `Bearer ${token}` },
+                    onClick={() =>
+                      setConfirmAction({
+                        message: "Delete transaction?",
+                        onConfirm: async () => {
+                          const resp = await fetch(
+                            `${apiUrl}/transactions/${tx.id}`,
+                            {
+                              method: "DELETE",
+                              headers: { Authorization: `Bearer ${token}` },
+                            },
+                          );
+                          if (resp.ok && selectedChild !== null) {
+                            await fetchLedger(selectedChild);
+                          }
                         },
-                      );
-                      if (resp.ok && selectedChild !== null) {
-                        await fetchLedger(selectedChild);
-                      }
-                    }}
+                      })
+                    }
                     className="ml-05"
                   >
                     &times;
@@ -282,14 +295,18 @@ export default function ParentDashboard({
                 )}
                 {canDeleteRecurring && (
                   <button
-                    onClick={async () => {
-                      if (!confirm("Delete charge?")) return;
-                      await fetch(`${apiUrl}/recurring/${c.id}`, {
-                        method: "DELETE",
-                        headers: { Authorization: `Bearer ${token}` },
-                      });
-                      fetchCharges(selectedChild);
-                    }}
+                    onClick={() =>
+                      setConfirmAction({
+                        message: "Delete charge?",
+                        onConfirm: async () => {
+                          await fetch(`${apiUrl}/recurring/${c.id}`, {
+                            method: "DELETE",
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          fetchCharges(selectedChild);
+                        },
+                      })
+                    }
                     className="ml-05"
                   >
                     &times;
@@ -381,22 +398,34 @@ export default function ParentDashboard({
             className="form"
           >
             <h4>Add Transaction</h4>
-            <select value={txType} onChange={(e) => setTxType(e.target.value)}>
-              <option value="credit">Credit</option>
-              <option value="debit">Debit</option>
-            </select>
-            <input
-              type="number"
-              step="0.01"
-              value={txAmount}
-              onChange={(e) => setTxAmount(e.target.value)}
-              required
-            />
-            <input
-              placeholder="Memo"
-              value={txMemo}
-              onChange={(e) => setTxMemo(e.target.value)}
-            />
+            <label>
+              Type
+              <select
+                value={txType}
+                onChange={(e) => setTxType(e.target.value)}
+              >
+                <option value="credit">Credit</option>
+                <option value="debit">Debit</option>
+              </select>
+            </label>
+            <label>
+              Amount
+              <input
+                type="number"
+                step="0.01"
+                value={txAmount}
+                onChange={(e) => setTxAmount(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Memo
+              <input
+                placeholder="Memo"
+                value={txMemo}
+                onChange={(e) => setTxMemo(e.target.value)}
+              />
+            </label>
           <button type="submit">Add</button>
         </form>
         <form
@@ -471,18 +500,7 @@ export default function ParentDashboard({
                   Approve
                 </button>
                 <button
-                  onClick={async () => {
-                    const reason = window.prompt("Reason for denial?") || "";
-                    await fetch(`${apiUrl}/withdrawals/${w.id}/deny`, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                      },
-                      body: JSON.stringify({ reason }),
-                    });
-                    await fetchPendingWithdrawals();
-                  }}
+                  onClick={() => setDenyRequest(w)}
                   className="ml-05"
                 >
                   Deny
@@ -559,6 +577,25 @@ export default function ParentDashboard({
         />
       )}
       <button onClick={onLogout}>Logout</button>
+      {denyRequest && (
+        <TextPromptModal
+          title="Deny Withdrawal"
+          label="Reason"
+          onCancel={() => setDenyRequest(null)}
+          onSubmit={async (reason) => {
+            await fetch(`${apiUrl}/withdrawals/${denyRequest.id}/deny`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ reason }),
+            });
+            await fetchPendingWithdrawals();
+            setDenyRequest(null);
+          }}
+        />
+      )}
       {editingTx && selectedChild !== null && (
         <EditTransactionModal
           transaction={editingTx}
@@ -568,6 +605,16 @@ export default function ParentDashboard({
           onSuccess={async () => {
             await fetchLedger(selectedChild);
           }}
+        />
+      )}
+      {confirmAction && (
+        <ConfirmModal
+          message={confirmAction.message}
+          onConfirm={() => {
+            confirmAction.onConfirm();
+            setConfirmAction(null);
+          }}
+          onCancel={() => setConfirmAction(null)}
         />
       )}
     </div>
