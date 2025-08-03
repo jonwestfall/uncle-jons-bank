@@ -42,11 +42,13 @@ function App() {
     }
   }
 
-  // Clear authentication information when logging out.
+  // Clear authentication information and any cached role data when logging out.
   const handleLogout = () => {
     setToken(null)
     setIsChildAccount(false)
     setChildId(null)
+    setIsAdmin(false)
+    setPermissions([])
     localStorage.removeItem('token')
     localStorage.removeItem('isChild')
     localStorage.removeItem('childId')

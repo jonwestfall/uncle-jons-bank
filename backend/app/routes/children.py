@@ -1,6 +1,5 @@
 """Routes for managing child accounts and related settings."""
 
-from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import (
@@ -307,7 +306,5 @@ async def child_login(
         raise HTTPException(status_code=401, detail="Invalid access code")
     if child.account_frozen:
         raise HTTPException(status_code=403, detail="Account is frozen")
-    token = create_access_token(
-        data={"sub": f"child:{child.id}"}, expires_delta=timedelta(minutes=60)
-    )
+    token = create_access_token(data={"sub": f"child:{child.id}"})
     return {"access_token": token, "token_type": "bearer"}

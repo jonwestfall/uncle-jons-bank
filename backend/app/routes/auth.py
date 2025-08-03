@@ -16,7 +16,6 @@ from app.models import User
 
 from sqlmodel import select
 from app.schemas.user import UserCreate, UserResponse, UserLogin
-from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -41,9 +40,7 @@ async def login_for_access_token(
             },
         )
     logger.info("User %s logged in via OAuth form", user.email)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=timedelta(minutes=60)
-    )
+    access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -65,9 +62,7 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
             },
         )
     logger.info("User %s logged in", user.email)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=timedelta(minutes=60)
-    )
+    access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=UserResponse)
