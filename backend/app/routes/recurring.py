@@ -1,6 +1,8 @@
 import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+"""Endpoints for configuring recurring transactions on child accounts."""
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session

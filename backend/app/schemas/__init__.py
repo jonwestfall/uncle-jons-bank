@@ -1,4 +1,6 @@
 from .user import UserCreate, UserResponse, UserUpdate, UserMeResponse
+"""Convenience imports for all schema classes used by the API."""
+
 from .child import (
     ChildCreate,
     ChildRead,

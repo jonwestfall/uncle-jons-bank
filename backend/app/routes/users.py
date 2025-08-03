@@ -1,3 +1,5 @@
+"""Endpoints for managing user accounts."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas import UserCreate, UserResponse, UserMeResponse
@@ -14,6 +16,8 @@ async def create_user_route(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_role("admin")),
 ):
+    """Create a new user; only admins may call this endpoint."""
+
     existing = await get_user_by_email(db, user.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")

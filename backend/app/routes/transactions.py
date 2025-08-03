@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+"""Endpoints for recording and viewing ledger transactions."""
+
 from app.database import get_session
 from app.models import Transaction, User, Child
 from app.schemas import (
@@ -41,6 +43,7 @@ async def add_transaction(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_ADD_TRANSACTION)),
 ):
+    """Create a new credit or debit transaction."""
     user_perm_names = {p.name for p in current_user.permissions}
     if current_user.role != "admin":
         if transaction.type == "credit" and PERM_DEPOSIT not in user_perm_names:
@@ -117,6 +120,7 @@ async def get_ledger(
     db: AsyncSession = Depends(get_session),
     identity: tuple[str, Child | User] = Depends(get_current_identity),
 ):
+    """Return the full ledger and balance for a child."""
     kind, obj = identity
     if kind == "child":
         child = obj

@@ -1,3 +1,5 @@
+"""Schema for applying a promotional credit or debit."""
+
 from pydantic import BaseModel
 
 

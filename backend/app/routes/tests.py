@@ -1,3 +1,5 @@
+"""Development-only endpoints for running automated test suites."""
+
 from fastapi import APIRouter, Depends
 from app.models import User
 from app.auth import require_role

@@ -1,9 +1,19 @@
+"""Database models used by Uncle Jon's Bank.
+
+The models are defined with SQLModel (built on SQLAlchemy and Pydantic)
+and represent users, children, accounts and financial transactions.
+Comments are kept concise to avoid distracting from the field
+definitions.
+"""
+
 from typing import Optional, List
 from datetime import datetime, date
 from sqlmodel import SQLModel, Field, Relationship
 
 
 class UserPermissionLink(SQLModel, table=True):
+    """Association table linking users and their granted permissions."""
+
     user_id: int = Field(foreign_key="user.id", primary_key=True)
     permission_id: int = Field(foreign_key="permission.id", primary_key=True)
 
@@ -12,6 +22,7 @@ class UserPermissionLink(SQLModel, table=True):
 
 
 class Permission(SQLModel, table=True):
+    """Named permission that can be assigned to users."""
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     user_links: List["UserPermissionLink"] = Relationship(
@@ -23,6 +34,7 @@ class Permission(SQLModel, table=True):
 
 
 class User(SQLModel, table=True):
+    """Adult user of the system (e.g. parent or admin)."""
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     email: str
@@ -39,6 +51,7 @@ class User(SQLModel, table=True):
 
 
 class Child(SQLModel, table=True):
+    """Child account holder."""
     id: Optional[int] = Field(default=None, primary_key=True)
     first_name: str
     access_code: str = Field(unique=True)
@@ -54,6 +67,7 @@ class Child(SQLModel, table=True):
 
 
 class ChildUserLink(SQLModel, table=True):
+    """Many‑to‑many relationship between parents and children."""
     user_id: int = Field(foreign_key="user.id", primary_key=True)
     child_id: int = Field(foreign_key="child.id", primary_key=True)
 
@@ -62,6 +76,7 @@ class ChildUserLink(SQLModel, table=True):
 
 
 class Account(SQLModel, table=True):
+    """Per‑child ledger account storing running balances and rates."""
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     balance: float = 0.0
@@ -95,6 +110,7 @@ class Transaction(SQLModel, table=True):
 
 
 class WithdrawalRequest(SQLModel, table=True):
+    """Parent‑approved withdrawal initiated by a child."""
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     amount: float
@@ -110,6 +126,7 @@ class WithdrawalRequest(SQLModel, table=True):
 
 
 class RecurringCharge(SQLModel, table=True):
+    """Scheduled transaction that repeats every ``interval_days``."""
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     amount: float
@@ -123,6 +140,7 @@ class RecurringCharge(SQLModel, table=True):
 
 
 class CertificateDeposit(SQLModel, table=True):
+    """Simple certificate of deposit offering a fixed return."""
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     parent_id: int = Field(foreign_key="user.id")
@@ -140,6 +158,7 @@ class CertificateDeposit(SQLModel, table=True):
 
 
 class Settings(SQLModel, table=True):
+    """Singleton table storing site‑wide configuration values."""
     id: Optional[int] = Field(default=1, primary_key=True)
     site_name: str = "Uncle Jon's Bank"
     default_interest_rate: float = 0.01

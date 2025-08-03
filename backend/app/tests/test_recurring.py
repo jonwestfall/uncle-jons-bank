@@ -1,3 +1,5 @@
+"""Unit test for recurring charge processing."""
+
 from datetime import date, timedelta
 import asyncio
 import pathlib

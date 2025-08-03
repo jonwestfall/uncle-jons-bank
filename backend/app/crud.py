@@ -1,3 +1,10 @@
+"""Asynchronous CRUD helpers for the application's data models.
+
+Each function in this module encapsulates a specific database operation
+using SQLModel and SQLAlchemy.  Centralizing the logic keeps route
+handlers light and makes behavior easier to test.
+"""
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, delete
 from sqlalchemy.orm import selectinload
@@ -21,6 +28,8 @@ from app.acl import get_default_permissions_for_role
 
 
 async def ensure_permissions_exist(db: AsyncSession, names: list[str]) -> None:
+    """Ensure that a set of permission records exists in the database."""
+
     for name in names:
         result = await db.execute(
             select(Permission).where(Permission.name == name)
@@ -34,6 +43,7 @@ async def ensure_permissions_exist(db: AsyncSession, names: list[str]) -> None:
 async def assign_permissions_by_names(
     db: AsyncSession, user: User, names: list[str]
 ) -> None:
+    """Assign named permissions to a user if not already granted."""
     for name in names:
         result = await db.execute(
             select(Permission).where(Permission.name == name)
@@ -53,6 +63,7 @@ async def assign_permissions_by_names(
 async def remove_permissions_by_names(
     db: AsyncSession, user: User, names: list[str]
 ) -> None:
+    """Remove the specified permissions from a user."""
     for name in names:
         result = await db.execute(
             select(Permission).where(Permission.name == name)
@@ -73,11 +84,14 @@ async def remove_permissions_by_names(
 
 
 async def get_all_permissions(db: AsyncSession) -> list[Permission]:
+    """Return all permissions ordered alphabetically."""
+
     result = await db.execute(select(Permission).order_by(Permission.name))
     return result.scalars().all()
 
 
 async def get_settings(db: AsyncSession) -> Settings:
+    """Fetch the singleton settings record, creating it if necessary."""
     result = await db.execute(select(Settings).where(Settings.id == 1))
     settings = result.scalar_one_or_none()
     if not settings:
@@ -89,6 +103,8 @@ async def get_settings(db: AsyncSession) -> Settings:
 
 
 async def save_settings(db: AsyncSession, settings: Settings) -> Settings:
+    """Persist settings changes and return the refreshed object."""
+
     db.add(settings)
     await db.commit()
     await db.refresh(settings)
@@ -96,6 +112,8 @@ async def save_settings(db: AsyncSession, settings: Settings) -> Settings:
 
 
 async def create_user(db: AsyncSession, user: User):
+    """Create a new user, hashing the password and assigning defaults."""
+
     if not user.password_hash.startswith("$2b$"):
         user.password_hash = get_password_hash(user.password_hash)
     db.add(user)
@@ -108,6 +126,7 @@ async def create_user(db: AsyncSession, user: User):
 
 
 async def get_user_by_email(db: AsyncSession, email: str):
+    """Return a user by email or ``None`` if not found."""
     result = await db.execute(
         select(User)
         .where(User.email == email)
@@ -117,6 +136,7 @@ async def get_user_by_email(db: AsyncSession, email: str):
 
 
 async def get_user(db: AsyncSession, user_id: int) -> User | None:
+    """Load a user by primary key."""
     result = await db.execute(
         select(User)
         .where(User.id == user_id)
@@ -126,6 +146,8 @@ async def get_user(db: AsyncSession, user_id: int) -> User | None:
 
 
 async def get_all_users(db: AsyncSession) -> list[User]:
+    """Return all users with permissions eagerly loaded."""
+
     result = await db.execute(
         select(User).options(selectinload(User.permissions)).order_by(User.id)
     )
@@ -133,6 +155,8 @@ async def get_all_users(db: AsyncSession) -> list[User]:
 
 
 async def save_user(db: AsyncSession, user: User) -> User:
+    """Persist changes to an existing user."""
+
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -140,11 +164,15 @@ async def save_user(db: AsyncSession, user: User) -> User:
 
 
 async def delete_user(db: AsyncSession, user: User) -> None:
+    """Remove a user from the database."""
+
     await db.delete(user)
     await db.commit()
 
 
 async def create_child(db: AsyncSession, child: Child):
+    """Persist a new child record."""
+
     db.add(child)
     await db.commit()
     await db.refresh(child)
@@ -175,6 +203,7 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
 
 
 async def get_children_by_user(db: AsyncSession, user_id: int):
+    """Return all children associated with a given parent user."""
     query = (
         select(Child)
         .join(ChildUserLink)
@@ -185,6 +214,7 @@ async def get_children_by_user(db: AsyncSession, user_id: int):
 
 
 async def get_child_by_access_code(db: AsyncSession, access_code: str):
+    """Return a child by their unique access code."""
     result = await db.execute(
         select(Child).where(Child.access_code == access_code)
     )
@@ -192,16 +222,21 @@ async def get_child_by_access_code(db: AsyncSession, access_code: str):
 
 
 async def get_child(db: AsyncSession, child_id: int) -> Child | None:
+    """Fetch a child by id or ``None`` if not found."""
     result = await db.execute(select(Child).where(Child.id == child_id))
     return result.scalar_one_or_none()
 
 
 async def get_all_children(db: AsyncSession) -> list[Child]:
+    """Return all children ordered by id."""
+
     result = await db.execute(select(Child).order_by(Child.id))
     return result.scalars().all()
 
 
 async def save_child(db: AsyncSession, child: Child) -> Child:
+    """Persist changes to a child record."""
+
     db.add(child)
     await db.commit()
     await db.refresh(child)
@@ -209,6 +244,8 @@ async def save_child(db: AsyncSession, child: Child) -> Child:
 
 
 async def delete_child(db: AsyncSession, child: Child) -> None:
+    """Remove a child record."""
+
     await db.delete(child)
     await db.commit()
 
@@ -216,6 +253,7 @@ async def delete_child(db: AsyncSession, child: Child) -> None:
 async def set_child_frozen(
     db: AsyncSession, child_id: int, frozen: bool
 ) -> Child:
+    """Toggle whether a child's account is frozen."""
     result = await db.execute(select(Child).where(Child.id == child_id))
     child = result.scalar_one_or_none()
     if not child:
@@ -230,6 +268,7 @@ async def set_child_frozen(
 async def get_account_by_child(
     db: AsyncSession, child_id: int
 ) -> Account | None:
+    """Return the account associated with a child if it exists."""
     result = await db.execute(
         select(Account).where(Account.child_id == child_id)
     )
@@ -237,6 +276,8 @@ async def get_account_by_child(
 
 
 async def get_all_accounts(db: AsyncSession) -> list[Account]:
+    """Return all account records."""
+
     result = await db.execute(select(Account))
     return result.scalars().all()
 
@@ -244,6 +285,7 @@ async def get_all_accounts(db: AsyncSession) -> list[Account]:
 async def set_interest_rate(
     db: AsyncSession, child_id: int, rate: float
 ) -> Account:
+    """Update the standard interest rate for an account."""
     account = await get_account_by_child(db, child_id)
     if not account:
         raise ValueError("Account not found")
@@ -257,6 +299,7 @@ async def set_interest_rate(
 async def set_penalty_interest_rate(
     db: AsyncSession, child_id: int, rate: float
 ) -> Account:
+    """Update the penalty interest rate used for negative balances."""
     account = await get_account_by_child(db, child_id)
     if not account:
         raise ValueError("Account not found")
@@ -270,6 +313,7 @@ async def set_penalty_interest_rate(
 async def set_cd_penalty_rate(
     db: AsyncSession, child_id: int, rate: float
 ) -> Account:
+    """Update the early withdrawal penalty rate for certificates."""
     account = await get_account_by_child(db, child_id)
     if not account:
         raise ValueError("Account not found")
@@ -291,6 +335,7 @@ async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
 async def get_transaction(
     db: AsyncSession, transaction_id: int
 ) -> Transaction | None:
+    """Return a transaction by id or ``None`` if missing."""
     result = await db.execute(
         select(Transaction).where(Transaction.id == transaction_id)
     )
@@ -298,6 +343,8 @@ async def get_transaction(
 
 
 async def save_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
+    """Persist updates to a transaction."""
+
     db.add(tx)
     await db.commit()
     await db.refresh(tx)
@@ -305,6 +352,8 @@ async def save_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
 
 
 async def delete_transaction(db: AsyncSession, tx: Transaction) -> None:
+    """Remove a transaction from the ledger."""
+
     await db.delete(tx)
     await db.commit()
 
@@ -312,6 +361,8 @@ async def delete_transaction(db: AsyncSession, tx: Transaction) -> None:
 async def get_transactions_by_child(
     db: AsyncSession, child_id: int
 ) -> list[Transaction]:
+    """Return all transactions for a child ordered by time."""
+
     result = await db.execute(
         select(Transaction)
         .where(Transaction.child_id == child_id)
@@ -321,6 +372,8 @@ async def get_transactions_by_child(
 
 
 async def get_all_transactions(db: AsyncSession) -> list[Transaction]:
+    """Return the full ledger across all children."""
+
     result = await db.execute(
         select(Transaction).order_by(Transaction.timestamp)
     )
@@ -328,6 +381,8 @@ async def get_all_transactions(db: AsyncSession) -> list[Transaction]:
 
 
 async def calculate_balance(db: AsyncSession, child_id: int) -> float:
+    """Calculate the running balance for a child's account."""
+
     total = func.coalesce(
         func.sum(
             case(
@@ -344,6 +399,7 @@ async def calculate_balance(db: AsyncSession, child_id: int) -> float:
 
 
 async def recalc_interest(db: AsyncSession, child_id: int) -> None:
+    """Recalculate and post daily interest transactions."""
     account = await get_account_by_child(db, child_id)
     if not account:
         raise ValueError("Account not found")
@@ -438,6 +494,7 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
 async def apply_service_fee(
     db: AsyncSession, account: Account, settings: Settings, today: date
 ) -> None:
+    """Apply a monthly service fee on the first day of the month."""
     if today.day != 1:
         return
     if account.service_fee_last_charged and account.service_fee_last_charged.month == today.month and account.service_fee_last_charged.year == today.year:
@@ -469,6 +526,7 @@ async def apply_service_fee(
 async def apply_overdraft_fee(
     db: AsyncSession, account: Account, settings: Settings, today: date
 ) -> None:
+    """Charge an overdraft fee when an account balance is negative."""
     balance = await calculate_balance(db, account.child_id)
     if balance < 0:
         fee = (
@@ -526,6 +584,8 @@ async def apply_promotion(
     credit: bool,
     memo: str | None = None,
 ) -> int:
+    """Apply a promotional credit or debit to every account."""
+
     accounts = await get_all_accounts(db)
     count = 0
     for account in accounts:
@@ -551,6 +611,8 @@ async def apply_promotion(
 async def create_withdrawal_request(
     db: AsyncSession, req: WithdrawalRequest
 ) -> WithdrawalRequest:
+    """Persist a pending withdrawal request."""
+
     db.add(req)
     await db.commit()
     await db.refresh(req)
@@ -560,6 +622,7 @@ async def create_withdrawal_request(
 async def get_pending_withdrawals_for_parent(
     db: AsyncSession, parent_id: int
 ) -> list[WithdrawalRequest]:
+    """Return pending withdrawal requests for children of a parent."""
     query = (
         select(WithdrawalRequest)
         .join(Child)
@@ -577,6 +640,7 @@ async def get_pending_withdrawals_for_parent(
 async def get_withdrawal_requests_by_child(
     db: AsyncSession, child_id: int
 ) -> list[WithdrawalRequest]:
+    """Return withdrawal requests for a specific child."""
     result = await db.execute(
         select(WithdrawalRequest)
         .where(WithdrawalRequest.child_id == child_id)
@@ -588,6 +652,7 @@ async def get_withdrawal_requests_by_child(
 async def get_withdrawal_request(
     db: AsyncSession, request_id: int
 ) -> WithdrawalRequest | None:
+    """Return a single withdrawal request by id."""
     result = await db.execute(
         select(WithdrawalRequest).where(WithdrawalRequest.id == request_id)
     )
@@ -597,6 +662,8 @@ async def get_withdrawal_request(
 async def save_withdrawal_request(
     db: AsyncSession, req: WithdrawalRequest
 ) -> WithdrawalRequest:
+    """Persist changes to a withdrawal request."""
+
     db.add(req)
     await db.commit()
     await db.refresh(req)
@@ -606,6 +673,8 @@ async def save_withdrawal_request(
 async def create_cd(
     db: AsyncSession, cd: CertificateDeposit
 ) -> CertificateDeposit:
+    """Create a certificate of deposit record."""
+
     db.add(cd)
     await db.commit()
     await db.refresh(cd)
@@ -613,6 +682,7 @@ async def create_cd(
 
 
 async def get_cd(db: AsyncSession, cd_id: int) -> CertificateDeposit | None:
+    """Return a CD by id or ``None`` if not found."""
     result = await db.execute(
         select(CertificateDeposit).where(CertificateDeposit.id == cd_id)
     )
@@ -622,6 +692,8 @@ async def get_cd(db: AsyncSession, cd_id: int) -> CertificateDeposit | None:
 async def save_cd(
     db: AsyncSession, cd: CertificateDeposit
 ) -> CertificateDeposit:
+    """Persist updates to a certificate of deposit."""
+
     db.add(cd)
     await db.commit()
     await db.refresh(cd)
@@ -631,6 +703,7 @@ async def save_cd(
 async def get_cds_by_child(
     db: AsyncSession, child_id: int
 ) -> list[CertificateDeposit]:
+    """Return all CDs for a particular child."""
     result = await db.execute(
         select(CertificateDeposit)
         .where(CertificateDeposit.child_id == child_id)
@@ -709,6 +782,7 @@ async def redeem_cd(
 
 
 async def redeem_matured_cds(db: AsyncSession) -> None:
+    """Redeem all CDs that have reached their maturity date."""
     result = await db.execute(
         select(CertificateDeposit).where(
             CertificateDeposit.status == "accepted",
@@ -721,6 +795,8 @@ async def redeem_matured_cds(db: AsyncSession) -> None:
 
 
 async def create_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> RecurringCharge:
+    """Store a new recurring charge definition."""
+
     db.add(rc)
     await db.commit()
     await db.refresh(rc)
@@ -728,6 +804,7 @@ async def create_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> Recu
 
 
 async def get_recurring_charge(db: AsyncSession, rc_id: int) -> RecurringCharge | None:
+    """Fetch a recurring charge by id."""
     result = await db.execute(
         select(RecurringCharge).where(RecurringCharge.id == rc_id)
     )
@@ -737,6 +814,7 @@ async def get_recurring_charge(db: AsyncSession, rc_id: int) -> RecurringCharge 
 async def get_recurring_charges_by_child(
     db: AsyncSession, child_id: int
 ) -> list[RecurringCharge]:
+    """List all recurring charges scheduled for a child."""
     result = await db.execute(
         select(RecurringCharge).where(RecurringCharge.child_id == child_id)
     )
@@ -751,11 +829,15 @@ async def save_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> Recurr
 
 
 async def delete_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> None:
+    """Remove a recurring charge from the database."""
+
     await db.delete(rc)
     await db.commit()
 
 
 async def process_due_recurring_charges(db: AsyncSession) -> None:
+    """Process and apply any recurring charges that are due today."""
+
     today = date.today()
     result = await db.execute(
         select(RecurringCharge).where(

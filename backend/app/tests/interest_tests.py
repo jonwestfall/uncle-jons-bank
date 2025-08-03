@@ -1,3 +1,5 @@
+"""Utilities for validating interest calculation logic."""
+
 from typing import List
 from datetime import datetime, timedelta, date
 

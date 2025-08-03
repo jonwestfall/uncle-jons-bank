@@ -1,6 +1,9 @@
 from pydantic import BaseModel
+"""Schemas for child withdrawal requests and admin responses."""
+
 from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel
 
 
 class WithdrawalRequestCreate(BaseModel):

@@ -1,3 +1,5 @@
+// Root React component responsible for routing and global state.
+// It handles authentication, theme switching and basic layout.
 import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
@@ -24,6 +26,7 @@ function App() {
   )
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+  // Store authentication token and account type when a user logs in.
   const handleLogin = (tok: string, child: boolean) => {
     setToken(tok)
     setIsChildAccount(child)
@@ -39,6 +42,7 @@ function App() {
     }
   }
 
+  // Clear authentication information when logging out.
   const handleLogout = () => {
     setToken(null)
     setIsChildAccount(false)
@@ -48,6 +52,7 @@ function App() {
     localStorage.removeItem('childId')
   }
 
+  // Simple light/dark theme toggle stored in localStorage.
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light'
     setTheme(next)
@@ -59,6 +64,7 @@ function App() {
     }
   }
 
+  // Load user metadata such as permissions after login.
   const fetchMe = useCallback(async () => {
     if (!token) return
     const resp = await fetch(`${apiUrl}/users/me`, {
@@ -71,6 +77,7 @@ function App() {
     }
   }, [token, apiUrl])
 
+  // Retrieve site-wide settings like bank name and currency symbol.
   const fetchSettings = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/settings/`)
     if (resp.ok) {

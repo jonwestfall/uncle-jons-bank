@@ -1,3 +1,5 @@
+"""Endpoints for viewing and updating site-wide settings."""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 @router.get("/", response_model=SettingsRead)
 async def read_settings(db: AsyncSession = Depends(get_session)):
+    """Retrieve the current configuration values."""
     settings = await get_settings(db)
     return SettingsRead(
         site_name=settings.site_name,
@@ -33,6 +36,7 @@ async def update_settings(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_role("admin")),
 ):
+    """Update settings; only admins may change configuration."""
     settings = await get_settings(db)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(settings, field, value)
