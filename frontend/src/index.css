@@ -83,3 +83,47 @@ button:focus-visible {
   display: flex;
   justify-content: center;
 }
+
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 1000;
+}
+
+.toast {
+  background: var(--container-bg);
+  border: 1px solid var(--text-color);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.toast.error {
+  border-color: red;
+  color: red;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.tabs button.selected {
+  border-bottom: 2px solid var(--text-color);
+}
+.child-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--container-bg);
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+.child-actions {
+  display: flex;
+  gap: 0.5rem;
+}
