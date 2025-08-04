@@ -12,6 +12,7 @@ import ChildLoans from './pages/ChildLoans'
 import ParentLoans from './pages/ParentLoans'
 import Header from './components/Header'
 import './App.css'
+import { ToastProvider } from './components/ToastProvider'
 
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
@@ -103,16 +104,17 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Header
-        onLogout={handleLogout}
-        isAdmin={isAdmin}
-        isChild={isChildAccount}
-        siteName={siteName}
-        onToggleTheme={toggleTheme}
-        theme={theme}
-      />
-      <Routes>
+    <ToastProvider>
+      <BrowserRouter>
+        <Header
+          onLogout={handleLogout}
+          isAdmin={isAdmin}
+          isChild={isChildAccount}
+          siteName={siteName}
+          onToggleTheme={toggleTheme}
+          theme={theme}
+        />
+        <Routes>
           {isChildAccount && childId !== null && (
             <>
               <Route
@@ -154,6 +156,7 @@ function App() {
         <Route path="*" element={<Navigate to={isChildAccount ? '/child' : '/'} replace />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   )
 }
 

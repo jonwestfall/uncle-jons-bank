@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import ConfirmModal from '../components/ConfirmModal'
 import LedgerTable from '../components/LedgerTable'
 import { formatCurrency } from '../utils/currency'
+import { useToast } from '../components/ToastProvider'
 
 interface Transaction {
   id: number
@@ -68,13 +69,21 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null)
   const [childName, setChildName] = useState('')
   const [tableWidth, setTableWidth] = useState<number>()
+  const { showToast } = useToast()
+  const [loadingLedger, setLoadingLedger] = useState(false)
 
   const fetchLedger = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/transactions/child/${childId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setLedger(await resp.json())
-  }, [apiUrl, childId, token])
+    setLoadingLedger(true)
+    try {
+      const resp = await fetch(`${apiUrl}/transactions/child/${childId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (resp.ok) setLedger(await resp.json())
+      else showToast('Failed to load ledger', 'error')
+    } finally {
+      setLoadingLedger(false)
+    }
+  }, [apiUrl, childId, token, showToast])
 
   const fetchMyWithdrawals = useCallback(async () => {
     const resp = await fetch(`${apiUrl}/withdrawals/mine`, {
@@ -84,11 +93,16 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
   }, [apiUrl, token])
 
   const cancelWithdrawal = async (id: number) => {
-    await fetch(`${apiUrl}/withdrawals/${id}/cancel`, {
+    const resp = await fetch(`${apiUrl}/withdrawals/${id}/cancel`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     })
-    fetchMyWithdrawals()
+    if (resp.ok) {
+      showToast('Withdrawal cancelled')
+      fetchMyWithdrawals()
+    } else {
+      showToast('Failed to cancel', 'error')
+    }
   }
 
   const fetchCds = useCallback(async () => {
@@ -126,7 +140,10 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
   return (
     <div className="container" style={{ width: tableWidth ? `${tableWidth}px` : undefined }}>
       <h2>{childName ? `${childName}'s Account` : 'Your Ledger'}</h2>
-      {ledger && (
+      {loadingLedger ? (
+        <p>Loading...</p>
+      ) : (
+        ledger && (
         <>
           <p>Balance: {formatCurrency(ledger.balance, currencySymbol)}</p>
           <p className="help-text">
@@ -138,6 +155,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
             currencySymbol={currencySymbol}
           />
         </>
+        )
       )}
       {charges.length > 0 && (
         <div>
@@ -231,7 +249,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
         onSubmit={async e => {
           e.preventDefault()
           if (!withdrawAmount) return
-          await fetch(`${apiUrl}/withdrawals/`, {
+          const resp = await fetch(`${apiUrl}/withdrawals/`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -239,9 +257,14 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
             },
             body: JSON.stringify({ amount: Number(withdrawAmount), memo: withdrawMemo || null }),
           })
-          setWithdrawAmount('')
-          setWithdrawMemo('')
-          fetchMyWithdrawals()
+          if (resp.ok) {
+            showToast('Withdrawal requested')
+            setWithdrawAmount('')
+            setWithdrawMemo('')
+            fetchMyWithdrawals()
+          } else {
+            showToast('Failed to send request', 'error')
+          }
         }}
         className="form"
       >

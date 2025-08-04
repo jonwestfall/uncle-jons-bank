@@ -10,6 +10,7 @@ import EditTransactionModal from "../components/EditTransactionModal";
 import ManageAccessModal from "../components/ManageAccessModal";
 import ShareChildModal from "../components/ShareChildModal";
 import TextPromptModal from "../components/TextPromptModal";
+import { useToast } from "../components/ToastProvider";
 
 interface Child {
   id: number;
@@ -19,6 +20,8 @@ interface Child {
   penalty_interest_rate?: number;
   cd_penalty_rate?: number;
   total_interest_earned?: number;
+  balance?: number;
+  last_activity?: string;
 }
 
 interface ParentInfo {
@@ -88,6 +91,8 @@ export default function ParentDashboard({
   const [pendingWithdrawals, setPendingWithdrawals] = useState<
     WithdrawalRequest[]
   >([]);
+  const [loadingChildren, setLoadingChildren] = useState(false);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
   const [denyRequest, setDenyRequest] = useState<WithdrawalRequest | null>(
     null,
   );
@@ -114,7 +119,7 @@ export default function ParentDashboard({
   const [accessParents, setAccessParents] = useState<ParentInfo[]>([]);
   const [actionChild, setActionChild] = useState<Child | null>(null);
   const [editingCharge, setEditingCharge] = useState<RecurringCharge | null>(null);
-  const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
+  const [actionTab, setActionTab] = useState<'account' | 'share' | 'ledger'>('account');
   const canEdit = permissions.includes("edit_transaction");
   const canDelete = permissions.includes("delete_transaction");
   const canAddRecurring = permissions.includes("add_recurring_charge");
@@ -125,6 +130,12 @@ export default function ParentDashboard({
   const [rcMemo, setRcMemo] = useState("");
   const [rcInterval, setRcInterval] = useState("");
   const [rcNext, setRcNext] = useState("");
+  const { showToast } = useToast();
+
+  const getChildName = useCallback(
+    (id: number) => children.find((c) => c.id === id)?.first_name || `Child ${id}`,
+    [children],
+  );
 
   const closeLedger = () => {
     setLedger(null);
@@ -133,24 +144,52 @@ export default function ParentDashboard({
   };
 
   const fetchChildren = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/children/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
-      const data: ChildApi[] = await resp.json();
-      setChildren(
-        data.map((c) => ({
-          id: c.id,
-          first_name: c.first_name,
-          frozen: c.frozen ?? c.account_frozen ?? false,
-          interest_rate: c.interest_rate,
-          penalty_interest_rate: c.penalty_interest_rate,
-          cd_penalty_rate: c.cd_penalty_rate,
-          total_interest_earned: c.total_interest_earned,
-        })),
-      );
+    setLoadingChildren(true);
+    try {
+      const resp = await fetch(`${apiUrl}/children/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok) {
+        const data: ChildApi[] = await resp.json();
+        const enriched = await Promise.all(
+          data.map(async (c) => {
+            let balance: number | undefined;
+            let last_activity: string | undefined;
+            try {
+              const l = await fetch(`${apiUrl}/transactions/child/${c.id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (l.ok) {
+                const lr: LedgerResponse = await l.json();
+                balance = lr.balance;
+                last_activity = lr.transactions[0]?.timestamp;
+              }
+            } catch {
+              /* ignore */
+            }
+            return {
+              id: c.id,
+              first_name: c.first_name,
+              frozen: c.frozen ?? c.account_frozen ?? false,
+              interest_rate: c.interest_rate,
+              penalty_interest_rate: c.penalty_interest_rate,
+              cd_penalty_rate: c.cd_penalty_rate,
+              total_interest_earned: c.total_interest_earned,
+              balance,
+              last_activity,
+            } as Child;
+          }),
+        );
+        setChildren(enriched);
+      } else {
+        showToast("Failed to load children", "error");
+      }
+    } catch {
+      showToast("Failed to load children", "error");
+    } finally {
+      setLoadingChildren(false);
     }
-  }, [apiUrl, token]);
+  }, [apiUrl, token, showToast]);
 
   const fetchLedger = useCallback(
     async (cid: number) => {
@@ -174,11 +213,22 @@ export default function ParentDashboard({
   );
 
   const fetchPendingWithdrawals = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/withdrawals/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) setPendingWithdrawals(await resp.json());
-  }, [apiUrl, token]);
+    setLoadingWithdrawals(true);
+    try {
+      const resp = await fetch(`${apiUrl}/withdrawals/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.ok) {
+        setPendingWithdrawals(await resp.json());
+      } else {
+        showToast("Failed to load withdrawals", "error");
+      }
+    } catch {
+      showToast("Failed to load withdrawals", "error");
+    } finally {
+      setLoadingWithdrawals(false);
+    }
+  }, [apiUrl, token, showToast]);
 
   useEffect(() => {
     fetchChildren();
@@ -194,10 +244,7 @@ export default function ParentDashboard({
     });
     if (!resp.ok) {
       const data = await resp.json().catch(() => null);
-      setToast({
-        message: data?.detail || "Action failed",
-        error: true,
-      });
+      showToast(data?.detail || "Action failed", "error");
     }
     fetchChildren();
   };
@@ -211,74 +258,92 @@ export default function ParentDashboard({
       setAccessChild(child);
     } else {
       const data = await resp.json().catch(() => null);
-      setToast({ message: data?.detail || "Failed to load access", error: true });
+      showToast(data?.detail || "Failed to load access", "error");
     }
   };
 
   return (
     <div className="container">
-      {pendingWithdrawals.length > 0 && (
-        <div>
-          <h4>Pending Withdrawal Requests</h4>
-          <ul className="list">
-            {pendingWithdrawals.map((w) => (
-              <li key={w.id}>
-                Child {w.child_id}: {formatCurrency(w.amount, currencySymbol)} {w.memo ? `(${w.memo})` : ""}
-                <button
-                  onClick={async () => {
-                    await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {
-                      method: "POST",
-                      headers: { Authorization: `Bearer ${token}` },
-                    });
-                    await fetchPendingWithdrawals();
-                    if (selectedChild === w.child_id)
-                      await fetchLedger(w.child_id);
-                  }}
-                  className="ml-1"
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => setDenyRequest(w)}
-                  className="ml-05"
-                >
-                  Deny
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {loadingWithdrawals ? (
+        <p>Loading withdrawals...</p>
+      ) : (
+        pendingWithdrawals.length > 0 && (
+          <div>
+            <h4>Pending Withdrawal Requests</h4>
+            <ul className="list">
+              {pendingWithdrawals.map((w) => (
+                <li key={w.id}>
+                  {getChildName(w.child_id)} requested {formatCurrency(w.amount, currencySymbol)}
+                  {w.memo ? ` (${w.memo})` : ""} on {new Date(w.requested_at).toLocaleDateString()}
+                  <button
+                    onClick={async () => {
+                      await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      await fetchPendingWithdrawals();
+                      if (selectedChild === w.child_id)
+                        await fetchLedger(w.child_id);
+                    }}
+                    className="ml-1"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => setDenyRequest(w)}
+                    className="ml-05"
+                  >
+                    Deny
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
       )}
       <h2>Your Children</h2>
-        {toast && (
-          <div className={toast.error ? "error" : "success"}>
-            <span>{toast.message}</span>
-            <button className="ml-05" onClick={() => setToast(null)}>
-              X
-            </button>
-          </div>
-        )}
-      <ul className="list">
-        {children.map((c) => (
-          <li key={c.id}>
-            <details className="child-card">
-              <summary>
-                {c.first_name} {c.frozen && "(Frozen)"}
-              </summary>
-              <div className="child-actions">
-                <button
-                  onClick={() => {
-                    closeLedger();
-                    setActionChild(c);
-                  }}
-                >
-                  Actions
-                </button>
+      {loadingChildren ? (
+        <p>Loading children...</p>
+      ) : (
+        <ul className="list">
+          {children.map((c) => (
+            <li key={c.id}>
+              <div className="child-card">
+                <div>
+                  {c.first_name} {c.frozen && "(Frozen)"} -
+                  {c.balance !== undefined
+                    ? ` ${formatCurrency(c.balance, currencySymbol)}`
+                    : ""}
+                  {c.last_activity
+                    ? ` (Last: ${new Date(c.last_activity).toLocaleDateString()})`
+                    : ""}
+                </div>
+                <div className="child-actions">
+                  <button
+                    onClick={() => {
+                      closeLedger();
+                      fetchLedger(c.id);
+                      fetchCharges(c.id);
+                      setSelectedChild(c.id);
+                    }}
+                  >
+                    View Ledger
+                  </button>
+                  <button
+                    onClick={() => {
+                      closeLedger();
+                      setActionChild(c);
+                      setActionTab('account');
+                    }}
+                  >
+                    Actions
+                  </button>
+                </div>
               </div>
-            </details>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
       <button onClick={() => setRedeemOpen(true)}>Redeem Share Code</button>
       {actionChild && (
         <div
@@ -286,69 +351,99 @@ export default function ParentDashboard({
           onClick={() => setActionChild(null)}
         >
           <div
-            className="modal"
+            className="modal actions-modal"
             onClick={(e) => {
               e.stopPropagation();
             }}
           >
             <h3>Actions for {actionChild.first_name}</h3>
+            <div className="tabs">
+              <button
+                onClick={() => setActionTab('account')}
+                className={actionTab === 'account' ? 'selected' : ''}
+              >
+                💼 Account
+              </button>
+              <button
+                onClick={() => setActionTab('share')}
+                className={actionTab === 'share' ? 'selected' : ''}
+              >
+                👥 Share
+              </button>
+              <button
+                onClick={() => setActionTab('ledger')}
+                className={actionTab === 'ledger' ? 'selected' : ''}
+              >
+                📄 Ledger
+              </button>
+            </div>
             <div className="child-actions">
-              <button
-                onClick={() => {
-                  closeLedger();
-                  setEditingChild(actionChild);
-                  setActionChild(null);
-                }}
-              >
-                Rates
-              </button>
-              <button
-                onClick={() => {
-                  closeLedger();
-                  toggleFreeze(actionChild.id, actionChild.frozen);
-                  setActionChild(null);
-                }}
-              >
-                {actionChild.frozen ? "Unfreeze" : "Freeze"}
-              </button>
-              <button
-                onClick={() => {
-                  closeLedger();
-                  setCodeChild(actionChild);
-                  setActionChild(null);
-                }}
-              >
-                Change Code
-              </button>
-              <button
-                onClick={() => {
-                  closeLedger();
-                  setSharingChild(actionChild);
-                  setActionChild(null);
-                }}
-              >
-                Share
-              </button>
-              <button
-                onClick={() => {
-                  closeLedger();
-                  openAccess(actionChild);
-                  setActionChild(null);
-                }}
-              >
-                Manage Access
-              </button>
-              <button
-                onClick={() => {
-                  closeLedger();
-                  fetchLedger(actionChild.id);
-                  fetchCharges(actionChild.id);
-                  setSelectedChild(actionChild.id);
-                  setActionChild(null);
-                }}
-              >
-                View Ledger
-              </button>
+              {actionTab === 'account' && (
+                <>
+                  <button
+                    onClick={() => {
+                      closeLedger();
+                      setEditingChild(actionChild);
+                      setActionChild(null);
+                    }}
+                  >
+                    💱 Rates
+                  </button>
+                  <button
+                    onClick={() => {
+                      closeLedger();
+                      toggleFreeze(actionChild.id, actionChild.frozen);
+                      setActionChild(null);
+                    }}
+                  >
+                    {actionChild.frozen ? '🔓 Unfreeze' : '🔒 Freeze'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      closeLedger();
+                      setCodeChild(actionChild);
+                      setActionChild(null);
+                    }}
+                  >
+                    🔑 Change Code
+                  </button>
+                </>
+              )}
+              {actionTab === 'share' && (
+                <>
+                  <button
+                    onClick={() => {
+                      closeLedger();
+                      setSharingChild(actionChild);
+                      setActionChild(null);
+                    }}
+                  >
+                    📤 Share
+                  </button>
+                  <button
+                    onClick={() => {
+                      closeLedger();
+                      openAccess(actionChild);
+                      setActionChild(null);
+                    }}
+                  >
+                    👥 Manage Access
+                  </button>
+                </>
+              )}
+              {actionTab === 'ledger' && (
+                <button
+                  onClick={() => {
+                    closeLedger();
+                    fetchLedger(actionChild.id);
+                    fetchCharges(actionChild.id);
+                    setSelectedChild(actionChild.id);
+                    setActionChild(null);
+                  }}
+                >
+                  📊 View Ledger
+                </button>
+              )}
             </div>
             <div className="modal-actions">
               <button type="button" onClick={() => setActionChild(null)}>
@@ -452,7 +547,7 @@ export default function ParentDashboard({
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 if (nextDate < today) {
-                  setToast({ message: "Next run cannot be in the past", error: true });
+          showToast("Next run cannot be in the past", "error");
                   return;
                 }
                 const resp = await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
@@ -471,10 +566,7 @@ export default function ParentDashboard({
                 });
                 if (!resp.ok) {
                   const data = await resp.json().catch(() => null);
-                  setToast({
-                    message: data?.detail || "Action failed",
-                    error: true,
-                  });
+                  showToast(data?.detail || "Action failed", "error");
                   return;
                 }
                 setRcAmount("");
@@ -558,10 +650,7 @@ export default function ParentDashboard({
                 await fetchLedger(selectedChild);
               } else if (!resp.ok) {
                 const data = await resp.json().catch(() => null);
-                setToast({
-                  message: data?.detail || "Action failed",
-                  error: true,
-                });
+                showToast(data?.detail || "Action failed", "error");
               }
             }}
             className="form"
@@ -725,11 +814,11 @@ export default function ParentDashboard({
           apiUrl={apiUrl}
           onClose={() => setEditingChild(null)}
           onSuccess={(msg) => {
-            setToast({ message: msg });
+            showToast(msg);
             fetchChildren();
           }}
           onError={(msg) => {
-            setToast({ message: msg, error: true });
+            showToast(msg, "error");
           }}
         />
       )}
@@ -749,13 +838,13 @@ export default function ParentDashboard({
             );
             if (resp.ok) {
               const data = await resp.json();
-              setToast({ message: `Share code: ${data.code}` });
+              showToast(`Share code: ${data.code}`);
             } else {
               const data = await resp.json().catch(() => null);
-              setToast({
-                message: data?.detail || "Failed to generate code",
-                error: true,
-              });
+              showToast(
+                data?.detail || "Failed to generate code",
+                "error",
+              );
             }
             setSharingChild(null);
           }}
@@ -777,10 +866,10 @@ export default function ParentDashboard({
               openAccess(accessChild);
             } else {
               const data = await resp.json().catch(() => null);
-              setToast({
-                message: data?.detail || "Failed to remove access",
-                error: true,
-              });
+              showToast(
+                data?.detail || "Failed to remove access",
+                "error",
+              );
             }
           }}
           onClose={() => setAccessChild(null)}
@@ -800,10 +889,10 @@ export default function ParentDashboard({
               },
             );
             if (resp.ok) {
-              setToast({ message: "Child linked" });
+              showToast("Child linked");
               fetchChildren();
             } else {
-              setToast({ message: "Invalid code", error: true });
+              showToast("Invalid code", "error");
             }
             setRedeemOpen(false);
           }}
@@ -828,12 +917,12 @@ export default function ParentDashboard({
             );
             if (!resp.ok) {
               const data = await resp.json().catch(() => null);
-              setToast({
-                message: data?.message || "Failed to update access code",
-                error: true,
-              });
+              showToast(
+                data?.message || "Failed to update access code",
+                "error",
+              );
             } else {
-              setToast({ message: "Access code updated" });
+              showToast("Access code updated");
             }
             setCodeChild(null);
             fetchChildren();

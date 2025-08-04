@@ -5,6 +5,7 @@ import EditTransactionModal from '../components/EditTransactionModal'
 import LedgerTable, { type Transaction } from '../components/LedgerTable'
 import RunPromotionModal from '../components/RunPromotionModal'
 import { formatCurrency } from '../utils/currency'
+import { useToast } from '../components/ToastProvider'
 
 interface Props {
   token: string
@@ -62,6 +63,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
   const [parentFilter, setParentFilter] = useState('')
   const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const { showToast } = useToast()
 
   const fetchData = async () => {
     const uh = { Authorization: `Bearer ${token}` }
@@ -163,7 +165,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
           <div className="modal-actions">
             <button
               onClick={async () => {
-                await fetch(`${apiUrl}/admin/users/${selectedUser.id}`, {
+                const resp = await fetch(`${apiUrl}/admin/users/${selectedUser.id}`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
@@ -171,8 +173,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                   },
                   body: JSON.stringify({ name: userName, role: userRole }),
                 })
-                setSelectedUser(null)
-                fetchData()
+                if (resp.ok) {
+                  showToast('User updated')
+                  setSelectedUser(null)
+                  fetchData()
+                } else {
+                  showToast('Failed to update user', 'error')
+                }
               }}
             >
               Save
@@ -190,6 +197,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                       method: 'DELETE',
                       headers: { Authorization: `Bearer ${token}` },
                     })
+                    showToast('User deleted')
                     fetchData()
                   },
                 })
@@ -249,7 +257,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                   frozen: childFrozen,
                 }
                 if (accessCode) body.access_code = accessCode
-                await fetch(`${apiUrl}/admin/children/${selectedChild.id}`, {
+                const resp = await fetch(`${apiUrl}/admin/children/${selectedChild.id}`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
@@ -257,8 +265,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                   },
                   body: JSON.stringify(body),
                 })
-                setSelectedChild(null)
-                fetchData()
+                if (resp.ok) {
+                  showToast('Child updated')
+                  setSelectedChild(null)
+                  fetchData()
+                } else {
+                  showToast('Failed to update child', 'error')
+                }
               }}
             >
               Save
@@ -276,6 +289,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                       method: 'DELETE',
                       headers: { Authorization: `Bearer ${token}` },
                     })
+                    showToast('Child deleted')
                     fetchData()
                   },
                 })
@@ -318,11 +332,16 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                 setConfirm({
                   message: 'Delete transaction?',
                   onConfirm: async () => {
-                    await fetch(`${apiUrl}/admin/transactions/${t.id}`, {
+                    const resp = await fetch(`${apiUrl}/admin/transactions/${t.id}`, {
                       method: 'DELETE',
                       headers: { Authorization: `Bearer ${token}` },
                     })
-                    fetchData()
+                    if (resp.ok) {
+                      showToast('Transaction deleted')
+                      fetchData()
+                    } else {
+                      showToast('Failed to delete transaction', 'error')
+                    }
                   },
                 })
               }

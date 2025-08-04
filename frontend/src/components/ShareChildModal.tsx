@@ -16,9 +16,9 @@ const PERMISSIONS = [
 export default function ShareChildModal({ onSubmit, onCancel }: Props) {
   const [selected, setSelected] = useState<string[]>([]);
   return (
-    <div className="modal" onClick={onCancel}>
+    <div className="modal-overlay" onClick={onCancel}>
       <div
-        className="modal-content"
+        className="modal"
         onClick={(e) => {
           e.stopPropagation();
         }}
@@ -43,7 +43,7 @@ export default function ShareChildModal({ onSubmit, onCancel }: Props) {
               {p}
             </label>
           ))}
-          <div className="mt-1">
+          <div className="modal-actions">
             <button type="submit">Generate</button>
             <button type="button" onClick={onCancel} className="ml-05">
               Cancel
