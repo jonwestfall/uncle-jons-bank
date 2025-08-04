@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
-import RunPromotionModal from '../components/RunPromotionModal'
 import ConfirmModal from '../components/ConfirmModal'
-import LedgerTable, { type Transaction } from '../components/LedgerTable'
+import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
 import EditTransactionModal from '../components/EditTransactionModal'
+import LedgerTable, { type Transaction } from '../components/LedgerTable'
+import RunPromotionModal from '../components/RunPromotionModal'
 import { formatCurrency } from '../utils/currency'
 
 interface Props {
@@ -327,7 +327,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                 })
               }
             >
-              Delete
+              X
             </button>
           </>
         )}
