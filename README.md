@@ -125,8 +125,8 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Docker + Docker Compose
-- GitHub account (for cloning and pushing)
+- Docker + Docker Compose (If you're new to the Docker ecosystem, download [https://www.docker.com/products/docker-desktop/](Docker Desktop) for your platform to get up and running.
+- GitHub account (for cloning and pushing; alternatively you could just download this repository as a ZIP file, and unzip it to a directory of your choosing).
 
 ### Clone the Repo
 
@@ -141,18 +141,17 @@ cd uncle-jons-bank
 docker compose up --build
 ```
 
-Visit [http://localhost](http://localhost) for the frontend.
-FastAPI's interactive docs are available at [http://localhost/api/docs](http://localhost/api/docs).
-The eaiest way to get a username and password to login is to use the API's interactive docs and run the /tests/run test with Persist = True. This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab.
-
-### Migrate DB
-
-If you change models:
+### Run the App in the background
+If you want this to stay up and running all the time, run the following:
 
 ```bash
-docker compose exec backend alembic revision --autogenerate -m "Your message"
-docker compose exec backend alembic upgrade head
+docker compose up -d
 ```
+Visit [http://localhost](http://localhost) for the frontend. *By default there is no administrator account or any accounts on the system at start, see below*
+
+FastAPI's interactive docs are available at [http://localhost/api/docs](http://localhost/api/docs).
+
+**The eaiest way to get a username and password to login is to use the API's interactive docs and run the /tests/run test with Persist = True.** This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab.
 
 ## Admin Login
 
