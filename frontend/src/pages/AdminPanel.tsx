@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
 import RunPromotionModal from '../components/RunPromotionModal'
 import ConfirmModal from '../components/ConfirmModal'
-import LedgerTable, { Transaction } from '../components/LedgerTable'
+import LedgerTable, { type Transaction } from '../components/LedgerTable'
 import EditTransactionModal from '../components/EditTransactionModal'
 import { formatCurrency } from '../utils/currency'
 
