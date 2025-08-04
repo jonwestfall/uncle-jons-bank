@@ -487,6 +487,7 @@ export default function ParentDashboard({
               className="form"
             >
               <h4>Add Recurring Transaction</h4>
+              These may be useful for direct deposits (like weekly allowance) or for services your child wants (e.g., a gaming subscription or cell phone)
               <label>
                 Type
                 <select value={rcType} onChange={(e) => setRcType(e.target.value)}>
@@ -631,7 +632,7 @@ export default function ParentDashboard({
         >
         <h4>Offer CD</h4>
         <label>
-          Amount
+          Amount To Invest in CD
           <input
             type="number"
             step="0.01"
@@ -641,7 +642,7 @@ export default function ParentDashboard({
           />
         </label>
         <label>
-          Rate
+          Rate in Decimal (0.05 for 5%)
           <input
             type="number"
             step="0.0001"
@@ -651,7 +652,7 @@ export default function ParentDashboard({
           />
         </label>
         <label>
-          Days
+          Days until Maturity
           <input
             type="number"
             value={cdDays}
@@ -659,7 +660,7 @@ export default function ParentDashboard({
             required
           />
         </label>
-        <button type="submit">Send</button>
+        <button type="submit">Send Offer</button>
       </form>
       </div>
     )}

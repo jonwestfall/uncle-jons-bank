@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function LoginPage({ onLogin, siteName }: Props) {
-  const [isChild, setIsChild] = useState(false)
+  const [isChild, setIsChild] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [accessCode, setAccessCode] = useState('')
@@ -45,10 +45,10 @@ export default function LoginPage({ onLogin, siteName }: Props) {
       <div className="logo-wrapper">
         <img src="/unclejon.jpg" alt={siteName + ' Logo'} className="logo" />
       </div>
+      <h1>{siteName}</h1>
+      Welcome to your bank! We're glad to have you here. Your grown-up should have given you a special access code to use to log in. Keep it secret - it's your key to your financial future!
       <h2>Login</h2>
-      <button onClick={() => setIsChild(!isChild)} className="mb-1">
-        {isChild ? 'Switch to Parent Login' : 'Switch to Child Login'}
-      </button>
+     
       <form onSubmit={handleSubmit} className="form">
         {isChild ? (
           <div className="form-group">
@@ -70,6 +70,9 @@ export default function LoginPage({ onLogin, siteName }: Props) {
         <button type="submit">Login</button>
       </form>
       {error && <p style={{ color: 'red' }}>{error}</p>}
+       <button onClick={() => setIsChild(!isChild)} className="mb-1">
+        {isChild ? 'Parent Login' : 'Account Holder (Child) Login'}
+      </button>
     </div>
   )
 }

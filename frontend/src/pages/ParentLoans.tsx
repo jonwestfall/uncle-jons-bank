@@ -117,6 +117,10 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
   return (
     <div className="container">
       <h2>Manage Loans</h2>
+      Loans are useful when your child wants to borrow money for something special, like a new game or a bike. You can approve or deny their requests, and help them learn about interest rates and payments.
+      <p>Once a loan is approved, you'll see a credit in your child's account for the full loan amount. You should then deduct whatever they bought with the loan out as a new transaction (e.g., "New Phone"). </p>
+
+      <p>Note that the system doesn't automatically parse your "terms", so if you say "0% for the first month, then 5%", you'll need to come back here after 30 days and change the interest rate to 5% from 0. </p>
       <div>
         <label>
           Child:

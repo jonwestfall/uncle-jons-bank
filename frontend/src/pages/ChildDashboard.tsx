@@ -251,7 +251,7 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
         </p>
         <label>
           How much?
-          <input
+          ${currencySymbol}<input
             type="number"
             step="0.01"
             value={withdrawAmount}
