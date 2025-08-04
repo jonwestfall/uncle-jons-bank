@@ -18,9 +18,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const showToast = useCallback((message: string, type: 'error' | 'success' = 'success') => {
     const id = Date.now();
     setToasts(t => [...t, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(t => t.filter(toast => toast.id !== id));
-    }, 3000);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts(t => t.filter(toast => toast.id !== id));
   }, []);
 
   return (
@@ -29,7 +30,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toast-container">
         {toasts.map(t => (
           <div key={t.id} className={`toast ${t.type === 'error' ? 'error' : ''}`}>
-            {t.message}
+            <span>{t.message}</span>
+            <button
+              className="toast-close"
+              onClick={() => dismissToast(t.id)}
+              aria-label="Close notification"
+            >
+              &times;
+            </button>
           </div>
         ))}
       </div>
