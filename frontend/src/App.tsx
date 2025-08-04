@@ -10,6 +10,7 @@ import ChildProfile from './pages/ChildProfile'
 import AdminPanel from './pages/AdminPanel'
 import ChildLoans from './pages/ChildLoans'
 import ParentLoans from './pages/ParentLoans'
+import MessagesPage from './pages/Messages'
 import Header from './components/Header'
 import './App.css'
 import { ToastProvider } from './components/ToastProvider'
@@ -126,6 +127,10 @@ function App() {
                 element={<ChildLoans token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
               />
               <Route
+                path="/child/messages"
+                element={<MessagesPage token={token} apiUrl={apiUrl} isChild={true} isAdmin={false} />}
+              />
+              <Route
                 path="/child/profile"
                 element={<ChildProfile token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
               />
@@ -140,6 +145,10 @@ function App() {
             <Route
               path="/parent/loans"
               element={<ParentLoans token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+            />
+            <Route
+              path="/messages"
+              element={<MessagesPage token={token} apiUrl={apiUrl} isChild={false} isAdmin={isAdmin} />}
             />
             <Route
               path="/parent/profile"

@@ -25,6 +25,7 @@ from app.models import (
     ShareCode,
     Loan,
     LoanTransaction,
+    Message,
 )
 from app.auth import get_password_hash, get_child_by_id
 from app.acl import get_default_permissions_for_role, ALL_PERMISSIONS
@@ -1029,3 +1030,66 @@ async def process_loan_interest(db: AsyncSession) -> None:
     loans = await get_active_loans(db)
     for loan in loans:
         await recalc_loan_interest(db, loan)
+
+
+# --- Messaging helpers ----------------------------------------------------
+
+async def create_message(db: AsyncSession, message: Message) -> Message:
+    """Persist a new message."""
+
+    db.add(message)
+    await db.commit()
+    await db.refresh(message)
+    return message
+
+
+async def get_message(db: AsyncSession, message_id: int) -> Message | None:
+    result = await db.execute(select(Message).where(Message.id == message_id))
+    return result.scalar_one_or_none()
+
+
+async def list_inbox(
+    db: AsyncSession, *, user_id: int | None = None, child_id: int | None = None, archived: bool = False
+) -> list[Message]:
+    stmt = select(Message).where(Message.recipient_archived == archived)
+    if user_id is not None:
+        stmt = stmt.where(Message.recipient_user_id == user_id)
+    if child_id is not None:
+        stmt = stmt.where(Message.recipient_child_id == child_id)
+    stmt = stmt.order_by(Message.created_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def list_sent(
+    db: AsyncSession, *, user_id: int | None = None, child_id: int | None = None, archived: bool = False
+) -> list[Message]:
+    stmt = select(Message).where(Message.sender_archived == archived)
+    if user_id is not None:
+        stmt = stmt.where(Message.sender_user_id == user_id)
+    if child_id is not None:
+        stmt = stmt.where(Message.sender_child_id == child_id)
+    stmt = stmt.order_by(Message.created_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def archive_message(
+    db: AsyncSession,
+    message: Message,
+    *,
+    as_sender: bool = False,
+) -> Message:
+    if as_sender:
+        message.sender_archived = True
+    else:
+        message.recipient_archived = True
+    db.add(message)
+    await db.commit()
+    await db.refresh(message)
+    return message
+
+
+async def get_all_messages(db: AsyncSession) -> list[Message]:
+    result = await db.execute(select(Message).order_by(Message.created_at.desc()))
+    return result.scalars().all()
