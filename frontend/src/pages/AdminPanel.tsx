@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
 import RunPromotionModal from '../components/RunPromotionModal'
 import ConfirmModal from '../components/ConfirmModal'
-import LedgerTable from '../components/LedgerTable'
+import LedgerTable, { Transaction } from '../components/LedgerTable'
+import EditTransactionModal from '../components/EditTransactionModal'
 import { formatCurrency } from '../utils/currency'
 
 interface Props {
@@ -25,19 +26,9 @@ interface Child {
   id: number
   first_name: string
   account_frozen: boolean
+  access_code?: string
   interest_rate?: number
   total_interest_earned?: number
-}
-
-interface Transaction {
-  id: number
-  child_id: number
-  type: string
-  amount: number
-  memo?: string | null
-  initiated_by: string
-  initiator_id: number
-  timestamp: string
 }
 
 interface SiteSettings {
@@ -62,11 +53,15 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
   const [showPromoModal, setShowPromoModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [userName, setUserName] = useState('')
+  const [userRole, setUserRole] = useState('')
   const [selectedChild, setSelectedChild] = useState<Child | null>(null)
   const [childName, setChildName] = useState('')
+  const [accessCode, setAccessCode] = useState('')
+  const [childFrozen, setChildFrozen] = useState(false)
   const [childFilter, setChildFilter] = useState('')
   const [parentFilter, setParentFilter] = useState('')
   const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
 
   const fetchData = async () => {
     const uh = { Authorization: `Bearer ${token}` }
@@ -91,10 +86,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
 
   useEffect(() => {
     setUserName(selectedUser?.name || '')
+    setUserRole(selectedUser?.role || '')
   }, [selectedUser])
 
   useEffect(() => {
     setChildName(selectedChild?.first_name || '')
+    setAccessCode(selectedChild?.access_code || '')
+    setChildFrozen(selectedChild?.account_frozen || false)
   }, [selectedChild])
 
   return (
@@ -149,12 +147,19 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
       {selectedUser && (
         <div className="detail-panel">
           <h3>User Details</h3>
+          <p>User ID: {selectedUser.id}</p>
           <label>
             Name
             <input value={userName} onChange={e => setUserName(e.target.value)} />
           </label>
           <p>Email: {selectedUser.email}</p>
-          <p>Role: {selectedUser.role}</p>
+          <label>
+            Role
+            <select value={userRole} onChange={e => setUserRole(e.target.value)}>
+              <option value="parent">parent</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
           <div className="modal-actions">
             <button
               onClick={async () => {
@@ -164,7 +169,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                   },
-                  body: JSON.stringify({ name: userName }),
+                  body: JSON.stringify({ name: userName, role: userRole }),
                 })
                 setSelectedUser(null)
                 fetchData()
@@ -219,21 +224,38 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
       {selectedChild && (
         <div className="detail-panel">
           <h3>Child Details</h3>
+          <p>Child ID: {selectedChild.id}</p>
           <label>
             Name
             <input value={childName} onChange={e => setChildName(e.target.value)} />
           </label>
-          <p>Status: {selectedChild.account_frozen ? 'Frozen' : 'Active'}</p>
+          <label>
+            Access Code
+            <input value={accessCode} onChange={e => setAccessCode(e.target.value)} />
+          </label>
+          <label>
+            Frozen
+            <input
+              type="checkbox"
+              checked={childFrozen}
+              onChange={e => setChildFrozen(e.target.checked)}
+            />
+          </label>
           <div className="modal-actions">
             <button
               onClick={async () => {
+                const body: Record<string, unknown> = {
+                  first_name: childName,
+                  frozen: childFrozen,
+                }
+                if (accessCode) body.access_code = accessCode
                 await fetch(`${apiUrl}/admin/children/${selectedChild.id}`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                   },
-                  body: JSON.stringify({ first_name: childName }),
+                  body: JSON.stringify(body),
                 })
                 setSelectedChild(null)
                 fetchData()
@@ -288,22 +310,26 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
             (!parentFilter || (t.initiated_by === 'parent' && t.initiator_id === Number(parentFilter))),
         )}
         renderActions={t => (
-          <button
-            onClick={() =>
-              setConfirm({
-                message: 'Delete transaction?',
-                onConfirm: async () => {
-                  await fetch(`${apiUrl}/admin/transactions/${t.id}`, {
-                    method: 'DELETE',
-                    headers: { Authorization: `Bearer ${token}` },
-                  })
-                  fetchData()
-                },
-              })
-            }
-          >
-            Delete
-          </button>
+          <>
+            <button onClick={() => setEditingTx(t)}>Edit</button>
+            <button
+              className="ml-05"
+              onClick={() =>
+                setConfirm({
+                  message: 'Delete transaction?',
+                  onConfirm: async () => {
+                    await fetch(`${apiUrl}/admin/transactions/${t.id}`, {
+                      method: 'DELETE',
+                      headers: { Authorization: `Bearer ${token}` },
+                    })
+                    fetchData()
+                  },
+                })
+              }
+            >
+              Delete
+            </button>
+          </>
         )}
         allowDownload
         currencySymbol={currencySymbol}
@@ -325,6 +351,15 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
           apiUrl={apiUrl}
           onClose={() => setShowPromoModal(false)}
           onSaved={fetchData}
+        />
+      )}
+      {editingTx && (
+        <EditTransactionModal
+          transaction={editingTx}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingTx(null)}
+          onSuccess={fetchData}
         />
       )}
       {confirm && (
