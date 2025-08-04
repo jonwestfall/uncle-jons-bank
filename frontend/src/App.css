@@ -245,6 +245,10 @@
   overflow-y: auto;
 }
 
+.actions-modal {
+  max-width: 500px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

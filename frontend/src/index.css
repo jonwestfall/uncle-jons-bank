@@ -111,6 +111,8 @@ button:focus-visible {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 .tabs button.selected {
   border-bottom: 2px solid var(--text-color);
@@ -126,4 +128,6 @@ button:focus-visible {
 .child-actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }

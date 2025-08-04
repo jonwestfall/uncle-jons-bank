@@ -351,7 +351,7 @@ export default function ParentDashboard({
           onClick={() => setActionChild(null)}
         >
           <div
-            className="modal"
+            className="modal actions-modal"
             onClick={(e) => {
               e.stopPropagation();
             }}

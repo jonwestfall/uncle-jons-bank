@@ -14,9 +14,9 @@ interface Props {
 
 export default function ManageAccessModal({ parents, onRemove, onClose }: Props) {
   return (
-    <div className="modal" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content"
+        className="modal"
         onClick={(e) => {
           e.stopPropagation();
         }}
@@ -37,7 +37,9 @@ export default function ManageAccessModal({ parents, onRemove, onClose }: Props)
             </li>
           ))}
         </ul>
-        <button onClick={onClose}>Close</button>
+        <div className="modal-actions">
+          <button onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );
