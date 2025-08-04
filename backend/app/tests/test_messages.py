@@ -91,6 +91,12 @@ def test_basic_messaging_flow():
             assert resp.status_code == 200
             child_headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
+            # Child can list linked parents
+            resp = await client.get("/children/me/parents", headers=child_headers)
+            assert resp.status_code == 200
+            assert len(resp.json()) == 1
+            assert resp.json()[0]["user_id"] == parent_id
+
             # Parent sends message to child
             resp = await client.post(
                 "/messages/",

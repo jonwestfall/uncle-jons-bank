@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useToast } from '../components/ToastProvider'
 
 interface Message {
   id: number
@@ -20,7 +21,9 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [recipient, setRecipient] = useState('')
-  const [target, setTarget] = useState<'all' | 'parents' | 'children'>('all')
+  const [target, setTarget] = useState('all')
+  const [options, setOptions] = useState<{ id: number; label: string }[]>([])
+  const { showToast } = useToast()
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -38,13 +41,42 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
     fetchMessages()
   }, [tab])
 
+  useEffect(() => {
+    const loadOptions = async () => {
+      if (isChild) {
+        const resp = await fetch(`${apiUrl}/children/me/parents`, { headers })
+        if (resp.ok) {
+          const data = await resp.json()
+          setOptions(data.map((p: any) => ({ id: p.user_id, label: p.name })))
+        }
+      } else {
+        const resp = await fetch(`${apiUrl}/children/`, { headers })
+        if (resp.ok) {
+          const data = await resp.json()
+          setOptions(data.map((c: any) => ({ id: c.id, label: c.first_name })))
+        }
+      }
+    }
+    loadOptions()
+  }, [])
+
   const send = async () => {
+    let resp: Response | undefined
     if (isAdmin) {
-      await fetch(`${apiUrl}/messages/broadcast`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ subject, body, target })
-      })
+      if (target.startsWith('child:')) {
+        const childId = Number(target.split(':')[1])
+        resp = await fetch(`${apiUrl}/messages/`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ subject, body, recipient_child_id: childId })
+        })
+      } else {
+        resp = await fetch(`${apiUrl}/messages/broadcast`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ subject, body, target })
+        })
+      }
     } else {
       const payload: any = { subject, body }
       if (isChild) {
@@ -52,16 +84,30 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
       } else {
         payload.recipient_child_id = Number(recipient)
       }
-      await fetch(`${apiUrl}/messages/`, {
+      resp = await fetch(`${apiUrl}/messages/`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
       })
     }
-    setSubject('')
-    setBody('')
-    setRecipient('')
-    fetchMessages()
+    if (resp?.ok) {
+      showToast('Message sent')
+      setSubject('')
+      setBody('')
+      setRecipient('')
+      setTarget('all')
+      fetchMessages()
+    }
+  }
+
+  const archive = async (id: number) => {
+    const resp = await fetch(`${apiUrl}/messages/${id}/archive`, {
+      method: 'POST',
+      headers
+    })
+    if (resp.ok) {
+      fetchMessages()
+    }
   }
 
   return (
@@ -75,23 +121,37 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
       <ul>
         {messages.map(m => (
           <li key={m.id}>
-            <strong>{m.subject}</strong>
+            <div>
+              <strong>{m.subject}</strong>
+              <span> {new Date(m.created_at).toLocaleString()}</span>
+            </div>
+            {tab === 'inbox' && (
+              <button onClick={() => archive(m.id)}>Archive</button>
+            )}
           </li>
         ))}
       </ul>
       <h3>Compose</h3>
       {isAdmin ? (
-        <select value={target} onChange={e => setTarget(e.target.value as any)}>
+        <select value={target} onChange={e => setTarget(e.target.value)}>
           <option value="all">All</option>
           <option value="parents">Parents</option>
           <option value="children">Children</option>
+          {options.map(o => (
+            <option key={o.id} value={`child:${o.id}`}>
+              {o.label}
+            </option>
+          ))}
         </select>
       ) : (
-        <input
-          placeholder={isChild ? 'Parent ID' : 'Child ID'}
-          value={recipient}
-          onChange={e => setRecipient(e.target.value)}
-        />
+        <select value={recipient} onChange={e => setRecipient(e.target.value)}>
+          <option value="">Select recipient</option>
+          {options.map(o => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       )}
       <input
         placeholder="Subject"

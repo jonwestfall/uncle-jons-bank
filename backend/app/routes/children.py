@@ -137,6 +137,28 @@ async def redeem_share_code(
     )
 
 
+@router.get("/me/parents", response_model=list[ParentAccess])
+async def list_my_parents(
+    identity: tuple[str, Child | User] = Depends(get_current_identity),
+    db: AsyncSession = Depends(get_session),
+):
+    """List parents linked to the authenticated child."""
+    kind, obj = identity
+    if kind != "child":
+        raise HTTPException(status_code=403, detail="Not a child token")
+    links = await get_parents_for_child(db, obj.id)
+    return [
+        ParentAccess(
+            user_id=l.user.id,
+            name=l.user.name,
+            email=l.user.email,
+            permissions=l.permissions,
+            is_owner=l.is_owner,
+        )
+        for l in links
+    ]
+
+
 @router.get("/{child_id}/parents", response_model=list[ParentAccess])
 async def list_child_parents(
     child_id: int,
