@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
-import RunPromotionModal from '../components/RunPromotionModal'
-import TextPromptModal from '../components/TextPromptModal'
 import ConfirmModal from '../components/ConfirmModal'
+import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
+import EditTransactionModal from '../components/EditTransactionModal'
+import LedgerTable, { type Transaction } from '../components/LedgerTable'
+import RunPromotionModal from '../components/RunPromotionModal'
 import { formatCurrency } from '../utils/currency'
 
 interface Props {
@@ -25,19 +26,9 @@ interface Child {
   id: number
   first_name: string
   account_frozen: boolean
+  access_code?: string
   interest_rate?: number
   total_interest_earned?: number
-}
-
-interface Transaction {
-  id: number
-  child_id: number
-  type: string
-  amount: number
-  memo?: string | null
-  initiated_by: string
-  initiator_id: number
-  timestamp: string
 }
 
 interface SiteSettings {
@@ -60,9 +51,17 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showPromoModal, setShowPromoModal] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [editingChild, setEditingChild] = useState<Child | null>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [userName, setUserName] = useState('')
+  const [userRole, setUserRole] = useState('')
+  const [selectedChild, setSelectedChild] = useState<Child | null>(null)
+  const [childName, setChildName] = useState('')
+  const [accessCode, setAccessCode] = useState('')
+  const [childFrozen, setChildFrozen] = useState(false)
+  const [childFilter, setChildFilter] = useState('')
+  const [parentFilter, setParentFilter] = useState('')
   const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
 
   const fetchData = async () => {
     const uh = { Authorization: `Bearer ${token}` }
@@ -82,7 +81,19 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
+
+  useEffect(() => {
+    setUserName(selectedUser?.name || '')
+    setUserRole(selectedUser?.role || '')
+  }, [selectedUser])
+
+  useEffect(() => {
+    setChildName(selectedChild?.first_name || '')
+    setAccessCode(selectedChild?.access_code || '')
+    setChildFrozen(selectedChild?.account_frozen || false)
+  }, [selectedChild])
 
   return (
     <div className="container">
@@ -111,22 +122,71 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
       <h2>Promotions</h2>
       <button onClick={() => setShowPromoModal(true)}>Run Promotion</button>
       <h2>Users</h2>
-      <ul className="list">
-        {users.map(u => (
-          <li key={u.id}>
-            {u.name} ({u.email}) [{u.role}]
-            <button
-              onClick={() => setEditingUser(u)}
-              className="ml-1"
+      <table className="ledger-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map(u => (
+            <tr
+              key={u.id}
+              onClick={() => setSelectedUser(u)}
+              className={selectedUser?.id === u.id ? 'selected' : ''}
             >
-              Edit
+              <td>{u.name}</td>
+              <td>{u.email}</td>
+              <td>{u.role}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {selectedUser && (
+        <div className="detail-panel">
+          <h3>User Details</h3>
+          <p>User ID: {selectedUser.id}</p>
+          <label>
+            Name
+            <input value={userName} onChange={e => setUserName(e.target.value)} />
+          </label>
+          <p>Email: {selectedUser.email}</p>
+          <label>
+            Role
+            <select value={userRole} onChange={e => setUserRole(e.target.value)}>
+              <option value="parent">parent</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+          <div className="modal-actions">
+            <button
+              onClick={async () => {
+                await fetch(`${apiUrl}/admin/users/${selectedUser.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ name: userName, role: userRole }),
+                })
+                setSelectedUser(null)
+                fetchData()
+              }}
+            >
+              Save
+            </button>
+            <button className="ml-05" onClick={() => setSelectedUser(null)}>
+              Cancel
             </button>
             <button
+              className="ml-05"
               onClick={() =>
                 setConfirm({
                   message: 'Delete user?',
                   onConfirm: async () => {
-                    await fetch(`${apiUrl}/admin/users/${u.id}`, {
+                    await fetch(`${apiUrl}/admin/users/${selectedUser.id}`, {
                       method: 'DELETE',
                       headers: { Authorization: `Bearer ${token}` },
                     })
@@ -134,30 +194,85 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                   },
                 })
               }
-              className="ml-05"
             >
               Delete
             </button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        </div>
+      )}
       <h2>Children</h2>
-      <ul className="list">
-        {children.map(c => (
-          <li key={c.id}>
-            {c.first_name} {c.account_frozen && '(Frozen)'}
-            <button
-              onClick={() => setEditingChild(c)}
-              className="ml-1"
+      <table className="ledger-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {children.map(c => (
+            <tr
+              key={c.id}
+              onClick={() => setSelectedChild(c)}
+              className={selectedChild?.id === c.id ? 'selected' : ''}
             >
-              Edit
+              <td>{c.first_name}</td>
+              <td>{c.account_frozen ? 'Frozen' : 'Active'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {selectedChild && (
+        <div className="detail-panel">
+          <h3>Child Details</h3>
+          <p>Child ID: {selectedChild.id}</p>
+          <label>
+            Name
+            <input value={childName} onChange={e => setChildName(e.target.value)} />
+          </label>
+          <label>
+            Access Code
+            <input value={accessCode} onChange={e => setAccessCode(e.target.value)} />
+          </label>
+          <label>
+            Frozen
+            <input
+              type="checkbox"
+              checked={childFrozen}
+              onChange={e => setChildFrozen(e.target.checked)}
+            />
+          </label>
+          <div className="modal-actions">
+            <button
+              onClick={async () => {
+                const body: Record<string, unknown> = {
+                  first_name: childName,
+                  frozen: childFrozen,
+                }
+                if (accessCode) body.access_code = accessCode
+                await fetch(`${apiUrl}/admin/children/${selectedChild.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(body),
+                })
+                setSelectedChild(null)
+                fetchData()
+              }}
+            >
+              Save
+            </button>
+            <button className="ml-05" onClick={() => setSelectedChild(null)}>
+              Cancel
             </button>
             <button
+              className="ml-05"
               onClick={() =>
                 setConfirm({
                   message: 'Delete child?',
                   onConfirm: async () => {
-                    await fetch(`${apiUrl}/admin/children/${c.id}`, {
+                    await fetch(`${apiUrl}/admin/children/${selectedChild.id}`, {
                       method: 'DELETE',
                       headers: { Authorization: `Bearer ${token}` },
                     })
@@ -165,20 +280,40 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                   },
                 })
               }
-              className="ml-05"
             >
               Delete
             </button>
-          </li>
-        ))}
-      </ul>
+          </div>
+        </div>
+      )}
       <h2>Transactions</h2>
-      <ul className="list">
-        {transactions.map(t => (
-          <li key={t.id}>
-            #{t.id} Child {t.child_id} {t.type} {formatCurrency(t.amount, currencySymbol)}
-            {t.memo ? ` (${t.memo})` : ''}
+      <div className="filter-row">
+        <label>
+          Child ID
+          <input
+            value={childFilter}
+            onChange={e => setChildFilter(e.target.value)}
+          />
+        </label>
+        <label style={{ marginLeft: '1rem' }}>
+          Parent ID
+          <input
+            value={parentFilter}
+            onChange={e => setParentFilter(e.target.value)}
+          />
+        </label>
+      </div>
+      <LedgerTable
+        transactions={transactions.filter(
+          t =>
+            (!childFilter || t.child_id === Number(childFilter)) &&
+            (!parentFilter || (t.initiated_by === 'parent' && t.initiator_id === Number(parentFilter))),
+        )}
+        renderActions={t => (
+          <>
+            <button onClick={() => setEditingTx(t)}>Edit</button>
             <button
+              className="ml-05"
               onClick={() =>
                 setConfirm({
                   message: 'Delete transaction?',
@@ -191,13 +326,14 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                   },
                 })
               }
-              className="ml-05"
             >
-              Delete
+              X
             </button>
-          </li>
-        ))}
-      </ul>
+          </>
+        )}
+        allowDownload
+        currencySymbol={currencySymbol}
+      />
       <button onClick={onLogout}>Logout</button>
 
       {showSettingsModal && settings && (
@@ -217,44 +353,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
           onSaved={fetchData}
         />
       )}
-      {editingUser && (
-        <TextPromptModal
-          title="Edit User"
-          label="Name"
-          defaultValue={editingUser.name}
-          onCancel={() => setEditingUser(null)}
-          onSubmit={async (value) => {
-            await fetch(`${apiUrl}/admin/users/${editingUser.id}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ name: value }),
-            })
-            setEditingUser(null)
-            fetchData()
-          }}
-        />
-      )}
-      {editingChild && (
-        <TextPromptModal
-          title="Edit Child"
-          label="Name"
-          defaultValue={editingChild.first_name}
-          onCancel={() => setEditingChild(null)}
-          onSubmit={async (value) => {
-            await fetch(`${apiUrl}/admin/children/${editingChild.id}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ first_name: value }),
-            })
-            setEditingChild(null)
-            fetchData()
-          }}
+      {editingTx && (
+        <EditTransactionModal
+          transaction={editingTx}
+          token={token}
+          apiUrl={apiUrl}
+          onClose={() => setEditingTx(null)}
+          onSuccess={fetchData}
         />
       )}
       {confirm && (
