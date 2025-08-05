@@ -29,6 +29,7 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const [options, setOptions] = useState<{ id: number; label: string }[]>([])
   const [userNames, setUserNames] = useState<Record<number, string>>({})
   const [childNames, setChildNames] = useState<Record<number, string>>({})
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const { showToast } = useToast()
 
   const headers = {
@@ -46,6 +47,7 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
 
   useEffect(() => {
     fetchMessages()
+    setSelectedMessage(null)
   }, [tab])
 
   useEffect(() => {
@@ -157,8 +159,22 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
     })
     if (resp.ok) {
       fetchMessages()
+      if (selectedMessage?.id === id) {
+        setSelectedMessage(null)
+      }
     }
   }
+
+  const getName = (userId?: number, childId?: number) => {
+    if (userId != null) {
+      return userNames[userId] ?? (isAdmin ? 'Unknown user' : 'Admin')
+    }
+    if (childId != null) {
+      return childNames[childId] ?? 'Unknown child'
+    }
+    return 'Unknown'
+  }
+  const label = tab === 'inbox' ? 'From' : 'To'
 
   return (
     <div className="messages">
@@ -168,38 +184,78 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
         <button onClick={() => setTab('sent')}>Sent</button>
         <button onClick={() => setTab('archive')}>Archive</button>
       </div>
-      <ul>
-        {messages.map(m => {
-          const getName = (userId?: number, childId?: number) => {
-            if (userId != null) {
-              return userNames[userId] ?? (isAdmin ? 'Unknown user' : 'Admin')
-            }
-            if (childId != null) {
-              return childNames[childId] ?? 'Unknown child'
-            }
-            return 'Unknown'
-          }
-          const name =
-            tab === 'inbox'
-              ? getName(m.sender_user_id, m.sender_child_id)
-              : getName(m.recipient_user_id, m.recipient_child_id)
-          const label = tab === 'inbox' ? 'From' : 'To'
-          return (
-            <li key={m.id}>
-              <div>
-                <strong>{m.subject}</strong>
-                <span>
-                  {` ${label} ${name}`}
-                </span>
-                <span> {new Date(m.created_at).toLocaleString()}</span>
-              </div>
-              {tab === 'inbox' && (
-                <button onClick={() => archive(m.id)}>Archive</button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      <div className="table-wrapper">
+        <table className="ledger-table">
+          <thead>
+            <tr>
+              <th>{label}</th>
+              <th>Subject</th>
+              <th>Preview</th>
+              <th>Date</th>
+              {tab === 'inbox' && <th>Actions</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {messages.map(m => {
+              const name =
+                tab === 'inbox'
+                  ? getName(m.sender_user_id, m.sender_child_id)
+                  : getName(m.recipient_user_id, m.recipient_child_id)
+              const raw = m.body.replace(/<[^>]+>/g, '')
+              const preview = raw.slice(0, 100)
+              const isTruncated = raw.length > 100
+              return (
+                <tr
+                  key={m.id}
+                  className={`message-row${selectedMessage?.id === m.id ? ' selected' : ''}`}
+                  onClick={() => setSelectedMessage(m)}
+                >
+                  <td>{name}</td>
+                  <td>{m.subject}</td>
+                  <td>
+                    {preview}
+                    {isTruncated ? '…' : ''}
+                  </td>
+                  <td>{new Date(m.created_at).toLocaleString()}</td>
+                  {tab === 'inbox' && (
+                    <td>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          archive(m.id)
+                        }}
+                      >
+                        Archive
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {selectedMessage && (
+        <div className="detail-panel">
+          <h3>{selectedMessage.subject}</h3>
+          <p>
+            {tab === 'inbox'
+              ? `From ${getName(
+                  selectedMessage.sender_user_id,
+                  selectedMessage.sender_child_id
+                )}`
+              : `To ${getName(
+                  selectedMessage.recipient_user_id,
+                  selectedMessage.recipient_child_id
+                )}`}
+            {` ${new Date(selectedMessage.created_at).toLocaleString()}`}
+          </p>
+          <div dangerouslySetInnerHTML={{ __html: selectedMessage.body }} />
+          {tab === 'inbox' && (
+            <button onClick={() => archive(selectedMessage.id)}>Archive</button>
+          )}
+        </div>
+      )}
       <h3>Compose</h3>
       {isAdmin ? (
         <select value={target} onChange={e => setTarget(e.target.value)}>

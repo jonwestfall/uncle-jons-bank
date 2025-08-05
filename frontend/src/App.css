@@ -208,6 +208,10 @@
   cursor: pointer;
 }
 
+.message-row {
+  cursor: pointer;
+}
+
 .table-controls {
   display: flex;
   justify-content: space-between;
