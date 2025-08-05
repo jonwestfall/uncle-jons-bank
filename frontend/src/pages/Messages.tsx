@@ -6,6 +6,10 @@ interface Message {
   subject: string
   body: string
   created_at: string
+  sender_user_id?: number
+  sender_child_id?: number
+  recipient_user_id?: number
+  recipient_child_id?: number
 }
 
 interface Props {
@@ -23,6 +27,8 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const [recipient, setRecipient] = useState('')
   const [target, setTarget] = useState('all')
   const [options, setOptions] = useState<{ id: number; label: string }[]>([])
+  const [userNames, setUserNames] = useState<Record<number, string>>({})
+  const [childNames, setChildNames] = useState<Record<number, string>>({})
   const { showToast } = useToast()
 
   const headers = {
@@ -33,7 +39,8 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const fetchMessages = async () => {
     const resp = await fetch(`${apiUrl}/messages/${tab}`, { headers })
     if (resp.ok) {
-      setMessages(await resp.json())
+      const data: Message[] = await resp.json()
+      setMessages(data)
     }
   }
 
@@ -43,17 +50,55 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
 
   useEffect(() => {
     const loadOptions = async () => {
-      if (isChild) {
+      if (isAdmin) {
+        const [usersResp, childrenResp] = await Promise.all([
+          fetch(`${apiUrl}/admin/users`, { headers }),
+          fetch(`${apiUrl}/admin/children`, { headers })
+        ])
+        if (usersResp.ok) {
+          const users: { id: number; name: string }[] = await usersResp.json()
+          const names: Record<number, string> = {}
+          users.forEach(u => {
+            names[u.id] = u.name
+          })
+          setUserNames(names)
+        }
+        if (childrenResp.ok) {
+          const children: { id: number; first_name: string }[] = await childrenResp.json()
+          const optionsList = children.map(c => ({
+            id: c.id,
+            label: c.first_name
+          }))
+          const cNames: Record<number, string> = {}
+          optionsList.forEach(o => {
+            cNames[o.id] = o.label
+          })
+          setChildNames(cNames)
+          setOptions(optionsList)
+        }
+      } else if (isChild) {
         const resp = await fetch(`${apiUrl}/children/me/parents`, { headers })
         if (resp.ok) {
-          const data = await resp.json()
-          setOptions(data.map((p: any) => ({ id: p.user_id, label: p.name })))
+          const data: { user_id: number; name: string }[] = await resp.json()
+          const names: Record<number, string> = {}
+          const opts = data.map(p => {
+            names[p.user_id] = p.name
+            return { id: p.user_id, label: p.name }
+          })
+          setUserNames(names)
+          setOptions(opts)
         }
       } else {
         const resp = await fetch(`${apiUrl}/children/`, { headers })
         if (resp.ok) {
-          const data = await resp.json()
-          setOptions(data.map((c: any) => ({ id: c.id, label: c.first_name })))
+          const data: { id: number; first_name: string }[] = await resp.json()
+          const names: Record<number, string> = {}
+          const opts = data.map(c => {
+            names[c.id] = c.first_name
+            return { id: c.id, label: c.first_name }
+          })
+          setChildNames(names)
+          setOptions(opts)
         }
       }
     }
@@ -78,7 +123,12 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
         })
       }
     } else {
-      const payload: any = { subject, body }
+      const payload: {
+        subject: string
+        body: string
+        recipient_user_id?: number
+        recipient_child_id?: number
+      } = { subject, body }
       if (isChild) {
         payload.recipient_user_id = Number(recipient)
       } else {
@@ -119,17 +169,36 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
         <button onClick={() => setTab('archive')}>Archive</button>
       </div>
       <ul>
-        {messages.map(m => (
-          <li key={m.id}>
-            <div>
-              <strong>{m.subject}</strong>
-              <span> {new Date(m.created_at).toLocaleString()}</span>
-            </div>
-            {tab === 'inbox' && (
-              <button onClick={() => archive(m.id)}>Archive</button>
-            )}
-          </li>
-        ))}
+        {messages.map(m => {
+          const getName = (userId?: number, childId?: number) => {
+            if (userId != null) {
+              return userNames[userId] ?? (isAdmin ? 'Unknown user' : 'Admin')
+            }
+            if (childId != null) {
+              return childNames[childId] ?? 'Unknown child'
+            }
+            return 'Unknown'
+          }
+          const name =
+            tab === 'inbox'
+              ? getName(m.sender_user_id, m.sender_child_id)
+              : getName(m.recipient_user_id, m.recipient_child_id)
+          const label = tab === 'inbox' ? 'From' : 'To'
+          return (
+            <li key={m.id}>
+              <div>
+                <strong>{m.subject}</strong>
+                <span>
+                  {` ${label} ${name}`}
+                </span>
+                <span> {new Date(m.created_at).toLocaleString()}</span>
+              </div>
+              {tab === 'inbox' && (
+                <button onClick={() => archive(m.id)}>Archive</button>
+              )}
+            </li>
+          )
+        })}
       </ul>
       <h3>Compose</h3>
       {isAdmin ? (
