@@ -6,6 +6,10 @@ interface Message {
   subject: string
   body: string
   created_at: string
+  sender_user_id?: number
+  sender_child_id?: number
+  recipient_user_id?: number
+  recipient_child_id?: number
 }
 
 interface Props {
@@ -33,7 +37,8 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const fetchMessages = async () => {
     const resp = await fetch(`${apiUrl}/messages/${tab}`, { headers })
     if (resp.ok) {
-      setMessages(await resp.json())
+      const data: Message[] = await resp.json()
+      setMessages(data)
     }
   }
 
@@ -119,17 +124,27 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
         <button onClick={() => setTab('archive')}>Archive</button>
       </div>
       <ul>
-        {messages.map(m => (
-          <li key={m.id}>
-            <div>
-              <strong>{m.subject}</strong>
-              <span> {new Date(m.created_at).toLocaleString()}</span>
-            </div>
-            {tab === 'inbox' && (
-              <button onClick={() => archive(m.id)}>Archive</button>
-            )}
-          </li>
-        ))}
+        {messages.map(m => {
+          const id =
+            tab === 'inbox'
+              ? m.sender_user_id ?? m.sender_child_id
+              : m.recipient_user_id ?? m.recipient_child_id
+          const label = tab === 'inbox' ? 'From' : 'To'
+          return (
+            <li key={m.id}>
+              <div>
+                <strong>{m.subject}</strong>
+                <span>
+                  {` ${label} ${id ?? 'Unknown'}`}
+                </span>
+                <span> {new Date(m.created_at).toLocaleString()}</span>
+              </div>
+              {tab === 'inbox' && (
+                <button onClick={() => archive(m.id)}>Archive</button>
+              )}
+            </li>
+          )
+        })}
       </ul>
       <h3>Compose</h3>
       {isAdmin ? (
