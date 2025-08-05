@@ -45,6 +45,7 @@ async def create_db_and_tables() -> None:
         Permission,
         UserPermissionLink,
         Settings,
+        Message,
     )
 
     async with engine.begin() as conn:

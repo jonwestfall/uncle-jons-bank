@@ -224,3 +224,21 @@ class Settings(SQLModel, table=True):
     overdraft_fee_is_percentage: bool = False
     overdraft_fee_daily: bool = False
     currency_symbol: str = "$"
+
+
+class Message(SQLModel, table=True):
+    """Simple user-to-user message supporting rich text content."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    subject: str
+    body: str  # stored as HTML
+    sender_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    sender_child_id: Optional[int] = Field(default=None, foreign_key="child.id")
+    recipient_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    recipient_child_id: Optional[int] = Field(
+        default=None, foreign_key="child.id"
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    sender_archived: bool = False
+    recipient_archived: bool = False
+
