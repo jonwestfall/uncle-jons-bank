@@ -12,3 +12,4 @@ aiosqlite
 httpx
 email-validator
 python-multipart
+qrcode[pil]

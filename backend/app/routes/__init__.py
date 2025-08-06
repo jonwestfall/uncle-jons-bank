@@ -13,6 +13,7 @@ from . import (
     recurring,
     loans,
     messages,
+    coupons,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "recurring",
     "loans",
     "messages",
+    "coupons",
 ]

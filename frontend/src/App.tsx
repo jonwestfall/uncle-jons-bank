@@ -11,6 +11,8 @@ import ChildProfile from './pages/ChildProfile'
 import AdminPanel from './pages/AdminPanel'
 import ChildLoans from './pages/ChildLoans'
 import ParentLoans from './pages/ParentLoans'
+import ParentCoupons from './pages/ParentCoupons'
+import ChildCoupons from './pages/ChildCoupons'
 import MessagesPage from './pages/Messages'
 import Header from './components/Header'
 import './App.css'
@@ -143,6 +145,10 @@ function App() {
                 element={<ChildLoans token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
               />
               <Route
+                path="/child/coupons"
+                element={<ChildCoupons token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              />
+              <Route
                 path="/child/messages"
                 element={<MessagesPage token={token} apiUrl={apiUrl} isChild={true} isAdmin={false} />}
               />
@@ -161,6 +167,10 @@ function App() {
             <Route
               path="/parent/loans"
               element={<ParentLoans token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+            />
+            <Route
+              path="/parent/coupons"
+              element={<ParentCoupons token={token} apiUrl={apiUrl} isAdmin={isAdmin} currencySymbol={currencySymbol} />}
             />
             <Route
               path="/messages"
