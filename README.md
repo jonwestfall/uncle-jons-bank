@@ -147,11 +147,11 @@ If you want this to stay up and running all the time, run the following:
 ```bash
 docker compose up -d
 ```
-Visit [http://localhost](http://localhost) for the frontend. *By default there is no administrator account or any accounts on the system at start, see below*
+Visit [http://localhost](http://localhost) for the frontend. *On the first load of the page, since there are no users, it will prompt you to create a super admin account*.
 
 FastAPI's interactive docs are available at [http://localhost/api/docs](http://localhost/api/docs).
 
-**The eaiest way to get a username and password to login is to use the API's interactive docs and run the /tests/run test with Persist = True.** This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab.
+**The eaiest way to get data to play with is to use the API's interactive docs and run the /tests/run test with Persist = True.** This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab.
 
 ## Admin Login
 
@@ -212,6 +212,20 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 
 These are used for JWT authentication.
+
+## Bringing up backend / frontend separately
+
+If you want to make changes but not recompile the entire docker container, you can use the following commands to bring up the backend, and then the frontend separately
+
+```bash
+cd backend
+pip install -r requirements.txt    # only first time
+uvicorn app.main:app --reload
+cd ..
+cd frontend
+npm install                        # only first time
+VITE_API_URL=http://localhost:8000 npm run dev
+```
 
 ---
 
