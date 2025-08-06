@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../components/ToastProvider'
+import MessageDetail from '../components/MessageDetail'
 
 interface Message {
   id: number
@@ -31,6 +32,7 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const [childNames, setChildNames] = useState<Record<number, string>>({})
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const { showToast } = useToast()
+  const composeRef = useRef<HTMLDivElement>(null)
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -110,7 +112,13 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const send = async () => {
     let resp: Response | undefined
     if (isAdmin) {
-      if (target.startsWith('child:')) {
+      if (recipient) {
+        resp = await fetch(`${apiUrl}/messages/`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ subject, body, recipient_user_id: Number(recipient) })
+        })
+      } else if (target.startsWith('child:')) {
         const childId = Number(target.split(':')[1])
         resp = await fetch(`${apiUrl}/messages/`, {
           method: 'POST',
@@ -163,6 +171,51 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
         setSelectedMessage(null)
       }
     }
+  }
+
+  const handleReply = (m: Message) => {
+    setSubject(m.subject.startsWith('Re: ') ? m.subject : `Re: ${m.subject}`)
+    setBody('')
+    if (isAdmin) {
+      if (tab === 'inbox') {
+        if (m.sender_child_id != null) {
+          setTarget(`child:${m.sender_child_id}`)
+          setRecipient('')
+        } else if (m.sender_user_id != null) {
+          setRecipient(String(m.sender_user_id))
+          setTarget('all')
+        }
+      } else {
+        if (m.recipient_child_id != null) {
+          setTarget(`child:${m.recipient_child_id}`)
+          setRecipient('')
+        } else if (m.recipient_user_id != null) {
+          setRecipient(String(m.recipient_user_id))
+          setTarget('all')
+        }
+      }
+    } else if (isChild) {
+      if (tab === 'inbox') {
+        if (m.sender_user_id != null) {
+          setRecipient(String(m.sender_user_id))
+        }
+      } else {
+        if (m.recipient_user_id != null) {
+          setRecipient(String(m.recipient_user_id))
+        }
+      }
+    } else {
+      if (tab === 'inbox') {
+        if (m.sender_child_id != null) {
+          setRecipient(String(m.sender_child_id))
+        }
+      } else {
+        if (m.recipient_child_id != null) {
+          setRecipient(String(m.recipient_child_id))
+        }
+      }
+    }
+    composeRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   const getName = (userId?: number, childId?: number) => {
@@ -236,59 +289,55 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
         </table>
       </div>
       {selectedMessage && (
-        <div className="detail-panel">
-          <h3>{selectedMessage.subject}</h3>
-          <p>
-            {tab === 'inbox'
-              ? `From ${getName(
-                  selectedMessage.sender_user_id,
-                  selectedMessage.sender_child_id
-                )}`
-              : `To ${getName(
-                  selectedMessage.recipient_user_id,
-                  selectedMessage.recipient_child_id
-                )}`}
-            {` ${new Date(selectedMessage.created_at).toLocaleString()}`}
-          </p>
-          <div dangerouslySetInnerHTML={{ __html: selectedMessage.body }} />
-          {tab === 'inbox' && (
-            <button onClick={() => archive(selectedMessage.id)}>Archive</button>
-          )}
-        </div>
+        <MessageDetail
+          message={selectedMessage}
+          isInbox={tab === 'inbox'}
+          getName={getName}
+          onArchive={archive}
+          onReply={handleReply}
+        />
       )}
-      <h3>Compose</h3>
-      {isAdmin ? (
-        <select value={target} onChange={e => setTarget(e.target.value)}>
-          <option value="all">All</option>
-          <option value="parents">Parents</option>
-          <option value="children">Children</option>
-          {options.map(o => (
-            <option key={o.id} value={`child:${o.id}`}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <select value={recipient} onChange={e => setRecipient(e.target.value)}>
-          <option value="">Select recipient</option>
-          {options.map(o => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      )}
-      <input
-        placeholder="Subject"
-        value={subject}
-        onChange={e => setSubject(e.target.value)}
-      />
-      <div
-        className="editor"
-        contentEditable
-        onInput={e => setBody((e.target as HTMLDivElement).innerHTML)}
-      />
-      <button onClick={send}>Send</button>
+      <div ref={composeRef}>
+        <h3>Compose</h3>
+        {isAdmin ? (
+          <select
+            value={target}
+            onChange={e => {
+              setRecipient('')
+              setTarget(e.target.value)
+            }}
+          >
+            <option value="all">All</option>
+            <option value="parents">Parents</option>
+            <option value="children">Children</option>
+            {options.map(o => (
+              <option key={o.id} value={`child:${o.id}`}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <select value={recipient} onChange={e => setRecipient(e.target.value)}>
+            <option value="">Select recipient</option>
+            {options.map(o => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        )}
+        <input
+          placeholder="Subject"
+          value={subject}
+          onChange={e => setSubject(e.target.value)}
+        />
+        <div
+          className="editor"
+          contentEditable
+          onInput={e => setBody((e.target as HTMLDivElement).innerHTML)}
+        />
+        <button onClick={send}>Send</button>
+      </div>
     </div>
   )
 }
