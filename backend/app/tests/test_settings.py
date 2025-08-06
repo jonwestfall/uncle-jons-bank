@@ -63,6 +63,7 @@ def test_settings_endpoints():
             data = resp.json()
             assert data["site_name"] == "Uncle Jon's Bank"
             assert data["currency_symbol"] == "$"
+            assert data["site_url"] == "http://localhost:5173"
 
             # Non-admin attempt to update settings
             resp = await client.post(
@@ -86,12 +87,13 @@ def test_settings_endpoints():
             resp = await client.put(
                 "/settings/",
                 headers=admin_headers,
-                json={"site_name": "My Bank", "currency_symbol": "€"},
+                json={"site_name": "My Bank", "currency_symbol": "€", "site_url": "https://bank"},
             )
             assert resp.status_code == 200
             data = resp.json()
             assert data["site_name"] == "My Bank"
             assert data["currency_symbol"] == "€"
+            assert data["site_url"] == "https://bank"
 
             # Updated values persist on subsequent read
             resp = await client.get("/settings/")
@@ -99,5 +101,6 @@ def test_settings_endpoints():
             data = resp.json()
             assert data["site_name"] == "My Bank"
             assert data["currency_symbol"] == "€"
+            assert data["site_url"] == "https://bank"
 
     asyncio.run(run())

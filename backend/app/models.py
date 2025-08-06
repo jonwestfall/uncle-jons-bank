@@ -216,6 +216,7 @@ class Settings(SQLModel, table=True):
     """Singleton table storing site‑wide configuration values."""
     id: Optional[int] = Field(default=1, primary_key=True)
     site_name: str = "Uncle Jon's Bank"
+    site_url: str = "http://localhost:5173"
     default_interest_rate: float = 0.01
     default_penalty_interest_rate: float = 0.02
     default_cd_penalty_rate: float = 0.1
@@ -244,4 +245,37 @@ class Message(SQLModel, table=True):
     sender_archived: bool = False
     recipient_archived: bool = False
     read: bool = False
+
+
+class Coupon(SQLModel, table=True):
+    """Printable coupon that can be redeemed by children."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code: str = Field(unique=True, index=True)
+    amount: float
+    memo: Optional[str] = None
+    expiration: Optional[datetime] = None
+    max_uses: int = 1
+    uses_remaining: int = 1
+    created_by: int = Field(foreign_key="user.id")
+    scope: str = "child"  # child, my_children, all_children
+    child_id: Optional[int] = Field(default=None, foreign_key="child.id")
+    qr_code: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    redemptions: List["CouponRedemption"] = Relationship(
+        back_populates="coupon"
+    )
+
+
+class CouponRedemption(SQLModel, table=True):
+    """Record of a coupon redemption by a child."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    coupon_id: int = Field(foreign_key="coupon.id")
+    child_id: int = Field(foreign_key="child.id")
+    redeemed_at: datetime = Field(default_factory=datetime.utcnow)
+
+    coupon: Coupon = Relationship(back_populates="redemptions")
+    child: Child = Relationship()
 

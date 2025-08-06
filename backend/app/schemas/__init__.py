@@ -40,6 +40,12 @@ from .promotion import Promotion
 from .share import ShareCodeCreate, ShareCodeRead, ParentAccess
 from .loan import LoanCreate, LoanRead, LoanApprove, LoanPayment, LoanRateUpdate
 from .message import MessageCreate, MessageRead, BroadcastMessageCreate
+from .coupon import (
+    CouponCreate,
+    CouponRead,
+    CouponRedeem,
+    CouponRedemptionRead,
+)
 
 __all__ = [
     "UserCreate",
@@ -83,4 +89,8 @@ __all__ = [
     "MessageCreate",
     "MessageRead",
     "BroadcastMessageCreate",
+    "CouponCreate",
+    "CouponRead",
+    "CouponRedeem",
+    "CouponRedemptionRead",
 ]

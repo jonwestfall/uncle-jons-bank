@@ -26,6 +26,8 @@ from app.models import (
     Loan,
     LoanTransaction,
     Message,
+    Coupon,
+    CouponRedemption,
 )
 from app.auth import get_password_hash, get_child_by_id
 from app.acl import get_default_permissions_for_role, ALL_PERMISSIONS
@@ -1092,4 +1094,55 @@ async def archive_message(
 
 async def get_all_messages(db: AsyncSession) -> list[Message]:
     result = await db.execute(select(Message).order_by(Message.created_at.desc()))
+    return result.scalars().all()
+
+
+# Coupon utilities
+
+async def create_coupon(db: AsyncSession, coupon: Coupon) -> Coupon:
+    db.add(coupon)
+    await db.commit()
+    await db.refresh(coupon)
+    return coupon
+
+
+async def get_coupon_by_code(db: AsyncSession, code: str) -> Coupon | None:
+    result = await db.execute(select(Coupon).where(Coupon.code == code))
+    return result.scalar_one_or_none()
+
+
+async def list_coupons_by_creator(db: AsyncSession, user_id: int) -> list[Coupon]:
+    result = await db.execute(
+        select(Coupon)
+        .where(Coupon.created_by == user_id)
+        .order_by(Coupon.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+async def save_coupon(db: AsyncSession, coupon: Coupon) -> Coupon:
+    db.add(coupon)
+    await db.commit()
+    await db.refresh(coupon)
+    return coupon
+
+
+async def create_coupon_redemption(
+    db: AsyncSession, redemption: CouponRedemption
+) -> CouponRedemption:
+    db.add(redemption)
+    await db.commit()
+    await db.refresh(redemption)
+    return redemption
+
+
+async def list_redemptions_by_child(
+    db: AsyncSession, child_id: int
+) -> list[CouponRedemption]:
+    result = await db.execute(
+        select(CouponRedemption)
+        .where(CouponRedemption.child_id == child_id)
+        .options(selectinload(CouponRedemption.coupon))
+        .order_by(CouponRedemption.redeemed_at.desc())
+    )
     return result.scalars().all()

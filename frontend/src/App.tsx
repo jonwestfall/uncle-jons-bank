@@ -11,6 +11,8 @@ import ChildProfile from './pages/ChildProfile'
 import AdminPanel from './pages/AdminPanel'
 import ChildLoans from './pages/ChildLoans'
 import ParentLoans from './pages/ParentLoans'
+import ParentCoupons from './pages/ParentCoupons'
+import ChildCoupons from './pages/ChildCoupons'
 import MessagesPage from './pages/Messages'
 import Header from './components/Header'
 import './App.css'
@@ -44,6 +46,12 @@ function App() {
       const cid = parseInt(payload.sub.split(':')[1])
       setChildId(cid)
       localStorage.setItem('childId', String(cid))
+      const params = new URLSearchParams(window.location.search)
+      const codeParam = params.get('code')
+      if (codeParam) {
+        window.location.replace(`/child/coupons?code=${codeParam}`)
+        return
+      }
     } else {
       setChildId(null)
     }
@@ -114,7 +122,7 @@ function App() {
           {!registrationDisabled && (
             <Route path="/register" element={<RegisterPage apiUrl={apiUrl} siteName={siteName} />} />
           )}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to={`/login${window.location.search}`} replace />} />
         </Routes>
       </BrowserRouter>
     )
@@ -143,6 +151,10 @@ function App() {
                 element={<ChildLoans token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
               />
               <Route
+                path="/child/coupons"
+                element={<ChildCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              />
+              <Route
                 path="/child/messages"
                 element={<MessagesPage token={token} apiUrl={apiUrl} isChild={true} isAdmin={false} />}
               />
@@ -161,6 +173,10 @@ function App() {
             <Route
               path="/parent/loans"
               element={<ParentLoans token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+            />
+            <Route
+              path="/parent/coupons"
+              element={<ParentCoupons token={token} apiUrl={apiUrl} isAdmin={isAdmin} currencySymbol={currencySymbol} />}
             />
             <Route
               path="/messages"
