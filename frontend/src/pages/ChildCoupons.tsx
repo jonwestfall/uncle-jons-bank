@@ -13,12 +13,11 @@ interface CouponInfo {
 
 interface Props {
   token: string;
-  childId: number;
   apiUrl: string;
   currencySymbol: string;
 }
 
-export default function ChildCoupons({ token, childId, apiUrl, currencySymbol }: Props) {
+export default function ChildCoupons({ token, apiUrl, currencySymbol }: Props) {
   const [code, setCode] = useState("");
   const [history, setHistory] = useState<CouponInfo[]>([]);
   const { showToast } = useToast();

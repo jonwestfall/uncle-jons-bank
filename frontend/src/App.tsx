@@ -146,7 +146,7 @@ function App() {
               />
               <Route
                 path="/child/coupons"
-                element={<ChildCoupons token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+                element={<ChildCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
               />
               <Route
                 path="/child/messages"
