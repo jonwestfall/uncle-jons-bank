@@ -15,7 +15,11 @@ from app.main import app
 from app.database import get_session
 from app.models import Permission, UserPermissionLink
 from app.crud import ensure_permissions_exist
-from app.acl import ROLE_DEFAULT_PERMISSIONS, ALL_PERMISSIONS
+from app.acl import (
+    ROLE_DEFAULT_PERMISSIONS,
+    ALL_PERMISSIONS,
+    PERM_MANAGE_WITHDRAWALS,
+)
 
 
 async def _setup_test_db():
@@ -55,15 +59,26 @@ def test_withdrawal_requests_flow():
             assert resp.status_code == 200
             p2_id = resp.json()["id"]
 
-            # Grant default permissions to both parents
+            # Grant full permissions to parent1 and partial to parent2
             async with TestSession() as session:
-                for uid in (p1_id, p2_id):
-                    for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                        result = await session.execute(
-                            select(Permission).where(Permission.name == perm_name)
-                        )
-                        perm = result.scalar_one()
-                        session.add(UserPermissionLink(user_id=uid, permission_id=perm.id))
+                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
+                    result = await session.execute(
+                        select(Permission).where(Permission.name == perm_name)
+                    )
+                    perm = result.scalar_one()
+                    session.add(
+                        UserPermissionLink(user_id=p1_id, permission_id=perm.id)
+                    )
+                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
+                    if perm_name == PERM_MANAGE_WITHDRAWALS:
+                        continue
+                    result = await session.execute(
+                        select(Permission).where(Permission.name == perm_name)
+                    )
+                    perm = result.scalar_one()
+                    session.add(
+                        UserPermissionLink(user_id=p2_id, permission_id=perm.id)
+                    )
                 await session.commit()
 
             # Login both parents
@@ -128,16 +143,19 @@ def test_withdrawal_requests_flow():
             assert resp.status_code == 200
             w2_id = resp.json()["id"]
 
-            # Unauthorized parent cannot approve or deny
+            # Parent2 lacks withdrawal management permission
+            resp = await client.get("/withdrawals/", headers=p2_headers)
+            assert resp.status_code == 403
+
             resp = await client.post(
                 f"/withdrawals/{w1_id}/approve", headers=p2_headers
             )
-            assert resp.status_code == 404
+            assert resp.status_code == 403
 
             resp = await client.post(
                 f"/withdrawals/{w2_id}/deny", headers=p2_headers, json={"reason": "No"}
             )
-            assert resp.status_code == 404
+            assert resp.status_code == 403
 
             # Parent1 lists pending requests
             resp = await client.get("/withdrawals/", headers=p1_headers)

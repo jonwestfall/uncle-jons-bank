@@ -6,8 +6,9 @@ from sqlmodel import select
 """Endpoints for handling child withdrawal requests."""
 
 from app.database import get_session
-from app.auth import get_current_child, require_role, get_current_user
-from app.models import WithdrawalRequest, Transaction, Child, ChildUserLink, User
+from app.auth import get_current_child, require_permissions
+from app.models import WithdrawalRequest, Transaction, Child, User
+from app.acl import PERM_MANAGE_WITHDRAWALS
 from app.crud import (
     create_withdrawal_request,
     get_pending_withdrawals_for_parent,
@@ -17,6 +18,7 @@ from app.crud import (
     create_transaction,
     get_children_by_user,
     post_transaction_update,
+    get_child_user_link,
 )
 from app.schemas import WithdrawalRequestCreate, WithdrawalRequestRead, DenyRequest
 
@@ -45,7 +47,9 @@ async def my_requests(
 @router.get("/", response_model=list[WithdrawalRequestRead])
 async def pending_requests(
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(
+        require_permissions(PERM_MANAGE_WITHDRAWALS)
+    ),
 ):
     return await get_pending_withdrawals_for_parent(db, current_user.id)
 
@@ -60,12 +64,20 @@ async def _ensure_parent_owns_request(db: AsyncSession, req: WithdrawalRequest, 
 async def approve_request(
     request_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(
+        require_permissions(PERM_MANAGE_WITHDRAWALS)
+    ),
 ):
     req = await get_withdrawal_request(db, request_id)
     if not req or req.status != "pending":
         raise HTTPException(status_code=404, detail="Request not found")
     await _ensure_parent_owns_request(db, req, current_user.id)
+    if current_user.role != "admin":
+        link = await get_child_user_link(db, current_user.id, req.child_id)
+        if not link or (
+            PERM_MANAGE_WITHDRAWALS not in link.permissions and not link.is_owner
+        ):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     tx = Transaction(
         child_id=req.child_id,
@@ -90,12 +102,20 @@ async def deny_request(
     request_id: int,
     reason: DenyRequest,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(
+        require_permissions(PERM_MANAGE_WITHDRAWALS)
+    ),
 ):
     req = await get_withdrawal_request(db, request_id)
     if not req or req.status != "pending":
         raise HTTPException(status_code=404, detail="Request not found")
     await _ensure_parent_owns_request(db, req, current_user.id)
+    if current_user.role != "admin":
+        link = await get_child_user_link(db, current_user.id, req.child_id)
+        if not link or (
+            PERM_MANAGE_WITHDRAWALS not in link.permissions and not link.is_owner
+        ):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
     req.status = "denied"
     req.denial_reason = reason.reason
     req.responded_at = datetime.utcnow()
