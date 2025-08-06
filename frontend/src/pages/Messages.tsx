@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { useToast } from '../components/ToastProvider'
+import { useEffect, useState } from 'react'
 import MessageDetail from '../components/MessageDetail'
+import ComposeMessage from '../components/ComposeMessage'
 
 interface Message {
   id: number
@@ -23,16 +23,12 @@ interface Props {
 export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props) {
   const [tab, setTab] = useState<'inbox' | 'sent' | 'archive'>('inbox')
   const [messages, setMessages] = useState<Message[]>([])
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
-  const [recipient, setRecipient] = useState('')
-  const [target, setTarget] = useState('all')
   const [options, setOptions] = useState<{ id: number; label: string }[]>([])
   const [userNames, setUserNames] = useState<Record<number, string>>({})
   const [childNames, setChildNames] = useState<Record<number, string>>({})
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
-  const { showToast } = useToast()
-  const composeRef = useRef<HTMLDivElement>(null)
+  const [showCompose, setShowCompose] = useState(false)
+  const [composeDefaults, setComposeDefaults] = useState<{ subject?: string; recipient?: string; target?: string }>({})
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -109,57 +105,6 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
     loadOptions()
   }, [])
 
-  const send = async () => {
-    let resp: Response | undefined
-    if (isAdmin) {
-      if (recipient) {
-        resp = await fetch(`${apiUrl}/messages/`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ subject, body, recipient_user_id: Number(recipient) })
-        })
-      } else if (target.startsWith('child:')) {
-        const childId = Number(target.split(':')[1])
-        resp = await fetch(`${apiUrl}/messages/`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ subject, body, recipient_child_id: childId })
-        })
-      } else {
-        resp = await fetch(`${apiUrl}/messages/broadcast`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ subject, body, target })
-        })
-      }
-    } else {
-      const payload: {
-        subject: string
-        body: string
-        recipient_user_id?: number
-        recipient_child_id?: number
-      } = { subject, body }
-      if (isChild) {
-        payload.recipient_user_id = Number(recipient)
-      } else {
-        payload.recipient_child_id = Number(recipient)
-      }
-      resp = await fetch(`${apiUrl}/messages/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      })
-    }
-    if (resp?.ok) {
-      showToast('Message sent')
-      setSubject('')
-      setBody('')
-      setRecipient('')
-      setTarget('all')
-      fetchMessages()
-    }
-  }
-
   const archive = async (id: number) => {
     const resp = await fetch(`${apiUrl}/messages/${id}/archive`, {
       method: 'POST',
@@ -174,48 +119,37 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   }
 
   const handleReply = (m: Message) => {
-    setSubject(m.subject.startsWith('Re: ') ? m.subject : `Re: ${m.subject}`)
-    setBody('')
-    if (isAdmin) {
-      if (tab === 'inbox') {
-        if (m.sender_child_id != null) {
-          setTarget(`child:${m.sender_child_id}`)
-          setRecipient('')
-        } else if (m.sender_user_id != null) {
-          setRecipient(String(m.sender_user_id))
-          setTarget('all')
-        }
-      } else {
-        if (m.recipient_child_id != null) {
-          setTarget(`child:${m.recipient_child_id}`)
-          setRecipient('')
-        } else if (m.recipient_user_id != null) {
-          setRecipient(String(m.recipient_user_id))
-          setTarget('all')
-        }
-      }
-    } else if (isChild) {
-      if (tab === 'inbox') {
-        if (m.sender_user_id != null) {
-          setRecipient(String(m.sender_user_id))
-        }
-      } else {
-        if (m.recipient_user_id != null) {
-          setRecipient(String(m.recipient_user_id))
-        }
-      }
-    } else {
-      if (tab === 'inbox') {
-        if (m.sender_child_id != null) {
-          setRecipient(String(m.sender_child_id))
-        }
-      } else {
-        if (m.recipient_child_id != null) {
-          setRecipient(String(m.recipient_child_id))
-        }
-      }
-    }
-    composeRef.current?.scrollIntoView({ behavior: 'smooth' })
+    setComposeDefaults({
+      subject: m.subject.startsWith('Re: ') ? m.subject : `Re: ${m.subject}`,
+      ...(isAdmin
+        ? tab === 'inbox'
+          ? m.sender_child_id != null
+            ? { target: `child:${m.sender_child_id}` }
+            : m.sender_user_id != null
+              ? { recipient: String(m.sender_user_id), target: 'all' }
+              : {}
+          : m.recipient_child_id != null
+            ? { target: `child:${m.recipient_child_id}` }
+            : m.recipient_user_id != null
+              ? { recipient: String(m.recipient_user_id), target: 'all' }
+              : {}
+        : isChild
+          ? tab === 'inbox'
+            ? m.sender_user_id != null
+              ? { recipient: String(m.sender_user_id) }
+              : {}
+            : m.recipient_user_id != null
+              ? { recipient: String(m.recipient_user_id) }
+              : {}
+          : tab === 'inbox'
+            ? m.sender_child_id != null
+              ? { recipient: String(m.sender_child_id) }
+              : {}
+            : m.recipient_child_id != null
+              ? { recipient: String(m.recipient_child_id) }
+              : {})
+    })
+    setShowCompose(true)
   }
 
   const getName = (userId?: number, childId?: number) => {
@@ -297,47 +231,21 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
           onReply={handleReply}
         />
       )}
-      <div ref={composeRef}>
-        <h3>Compose</h3>
-        {isAdmin ? (
-          <select
-            value={target}
-            onChange={e => {
-              setRecipient('')
-              setTarget(e.target.value)
-            }}
-          >
-            <option value="all">All</option>
-            <option value="parents">Parents</option>
-            <option value="children">Children</option>
-            {options.map(o => (
-              <option key={o.id} value={`child:${o.id}`}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <select value={recipient} onChange={e => setRecipient(e.target.value)}>
-            <option value="">Select recipient</option>
-            {options.map(o => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        )}
-        <input
-          placeholder="Subject"
-          value={subject}
-          onChange={e => setSubject(e.target.value)}
+      <button className="ml-1" onClick={() => { setComposeDefaults({}); setShowCompose(true) }}>Compose</button>
+      {showCompose && (
+        <ComposeMessage
+          token={token}
+          apiUrl={apiUrl}
+          isChild={isChild}
+          isAdmin={isAdmin}
+          options={options}
+          initialSubject={composeDefaults.subject}
+          initialRecipient={composeDefaults.recipient}
+          initialTarget={composeDefaults.target}
+          onClose={() => setShowCompose(false)}
+          onSent={fetchMessages}
         />
-        <div
-          className="editor"
-          contentEditable
-          onInput={e => setBody((e.target as HTMLDivElement).innerHTML)}
-        />
-        <button onClick={send}>Send</button>
-      </div>
+      )}
     </div>
   )
 }
