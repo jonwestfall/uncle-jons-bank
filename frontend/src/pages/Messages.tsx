@@ -132,7 +132,7 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
     setComposeDefaults({
       subject: m.subject.startsWith('Re: ') ? m.subject : `Re: ${m.subject}`,
       ...(isAdmin
-        ? tab === 'inbox'
+        ? tab !== 'sent'
           ? m.sender_child_id != null
             ? { target: `child:${m.sender_child_id}` }
             : m.sender_user_id != null
@@ -144,14 +144,14 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
               ? { recipient: String(m.recipient_user_id), target: 'all' }
               : {}
         : isChild
-          ? tab === 'inbox'
+          ? tab !== 'sent'
             ? m.sender_user_id != null
               ? { recipient: String(m.sender_user_id) }
               : {}
             : m.recipient_user_id != null
               ? { recipient: String(m.recipient_user_id) }
               : {}
-          : tab === 'inbox'
+          : tab !== 'sent'
             ? m.sender_child_id != null
               ? { recipient: String(m.sender_child_id) }
               : {}
@@ -171,7 +171,7 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
     }
     return 'Unknown'
   }
-  const label = tab === 'inbox' ? 'From' : 'To'
+  const label = tab === 'sent' ? 'To' : 'From'
 
   return (
     <>
@@ -198,9 +198,9 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
               <tbody>
                 {messages.map(m => {
                   const name =
-                    tab === 'inbox'
-                      ? getName(m.sender_user_id, m.sender_child_id)
-                      : getName(m.recipient_user_id, m.recipient_child_id)
+                    tab === 'sent'
+                      ? getName(m.recipient_user_id, m.recipient_child_id)
+                      : getName(m.sender_user_id, m.sender_child_id)
                   const raw = m.body.replace(/<[^>]+>/g, '')
                   const preview = raw.slice(0, 100)
                   const isTruncated = raw.length > 100
@@ -240,7 +240,7 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
           {selectedMessage && (
             <MessageDetail
               message={selectedMessage}
-              isInbox={tab === 'inbox'}
+              isInbox={tab !== 'sent'}
               getName={getName}
               onArchive={archive}
               onReply={handleReply}
