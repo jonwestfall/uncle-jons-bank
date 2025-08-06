@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "../components/ToastProvider";
 
+interface DetectedCode {
+  rawValue: string;
+}
+
+interface BarcodeDetector {
+  detect(source: CanvasImageSource): Promise<DetectedCode[]>;
+}
+
+interface BDConstructor {
+  new (options: { formats: string[] }): BarcodeDetector;
+}
+
 interface CouponInfo {
   id: number;
   redeemed_at: string;
@@ -47,9 +59,6 @@ export default function ChildCoupons({ token, apiUrl, currencySymbol }: Props) {
         return;
       }
       try {
-        interface BDConstructor {
-          new (options: { formats: string[] }): BarcodeDetector;
-        }
         const Detector = (window as unknown as { BarcodeDetector: BDConstructor }).BarcodeDetector;
         const detector = new Detector({ formats: ["qr_code"] });
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
