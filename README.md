@@ -48,6 +48,11 @@ the principal and charge a 10% penalty. The `/tests/cd-issue` and
 Children can request loans that parents approve or deny. Approved loans disburse
 funds into the child's balance, accrue daily interest, and track payments. Parents
 can adjust interest rates, record payments, or close loans early.
+
+### 🎟️ Coupons & Rewards
+- Parents can generate printable coupons that deposit a set amount when redeemed.
+- Coupons support optional expiration dates, usage limits, and child or system-wide scopes.
+- Shareable links and QR codes make it easy for kids to claim rewards through the app.
 ### 🔐 Permissions & Controls
 - Withdrawals are **requested** by the child, and **approved/denied** by guardians
 - Accounts can be **frozen**.
@@ -78,6 +83,9 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - `LedgerEntry`: Internal transaction record
 - `AccessCode`: For child login
 - `AccountSettings`: Interest rates, lock flags, etc.
+- `Coupon`: Redeemable reward code
+- `CouponRedemption`: Record of a coupon claim
+- `Settings`: Site-wide configuration such as site name and URL
 - `ChildUserLink`: Associates guardians and children (many-to-many)
 - `Loan`: Parent-approved loans for children
 - `LoanTransaction`: Payment and interest ledger for loans
@@ -96,6 +104,11 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - `POST /loans`: Child requests a loan
 - `POST /loans/{id}/approve`: Parent approves and sets terms
 - `POST /loans/{id}/payment`: Record a loan payment
+- `POST /coupons`: Create a coupon for a child or group of children
+- `GET /coupons`: List coupons created by the current user
+- `POST /coupons/redeem`: Child redeems a coupon code
+- `GET /settings`: Retrieve site-wide settings
+- `PUT /settings`: Update site-wide settings (admin only)
 
 ---
 
@@ -114,6 +127,8 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - Admin panel for managing users, children and transactions
 - React frontend with dark mode and custom logo
 - Nginx config serving the single page app
+- Coupon creation and redemption with optional QR codes
+- Admin-editable site settings including site name, URL, currency, and fees
 
 🛠️ In development:
 - Bucket-based budgeting support
@@ -161,7 +176,7 @@ interface. The React app checks your role by calling the `/users/me` endpoint in
 `frontend/src/App.tsx`; if it returns an account with the `admin` role, the
 admin panel is displayed.
 
-Admins can also set the site's default currency symbol (defaults to `$`), which is used throughout the interface when displaying monetary amounts.
+Admins can configure site-wide settings—like the site name, base URL for shareable links, currency symbol, interest rates, and fees—through the admin panel.
 
 ## 🧪 Testing
 
