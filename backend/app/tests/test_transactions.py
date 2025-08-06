@@ -66,10 +66,21 @@ def test_transaction_permissions():
                 p2 = await session.get(User, p2_id)
                 p1.status = "active"
                 p2.status = "active"
-                # remove existing permissions from parent2
+                p1.role = "parent"
+                p2.role = "parent"
+                # remove existing permissions from both users
                 await session.execute(
-                    delete(UserPermissionLink).where(UserPermissionLink.user_id == p2_id)
+                    delete(UserPermissionLink).where(
+                        UserPermissionLink.user_id.in_([p1_id, p2_id])
+                    )
                 )
+                # Assign default parent permissions to parent1
+                for name in ROLE_DEFAULT_PERMISSIONS["parent"]:
+                    result = await session.execute(
+                        select(Permission).where(Permission.name == name)
+                    )
+                    perm = result.scalar_one()
+                    session.add(UserPermissionLink(user_id=p1_id, permission_id=perm.id))
                 # Parent1 also gets delete permission explicitly
                 result = await session.execute(
                     select(Permission).where(Permission.name == PERM_DELETE_TRANSACTION)

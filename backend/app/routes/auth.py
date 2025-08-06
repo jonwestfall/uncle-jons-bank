@@ -15,6 +15,7 @@ from app.models import User
 from app.crud import get_settings, create_user
 
 from sqlmodel import select
+from sqlalchemy import func
 from app.schemas.user import UserCreate, UserResponse, UserLogin
 
 logger = logging.getLogger(__name__)
@@ -81,17 +82,31 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
+@router.get("/needs-admin")
+async def needs_admin(db: AsyncSession = Depends(get_session)):
+    """Return ``True`` if no users exist and an admin must be created."""
+
+    result = await db.execute(select(func.count()).select_from(User))
+    return {"needs_admin": result.scalar() == 0}
+
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
-    """Register a new parent user account."""
+    """Register a new parent account or create the initial admin."""
 
-    settings = await get_settings(db)
-    if settings.public_registration_disabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registration disabled")
+    result = await db.execute(select(func.count()).select_from(User))
+    is_first_user = result.scalar() == 0
+
+    if not is_first_user:
+        settings = await get_settings(db)
+        if settings.public_registration_disabled:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Registration disabled",
+            )
 
     result = await db.execute(select(User).where(User.email == user_in.email))
     existing_user = result.scalar_one_or_none()
-
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -105,11 +120,14 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session))
         name=user_in.name,
         email=user_in.email,
         password_hash=user_in.password,
-        role="parent",
-        status="pending",
+        role="admin" if is_first_user else "parent",
+        status="active" if is_first_user else "pending",
     )
     new_user = await create_user(db, new_user)
-    logger.info("User %s registered", new_user.email)
-
+    logger.info(
+        "User %s registered%s",
+        new_user.email,
+        " as initial admin" if is_first_user else "",
+    )
     return new_user
 

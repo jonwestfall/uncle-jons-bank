@@ -64,6 +64,7 @@ def test_child_management_endpoints():
                 for uid in (p1_id, p2_id):
                     user = await session.get(User, uid)
                     user.status = "active"
+                    user.role = "parent"
                 await session.commit()
 
             # Login
