@@ -6,6 +6,7 @@ from app.database import get_session
 from app.schemas import MessageCreate, MessageRead, BroadcastMessageCreate
 from app.models import User, Child, Message
 from app.auth import get_current_identity, get_current_user
+from app.acl import PERM_SEND_MESSAGE
 from app.crud import (
     create_message,
     list_inbox,
@@ -35,6 +36,10 @@ async def send_message(
 
     msg = Message(subject=data.subject, body=data.body)
     if sender_type == "user":
+        if sender.role != "admin":
+            user_perms = {p.name for p in sender.permissions}
+            if PERM_SEND_MESSAGE not in user_perms:
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
         msg.sender_user_id = sender.id
         if data.recipient_child_id:
             if sender.role != "admin":
@@ -43,6 +48,10 @@ async def send_message(
                 )
                 if not link:
                     raise HTTPException(status_code=404, detail="Child not found")
+                if PERM_SEND_MESSAGE not in link.permissions and not link.is_owner:
+                    raise HTTPException(
+                        status_code=403, detail="Insufficient permissions"
+                    )
             msg.recipient_child_id = data.recipient_child_id
         else:
             if sender.role != "admin":
