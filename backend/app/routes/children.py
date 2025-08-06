@@ -48,6 +48,7 @@ from app.acl import (
     PERM_REMOVE_CHILD,
     PERM_FREEZE_CHILD,
     PERM_VIEW_TRANSACTIONS,
+    PERM_MANAGE_CHILD_SETTINGS,
 )
 
 router = APIRouter(prefix="/children", tags=["children"])
@@ -163,13 +164,13 @@ async def list_my_parents(
 async def list_child_parents(
     child_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        await _ensure_link(db, current_user.id, child_id, require_owner=True)
+        await _ensure_link(db, current_user.id, child_id, PERM_MANAGE_CHILD_SETTINGS)
     links = await get_parents_for_child(db, child_id)
     return [
         ParentAccess(
@@ -188,13 +189,13 @@ async def remove_parent_access(
     child_id: int,
     parent_id: int,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        await _ensure_link(db, current_user.id, child_id, require_owner=True)
+        await _ensure_link(db, current_user.id, child_id, PERM_MANAGE_CHILD_SETTINGS)
     link = await get_child_user_link(db, parent_id, child_id)
     if not link or link.is_owner:
         raise HTTPException(status_code=404, detail="Parent not found")
@@ -207,7 +208,7 @@ async def update_access_code(
     child_id: int,
     data: AccessCodeUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
     """Update the login access code for a child."""
 
@@ -215,7 +216,7 @@ async def update_access_code(
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        await _ensure_link(db, current_user.id, child_id, require_owner=True)
+        await _ensure_link(db, current_user.id, child_id, PERM_MANAGE_CHILD_SETTINGS)
     existing = await get_child_by_access_code(db, data.access_code)
     if existing and existing.id != child_id:
         raise HTTPException(status_code=400, detail="Access code already in use")
@@ -377,15 +378,13 @@ async def update_interest_rate(
     child_id: int,
     data: InterestRateUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        children = await get_children_by_user(db, current_user.id)
-        if child_id not in [c.id for c in children]:
-            raise HTTPException(status_code=404, detail="Child not found")
+        await _ensure_link(db, current_user.id, child_id, PERM_MANAGE_CHILD_SETTINGS)
     await recalc_interest(db, child_id)
     try:
         account = await set_interest_rate(db, child_id, data.interest_rate)
@@ -407,15 +406,13 @@ async def update_penalty_interest_rate(
     child_id: int,
     data: PenaltyRateUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        children = await get_children_by_user(db, current_user.id)
-        if child_id not in [c.id for c in children]:
-            raise HTTPException(status_code=404, detail="Child not found")
+        await _ensure_link(db, current_user.id, child_id, PERM_MANAGE_CHILD_SETTINGS)
     await recalc_interest(db, child_id)
     try:
         account = await set_penalty_interest_rate(
@@ -439,15 +436,13 @@ async def update_cd_penalty_rate(
     child_id: int,
     data: CDPenaltyRateUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: User = Depends(require_role("parent", "admin")),
+    current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
     if current_user.role != "admin":
-        children = await get_children_by_user(db, current_user.id)
-        if child_id not in [c.id for c in children]:
-            raise HTTPException(status_code=404, detail="Child not found")
+        await _ensure_link(db, current_user.id, child_id, PERM_MANAGE_CHILD_SETTINGS)
     try:
         account = await set_cd_penalty_rate(db, child_id, data.cd_penalty_rate)
     except ValueError:
