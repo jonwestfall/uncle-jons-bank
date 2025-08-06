@@ -70,7 +70,14 @@ export default function ChildLoans({ token, childId, apiUrl, currencySymbol }: P
     <div className="container">
       <h2>Your Loans</h2>
       <div>
-        <h4>Request a Loan</h4>
+                <h4>Request a Loan</h4>
+                <p className="help-text">
+                  Need to buy something but don't have enough saved? You can ask your grown-up for a loan.
+                  A loan lets you borrow money now and pay it back later, sometimes with a little extra called interest.
+                  In the boxes below, enter the amount of money you need and what you want it for. You can then apply for the loan and your grown-up can make you an offer with terms (like how long you have to pay it back and if there is any interest).
+                  If they approve it, you can accept the loan and start using the money!
+                </p>
+        
         <input
           placeholder="Amount"
           value={amount}
