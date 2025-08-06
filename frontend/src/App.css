@@ -212,6 +212,29 @@
   cursor: pointer;
 }
 
+.message-row.unread {
+  font-weight: bold;
+}
+
+.messages-page {
+  display: grid;
+  grid-template-columns: 9rem 10fr 6fr;
+  gap: 1rem;
+}
+
+.messages-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-list-pane {
+  overflow-y: auto;
+}
+
+.message-detail-pane {
+  overflow-y: auto;
+}
+
 .table-controls {
   display: flex;
   justify-content: space-between;

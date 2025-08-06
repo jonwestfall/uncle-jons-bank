@@ -26,6 +26,7 @@ class MessageRead(MessageBase):
     created_at: datetime
     sender_archived: bool
     recipient_archived: bool
+    read: bool
 
     class Config:
         from_attributes = True

@@ -11,6 +11,7 @@ interface Message {
   sender_child_id?: number
   recipient_user_id?: number
   recipient_child_id?: number
+  read: boolean
 }
 
 interface Props {
@@ -40,6 +41,15 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
     if (resp.ok) {
       const data: Message[] = await resp.json()
       setMessages(data)
+    }
+  }
+
+  const openMessage = async (m: Message) => {
+    const resp = await fetch(`${apiUrl}/messages/${m.id}`, { headers })
+    if (resp.ok) {
+      const data: Message = await resp.json()
+      setSelectedMessage(data)
+      setMessages(prev => prev.map(msg => (msg.id === m.id ? { ...msg, read: true } : msg)))
     }
   }
 
@@ -164,74 +174,80 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const label = tab === 'inbox' ? 'From' : 'To'
 
   return (
-    <div className="messages">
-      <h2>Messages</h2>
-      <div>
-        <button onClick={() => setTab('inbox')}>Inbox</button>
-        <button onClick={() => setTab('sent')}>Sent</button>
-        <button onClick={() => setTab('archive')}>Archive</button>
-      </div>
-      <div className="table-wrapper">
-        <table className="ledger-table">
-          <thead>
-            <tr>
-              <th>{label}</th>
-              <th>Subject</th>
-              <th>Preview</th>
-              <th>Date</th>
-              {tab === 'inbox' && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {messages.map(m => {
-              const name =
-                tab === 'inbox'
-                  ? getName(m.sender_user_id, m.sender_child_id)
-                  : getName(m.recipient_user_id, m.recipient_child_id)
-              const raw = m.body.replace(/<[^>]+>/g, '')
-              const preview = raw.slice(0, 100)
-              const isTruncated = raw.length > 100
-              return (
-                <tr
-                  key={m.id}
-                  className={`message-row${selectedMessage?.id === m.id ? ' selected' : ''}`}
-                  onClick={() => setSelectedMessage(m)}
-                >
-                  <td>{name}</td>
-                  <td>{m.subject}</td>
-                  <td>
-                    {preview}
-                    {isTruncated ? '…' : ''}
-                  </td>
-                  <td>{new Date(m.created_at).toLocaleString()}</td>
-                  {tab === 'inbox' && (
-                    <td>
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          archive(m.id)
-                        }}
-                      >
-                        Archive
-                      </button>
-                    </td>
-                  )}
+    <>
+      <div className="messages-page">
+        <div className="messages-sidebar">
+          <h2>Messages</h2>
+          <button onClick={() => setTab('inbox')}>Inbox</button>
+          <button onClick={() => setTab('sent')}>Sent</button>
+          <button onClick={() => setTab('archive')}>Archive</button>
+          <button onClick={() => { setComposeDefaults({}); setShowCompose(true) }}>Compose</button>
+        </div>
+        <div className="message-list-pane">
+          <div className="table-wrapper">
+            <table className="ledger-table">
+              <thead>
+                <tr>
+                  <th>{label}</th>
+                  <th>Subject</th>
+                  <th>Preview</th>
+                  <th>Date</th>
+                  {tab === 'inbox' && <th>Actions</th>}
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {messages.map(m => {
+                  const name =
+                    tab === 'inbox'
+                      ? getName(m.sender_user_id, m.sender_child_id)
+                      : getName(m.recipient_user_id, m.recipient_child_id)
+                  const raw = m.body.replace(/<[^>]+>/g, '')
+                  const preview = raw.slice(0, 100)
+                  const isTruncated = raw.length > 100
+                  return (
+                    <tr
+                      key={m.id}
+                      className={`message-row${selectedMessage?.id === m.id ? ' selected' : ''}${!m.read ? ' unread' : ''}`}
+                      onClick={() => openMessage(m)}
+                    >
+                      <td>{name}</td>
+                      <td>{m.subject}</td>
+                      <td>
+                        {preview}
+                        {isTruncated ? '…' : ''}
+                      </td>
+                      <td>{new Date(m.created_at).toLocaleString()}</td>
+                      {tab === 'inbox' && (
+                        <td>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              archive(m.id)
+                            }}
+                          >
+                            Archive
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="message-detail-pane">
+          {selectedMessage && (
+            <MessageDetail
+              message={selectedMessage}
+              isInbox={tab === 'inbox'}
+              getName={getName}
+              onArchive={archive}
+              onReply={handleReply}
+            />
+          )}
+        </div>
       </div>
-      {selectedMessage && (
-        <MessageDetail
-          message={selectedMessage}
-          isInbox={tab === 'inbox'}
-          getName={getName}
-          onArchive={archive}
-          onReply={handleReply}
-        />
-      )}
-      <button className="ml-1" onClick={() => { setComposeDefaults({}); setShowCompose(true) }}>Compose</button>
       {showCompose && (
         <ComposeMessage
           token={token}
@@ -246,6 +262,6 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
           onSent={fetchMessages}
         />
       )}
-    </div>
+    </>
   )
 }

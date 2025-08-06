@@ -241,4 +241,5 @@ class Message(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     sender_archived: bool = False
     recipient_archived: bool = False
+    read: bool = False
 

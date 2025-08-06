@@ -162,3 +162,41 @@ async def all_messages(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
     return await get_all_messages(db)
+
+
+@router.get("/{message_id}", response_model=MessageRead)
+async def read_message(
+    message_id: int,
+    identity=Depends(get_current_identity),
+    db: AsyncSession = Depends(get_session),
+):
+    sender_type, sender = identity
+    msg = await get_message(db, message_id)
+    if not msg:
+        raise HTTPException(status_code=404, detail="Not found")
+    authorized = False
+    updated = False
+    if sender_type == "user":
+        if msg.recipient_user_id == sender.id:
+            authorized = True
+            if not msg.read:
+                msg.read = True
+                db.add(msg)
+                updated = True
+        if msg.sender_user_id == sender.id:
+            authorized = True
+    else:
+        if msg.recipient_child_id == sender.id:
+            authorized = True
+            if not msg.read:
+                msg.read = True
+                db.add(msg)
+                updated = True
+        if msg.sender_child_id == sender.id:
+            authorized = True
+    if not authorized:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if updated:
+        await db.commit()
+        await db.refresh(msg)
+    return msg

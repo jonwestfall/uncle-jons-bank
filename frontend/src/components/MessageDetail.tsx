@@ -7,6 +7,7 @@ interface Message {
   sender_child_id?: number
   recipient_user_id?: number
   recipient_child_id?: number
+  read: boolean
 }
 
 interface Props {
