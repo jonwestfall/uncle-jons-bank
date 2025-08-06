@@ -34,6 +34,7 @@ async def read_current_user(current_user: User = Depends(get_current_user)):
         name=current_user.name,
         email=current_user.email,
         role=current_user.role,
+        status=current_user.status,
         permissions=[p.name for p in current_user.permissions],
     )
 
