@@ -43,7 +43,7 @@ def _generate_qr(code: str) -> str | None:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-@router.post("/", response_model=CouponRead)
+@router.post("", response_model=CouponRead)
 async def create_coupon_route(
     data: CouponCreate,
     db: AsyncSession = Depends(get_session),
@@ -74,7 +74,7 @@ async def create_coupon_route(
     return await create_coupon(db, coupon)
 
 
-@router.get("/", response_model=list[CouponRead])
+@router.get("", response_model=list[CouponRead])
 async def list_coupons(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
