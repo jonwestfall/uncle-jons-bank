@@ -1111,6 +1111,31 @@ async def get_coupon_by_code(db: AsyncSession, code: str) -> Coupon | None:
     return result.scalar_one_or_none()
 
 
+async def get_coupon(db: AsyncSession, coupon_id: int) -> Coupon | None:
+    result = await db.execute(select(Coupon).where(Coupon.id == coupon_id))
+    return result.scalar_one_or_none()
+
+
+async def list_all_coupons(
+    db: AsyncSession, search: str | None = None, scope: str | None = None
+) -> list[Coupon]:
+    stmt = select(Coupon).order_by(Coupon.created_at.desc())
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.where(
+            Coupon.code.ilike(like) | Coupon.memo.ilike(like)
+        )
+    if scope:
+        stmt = stmt.where(Coupon.scope == scope)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def delete_coupon(db: AsyncSession, coupon: Coupon) -> None:
+    await db.delete(coupon)
+    await db.commit()
+
+
 async def list_coupons_by_creator(db: AsyncSession, user_id: int) -> list[Coupon]:
     result = await db.execute(
         select(Coupon)

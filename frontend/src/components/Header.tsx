@@ -33,7 +33,12 @@ export default function Header({ onLogout, isAdmin, isChild, siteName, onToggleT
                 <li><NavLink to="/parent/profile" className={({isActive}) => isActive ? 'active' : undefined}>Profile</NavLink></li>
               </>
             )}
-          {isAdmin && <li><NavLink to="/admin" className={({isActive}) => isActive ? 'active' : undefined}>Admin</NavLink></li>}
+          {isAdmin && (
+            <>
+              <li><NavLink to="/admin" className={({isActive}) => isActive ? 'active' : undefined}>Admin</NavLink></li>
+              <li><NavLink to="/admin/coupons" className={({isActive}) => isActive ? 'active' : undefined}>Admin Coupons</NavLink></li>
+            </>
+          )}
           <li><button onClick={onToggleTheme}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button></li>
           <li><button onClick={onLogout}>Logout</button></li>
         </ul>

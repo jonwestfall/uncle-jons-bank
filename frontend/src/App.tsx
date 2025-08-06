@@ -13,6 +13,7 @@ import ChildLoans from './pages/ChildLoans'
 import ParentLoans from './pages/ParentLoans'
 import ParentCoupons from './pages/ParentCoupons'
 import ChildCoupons from './pages/ChildCoupons'
+import AdminCoupons from './pages/AdminCoupons'
 import MessagesPage from './pages/Messages'
 import Header from './components/Header'
 import './App.css'
@@ -189,10 +190,16 @@ function App() {
           </>
         )}
         {isAdmin && (
-          <Route
-            path="/admin"
-            element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} siteName={siteName} currencySymbol={currencySymbol} onSettingsChange={fetchSettings} />}
-          />
+          <>
+            <Route
+              path="/admin"
+              element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} siteName={siteName} currencySymbol={currencySymbol} onSettingsChange={fetchSettings} />}
+            />
+            <Route
+              path="/admin/coupons"
+              element={<AdminCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+            />
+          </>
         )}
         <Route path="*" element={<Navigate to={isChildAccount ? '/child' : '/'} replace />} />
       </Routes>
