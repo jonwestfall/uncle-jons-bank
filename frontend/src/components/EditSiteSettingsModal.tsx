@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 
 interface SiteSettings {
   site_name: string
+  site_url: string
   default_interest_rate: number
   default_penalty_interest_rate: number
   default_cd_penalty_rate: number
@@ -25,6 +26,7 @@ interface Props {
 export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
     site_name: settings.site_name,
+    site_url: settings.site_url,
     default_interest_rate: (settings.default_interest_rate * 100).toString(),
     default_penalty_interest_rate: (settings.default_penalty_interest_rate * 100).toString(),
     default_cd_penalty_rate: (settings.default_cd_penalty_rate * 100).toString(),
@@ -49,6 +51,7 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         site_name: form.site_name,
+        site_url: form.site_url,
         default_interest_rate: Number(form.default_interest_rate) / 100,
         default_penalty_interest_rate: Number(form.default_penalty_interest_rate) / 100,
         default_cd_penalty_rate: Number(form.default_cd_penalty_rate) / 100,
@@ -73,6 +76,10 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
           <label>
             Site Name
             <input name="site_name" value={form.site_name} onChange={handleChange} required />
+          </label>
+          <label>
+            Site URL
+            <input name="site_url" value={form.site_url} onChange={handleChange} required />
           </label>
           <label>
             Currency Symbol

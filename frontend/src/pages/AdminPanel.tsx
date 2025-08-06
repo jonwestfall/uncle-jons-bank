@@ -36,6 +36,7 @@ interface Child {
 
 interface SiteSettings {
   site_name: string
+  site_url: string
   default_interest_rate: number
   default_penalty_interest_rate: number
   default_cd_penalty_rate: number
@@ -111,6 +112,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
         <div>
           <h2>Site Settings</h2>
           <p>Name: {settings.site_name}</p>
+          <p>Site URL: {settings.site_url}</p>
           <p>Default Interest Rate: {(settings.default_interest_rate * 100).toFixed(2)}%</p>
           <p>Penalty Interest Rate: {(settings.default_penalty_interest_rate * 100).toFixed(2)}%</p>
           <p>CD Penalty Rate: {(settings.default_cd_penalty_rate * 100).toFixed(2)}%</p>
