@@ -18,6 +18,7 @@ async def read_settings(db: AsyncSession = Depends(get_session)):
     settings = await get_settings(db)
     return SettingsRead(
         site_name=settings.site_name,
+        site_url=settings.site_url,
         default_interest_rate=settings.default_interest_rate,
         default_penalty_interest_rate=settings.default_penalty_interest_rate,
         default_cd_penalty_rate=settings.default_cd_penalty_rate,
@@ -44,6 +45,7 @@ async def update_settings(
     updated = await save_settings(db, settings)
     return SettingsRead(
         site_name=updated.site_name,
+        site_url=updated.site_url,
         default_interest_rate=updated.default_interest_rate,
         default_penalty_interest_rate=updated.default_penalty_interest_rate,
         default_cd_penalty_rate=updated.default_cd_penalty_rate,

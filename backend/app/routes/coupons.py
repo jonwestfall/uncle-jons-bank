@@ -24,6 +24,7 @@ from app.crud import (
     list_redemptions_by_child,
     create_transaction,
     get_child_user_link,
+    get_settings,
 )
 
 try:  # optional dependency
@@ -58,7 +59,10 @@ async def create_coupon_route(
         if not link:
             raise HTTPException(status_code=404, detail="Child not found")
     code = uuid.uuid4().hex[:8]
-    qr = _generate_qr(code)
+    settings = await get_settings(db)
+    base = settings.site_url.rstrip("/")
+    link = f"{base}/child/coupons?code={code}"
+    qr = _generate_qr(link)
     coupon = Coupon(
         code=code,
         amount=data.amount,

@@ -46,6 +46,12 @@ function App() {
       const cid = parseInt(payload.sub.split(':')[1])
       setChildId(cid)
       localStorage.setItem('childId', String(cid))
+      const params = new URLSearchParams(window.location.search)
+      const codeParam = params.get('code')
+      if (codeParam) {
+        window.location.replace(`/child/coupons?code=${codeParam}`)
+        return
+      }
     } else {
       setChildId(null)
     }
@@ -116,7 +122,7 @@ function App() {
           {!registrationDisabled && (
             <Route path="/register" element={<RegisterPage apiUrl={apiUrl} siteName={siteName} />} />
           )}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to={`/login${window.location.search}`} replace />} />
         </Routes>
       </BrowserRouter>
     )

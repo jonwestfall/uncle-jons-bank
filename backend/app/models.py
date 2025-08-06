@@ -216,6 +216,7 @@ class Settings(SQLModel, table=True):
     """Singleton table storing site‑wide configuration values."""
     id: Optional[int] = Field(default=1, primary_key=True)
     site_name: str = "Uncle Jon's Bank"
+    site_url: str = "http://localhost:5173"
     default_interest_rate: float = 0.01
     default_penalty_interest_rate: float = 0.02
     default_cd_penalty_rate: float = 0.1

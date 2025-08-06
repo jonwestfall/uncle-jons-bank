@@ -18,7 +18,7 @@ interface Props {
 }
 
 export default function ChildCoupons({ token, apiUrl, currencySymbol }: Props) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(() => new URLSearchParams(window.location.search).get("code") || "");
   const [history, setHistory] = useState<CouponInfo[]>([]);
   const { showToast } = useToast();
 

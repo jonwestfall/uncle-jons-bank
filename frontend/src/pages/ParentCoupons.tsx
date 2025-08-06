@@ -29,6 +29,7 @@ interface Props {
 export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }: Props) {
   const [children, setChildren] = useState<Child[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [qrVisible, setQrVisible] = useState<Record<number, boolean>>({});
   const [target, setTarget] = useState<string>("all");
   const [childId, setChildId] = useState<string>("");
   const [amount, setAmount] = useState("");
@@ -51,12 +52,18 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
     }
   }
 
-  async function fetchCoupons() {
+  async function fetchCoupons(showId?: number) {
     const resp = await fetch(`${apiUrl}/coupons`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (resp.ok) {
-      setCoupons(await resp.json());
+      const data: Coupon[] = await resp.json();
+      setCoupons(data);
+      const vis: Record<number, boolean> = {};
+      for (const c of data) {
+        vis[c.id] = c.id === showId;
+      }
+      setQrVisible(vis);
     }
   }
 
@@ -87,6 +94,7 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
       body: JSON.stringify(body),
     });
     if (resp.ok) {
+      const newCoupon: Coupon = await resp.json();
       showToast("Coupon created");
       setAmount("");
       setMemo("");
@@ -94,7 +102,7 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
       setUses("1");
       setChildId("");
       setTarget("all");
-      fetchCoupons();
+      fetchCoupons(newCoupon.id);
     } else {
       showToast("Failed to create coupon");
     }
@@ -173,10 +181,22 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
                 {c.code}
                 {c.qr_code && (
                   <div>
-                    <img
-                      src={`data:image/png;base64,${c.qr_code}`}
-                      alt="QR"
-                    />
+                    <button
+                      onClick={() =>
+                        setQrVisible((prev) => ({
+                          ...prev,
+                          [c.id]: !prev[c.id],
+                        }))
+                      }
+                    >
+                      {qrVisible[c.id] ? "Hide QR" : "Show QR"}
+                    </button>
+                    {qrVisible[c.id] && (
+                      <img
+                        src={`data:image/png;base64,${c.qr_code}`}
+                        alt="QR"
+                      />
+                    )}
                   </div>
                 )}
               </td>
