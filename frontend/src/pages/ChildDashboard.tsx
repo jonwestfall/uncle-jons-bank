@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import LedgerTable from '../components/LedgerTable'
 import { formatCurrency } from '../utils/currency'
@@ -157,6 +158,14 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
         </>
         )
       )}
+      <div>
+        <h4>Borrowing Money (Loans)</h4>
+        <p className="help-text">
+          Need to buy something but don't have enough saved? You can ask your grown-up for a loan.
+          A loan lets you borrow money now and pay it back later, sometimes with a little extra called interest.
+          Visit the <Link to="/child/loans">Loans</Link> page to request one or see what you owe.
+        </p>
+      </div>
       {charges.length > 0 && (
         <div>
           <h4>Automatic Money Moves</h4>
