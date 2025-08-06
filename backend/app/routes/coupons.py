@@ -25,6 +25,9 @@ from app.crud import (
     create_transaction,
     get_child_user_link,
     get_settings,
+    get_coupon,
+    delete_coupon,
+    list_all_coupons,
 )
 
 try:  # optional dependency
@@ -86,6 +89,18 @@ async def list_coupons(
     return await list_coupons_by_creator(db, current_user.id)
 
 
+@router.get("/all", response_model=list[CouponRead])
+async def list_all_coupons_route(
+    search: str | None = None,
+    scope: str | None = None,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_permissions(PERM_DEPOSIT)),
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return await list_all_coupons(db, search, scope)
+
+
 @router.post("/redeem", response_model=CouponRedemptionRead)
 async def redeem_coupon_route(
     data: CouponRedeem,
@@ -124,6 +139,21 @@ async def redeem_coupon_route(
     coupon.uses_remaining -= 1
     await save_coupon(db, coupon)
     return redemption
+
+
+@router.delete("/{coupon_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_coupon_route(
+    coupon_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_permissions(PERM_DEPOSIT)),
+):
+    coupon = await get_coupon(db, coupon_id)
+    if not coupon or (
+        coupon.created_by != current_user.id and current_user.role != "admin"
+    ):
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    await delete_coupon(db, coupon)
+    return None
 
 
 @router.get("/redemptions", response_model=list[CouponRedemptionRead])

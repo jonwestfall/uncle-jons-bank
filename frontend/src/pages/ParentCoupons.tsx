@@ -69,11 +69,25 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const amt = parseFloat(amount);
+    const maxUses = parseInt(uses);
+    if (!amt || amt <= 0) {
+      showToast("Enter a valid amount");
+      return;
+    }
+    if (!maxUses || maxUses <= 0) {
+      showToast("Uses must be at least 1");
+      return;
+    }
+    if (expiration && new Date(expiration) < new Date()) {
+      showToast("Expiration must be in the future");
+      return;
+    }
     let scope = "my_children";
-    const body: any = {
-      amount: parseFloat(amount),
+    const body: Record<string, unknown> = {
+      amount: amt,
       memo: memo || undefined,
-      max_uses: parseInt(uses),
+      max_uses: maxUses,
     };
     if (expiration) {
       body.expiration = new Date(expiration).toISOString();
@@ -108,6 +122,26 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
     }
   };
 
+  function targetLabel(c: Coupon): string {
+    if (c.scope === "all_children") return "All Child Accounts";
+    if (c.scope === "my_children") return "All My Children";
+    const child = children.find((ch) => ch.id === c.child_id);
+    return child ? child.first_name : "-";
+  }
+
+  async function handleDelete(id: number) {
+    const resp = await fetch(`${apiUrl}/coupons/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (resp.ok) {
+      showToast("Coupon removed");
+      fetchCoupons();
+    } else {
+      showToast("Failed to remove coupon");
+    }
+  }
+
   return (
     <div className="p-4 max-w-2xl mx-auto">
       <h2>Create Coupon</h2>
@@ -138,7 +172,14 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
         </div>
         <div>
           <label>Amount:</label>
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            required
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
         </div>
         <div>
           <label>Memo:</label>
@@ -169,16 +210,26 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
         <thead>
           <tr>
             <th>Code</th>
+            <th>Target</th>
             <th>Amount</th>
             <th>Uses</th>
             <th>Expires</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {coupons.map((c) => (
-            <tr key={c.id}>
+            <tr key={c.id} className={c.uses_remaining === 0 ? "opacity-50" : ""}>
               <td>
                 {c.code}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(c.code);
+                    showToast("Code copied");
+                  }}
+                >
+                  Copy
+                </button>
                 {c.qr_code && (
                   <div>
                     <button
@@ -200,17 +251,27 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
                   </div>
                 )}
               </td>
+              <td>{targetLabel(c)}</td>
               <td>
                 {currencySymbol}
                 {c.amount.toFixed(2)}
               </td>
               <td>
-                {c.max_uses - c.uses_remaining}/{c.max_uses}
+                <div className="flex items-center space-x-1">
+                  <progress
+                    value={c.max_uses - c.uses_remaining}
+                    max={c.max_uses}
+                  />
+                  <span>{c.uses_remaining} left</span>
+                </div>
               </td>
               <td>
                 {c.expiration
                   ? new Date(c.expiration).toLocaleDateString()
                   : "-"}
+              </td>
+              <td>
+                <button onClick={() => handleDelete(c.id)}>Delete</button>
               </td>
             </tr>
           ))}
