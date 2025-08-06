@@ -13,7 +13,7 @@ sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
 
 from app.main import app
 from app.database import get_session
-from app.models import Permission, UserPermissionLink, User
+from app.models import User
 from app.auth import get_password_hash
 from app.crud import ensure_permissions_exist
 from app.acl import ROLE_DEFAULT_PERMISSIONS, ALL_PERMISSIONS
@@ -67,14 +67,8 @@ def test_cd_endpoints():
 
             # Grant default permissions to parent
             async with TestSession() as session:
-                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                    result = await session.execute(
-                        select(Permission).where(Permission.name == perm_name)
-                    )
-                    perm = result.scalar_one()
-                    session.add(
-                        UserPermissionLink(user_id=parent_id, permission_id=perm.id)
-                    )
+                parent = await session.get(User, parent_id)
+                parent.status = "active"
                 await session.commit()
 
             # Parent login

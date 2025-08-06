@@ -4,13 +4,13 @@ import sys
 
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlmodel import SQLModel, select
+from sqlmodel import SQLModel, select, delete
 
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
 
 from app.main import app
 from app.database import get_session
-from app.models import Permission, UserPermissionLink, User, ChildUserLink
+from app.models import UserPermissionLink, User, ChildUserLink
 from app.auth import get_password_hash
 from app.crud import ensure_permissions_exist
 from app.acl import ROLE_DEFAULT_PERMISSIONS, ALL_PERMISSIONS, PERM_OFFER_LOAN, PERM_MANAGE_LOAN
@@ -67,12 +67,13 @@ def test_loan_flow():
 
             # Grant default permissions to parent1 only
             async with TestSession() as session:
-                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                    result = await session.execute(
-                        select(Permission).where(Permission.name == perm_name)
-                    )
-                    perm = result.scalar_one()
-                    session.add(UserPermissionLink(user_id=parent1_id, permission_id=perm.id))
+                p1 = await session.get(User, parent1_id)
+                p2 = await session.get(User, parent2_id)
+                p1.status = "active"
+                p2.status = "active"
+                await session.execute(
+                    delete(UserPermissionLink).where(UserPermissionLink.user_id == parent2_id)
+                )
                 await session.commit()
 
             # Parent1 login

@@ -6,14 +6,14 @@ import sys
 
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlmodel import SQLModel, select
+from sqlmodel import SQLModel, select, delete
 
 # Allow importing the app package
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
 
 from app.main import app
 from app.database import get_session
-from app.models import Permission, UserPermissionLink, ChildUserLink
+from app.models import Permission, UserPermissionLink, ChildUserLink, User
 from app.crud import ensure_permissions_exist
 from app.acl import (
     ROLE_DEFAULT_PERMISSIONS,
@@ -62,12 +62,14 @@ def test_transaction_permissions():
 
             # Grant permissions
             async with TestSession() as session:
-                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                    result = await session.execute(
-                        select(Permission).where(Permission.name == perm_name)
-                    )
-                    perm = result.scalar_one()
-                    session.add(UserPermissionLink(user_id=p1_id, permission_id=perm.id))
+                p1 = await session.get(User, p1_id)
+                p2 = await session.get(User, p2_id)
+                p1.status = "active"
+                p2.status = "active"
+                # remove existing permissions from parent2
+                await session.execute(
+                    delete(UserPermissionLink).where(UserPermissionLink.user_id == p2_id)
+                )
                 # Parent1 also gets delete permission explicitly
                 result = await session.execute(
                     select(Permission).where(Permission.name == PERM_DELETE_TRANSACTION)

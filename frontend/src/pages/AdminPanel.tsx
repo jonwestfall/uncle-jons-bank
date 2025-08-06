@@ -4,6 +4,7 @@ import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
 import EditTransactionModal from '../components/EditTransactionModal'
 import LedgerTable, { type Transaction } from '../components/LedgerTable'
 import RunPromotionModal from '../components/RunPromotionModal'
+import AddParentModal from '../components/AddParentModal'
 import { formatCurrency } from '../utils/currency'
 import { useToast } from '../components/ToastProvider'
 
@@ -21,6 +22,7 @@ interface User {
   name: string
   email: string
   role: string
+  status: string
 }
 
 interface Child {
@@ -43,6 +45,7 @@ interface SiteSettings {
   overdraft_fee_is_percentage: boolean
   overdraft_fee_daily: boolean
   currency_symbol: string
+  public_registration_disabled: boolean
 }
 
 export default function AdminPanel({ token, apiUrl, onLogout, siteName, currencySymbol, onSettingsChange }: Props) {
@@ -52,6 +55,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showPromoModal, setShowPromoModal] = useState(false)
+  const [showAddParent, setShowAddParent] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [userName, setUserName] = useState('')
   const [userRole, setUserRole] = useState('')
@@ -74,11 +78,11 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
     const t = await fetch(`${apiUrl}/admin/transactions`, { headers: uh })
     if (t.ok) setTransactions(await t.json())
     const s = await fetch(`${apiUrl}/settings/`)
-      if (s.ok) {
-        const data = (await s.json()) as SiteSettings
-        setSettings(data)
-        if (onSettingsChange) onSettingsChange()
-      }
+    if (s.ok) {
+      const data = (await s.json()) as SiteSettings
+      setSettings(data)
+      if (onSettingsChange) onSettingsChange()
+    }
   }
 
   useEffect(() => {
@@ -118,18 +122,21 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
             Overdraft Fee: {settings.overdraft_fee_is_percentage ? `${settings.overdraft_fee_amount}%` : formatCurrency(settings.overdraft_fee_amount, currencySymbol)}
             {settings.overdraft_fee_daily ? ' (daily)' : ' (once)'}
           </p>
+          <p>Public Registration: {settings.public_registration_disabled ? 'Disabled' : 'Enabled'}</p>
           <button onClick={() => setShowSettingsModal(true)}>Edit</button>
         </div>
       )}
       <h2>Promotions</h2>
       <button onClick={() => setShowPromoModal(true)}>Run Promotion</button>
       <h2>Users</h2>
+      <button onClick={() => setShowAddParent(true)}>Add Parent</button>
       <table className="ledger-table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -142,6 +149,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
               <td>{u.name}</td>
               <td>{u.email}</td>
               <td>{u.role}</td>
+              <td>{u.status}</td>
             </tr>
           ))}
         </tbody>
@@ -150,6 +158,7 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
         <div className="detail-panel">
           <h3>User Details</h3>
           <p>User ID: {selectedUser.id}</p>
+          <p>Status: {selectedUser.status}</p>
           <label>
             Name
             <input value={userName} onChange={e => setUserName(e.target.value)} />
@@ -163,6 +172,25 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
             </select>
           </label>
           <div className="modal-actions">
+            {selectedUser.status === 'pending' && (
+              <button
+                onClick={async () => {
+                  const resp = await fetch(`${apiUrl}/admin/users/${selectedUser.id}/approve`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                  })
+                  if (resp.ok) {
+                    showToast('User approved')
+                    setSelectedUser(null)
+                    fetchData()
+                  } else {
+                    showToast('Failed to approve user', 'error')
+                  }
+                }}
+              >
+                Approve
+              </button>
+            )}
             <button
               onClick={async () => {
                 const resp = await fetch(`${apiUrl}/admin/users/${selectedUser.id}`, {
@@ -207,6 +235,28 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
             </button>
           </div>
         </div>
+      )}
+      {showAddParent && (
+        <AddParentModal
+          onSubmit={async (name, email, password) => {
+            const resp = await fetch(`${apiUrl}/admin/users`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ name, email, password }),
+            })
+            if (resp.ok) {
+              showToast('Parent added')
+              setShowAddParent(false)
+              fetchData()
+            } else {
+              showToast('Failed to add parent', 'error')
+            }
+          }}
+          onCancel={() => setShowAddParent(false)}
+        />
       )}
       <h2>Children</h2>
       <table className="ledger-table">

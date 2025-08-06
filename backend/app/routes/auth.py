@@ -7,12 +7,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import (
     create_access_token,
-    get_password_hash,
     verify_password,
     authenticate_user,
 )
 from app.database import get_session
 from app.models import User
+from app.crud import get_settings, create_user
 
 from sqlmodel import select
 from app.schemas.user import UserCreate, UserResponse, UserLogin
@@ -39,6 +39,14 @@ async def login_for_access_token(
                 "message": "Invalid email or password",
             },
         )
+    if user.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "auth_account_pending",
+                "message": "Account awaiting approval",
+            },
+        )
     logger.info("User %s logged in via OAuth form", user.email)
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -61,6 +69,14 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
                 "message": "Invalid email or password",
             },
         )
+    if user.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "auth_account_pending",
+                "message": "Account awaiting approval",
+            },
+        )
     logger.info("User %s logged in", user.email)
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -68,6 +84,10 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
     """Register a new parent user account."""
+
+    settings = await get_settings(db)
+    if settings.public_registration_disabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registration disabled")
 
     result = await db.execute(select(User).where(User.email == user_in.email))
     existing_user = result.scalar_one_or_none()
@@ -81,17 +101,14 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session))
             },
         )
 
-    hashed_pw = get_password_hash(user_in.password)
-
     new_user = User(
         name=user_in.name,
         email=user_in.email,
-        password_hash=hashed_pw,
-        role="parent"
+        password_hash=user_in.password,
+        role="parent",
+        status="pending",
     )
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
+    new_user = await create_user(db, new_user)
     logger.info("User %s registered", new_user.email)
 
     return new_user

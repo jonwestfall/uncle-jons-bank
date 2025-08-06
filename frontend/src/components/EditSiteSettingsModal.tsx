@@ -11,6 +11,7 @@ interface SiteSettings {
   overdraft_fee_is_percentage: boolean
   overdraft_fee_daily: boolean
   currency_symbol: string
+  public_registration_disabled: boolean
 }
 
 interface Props {
@@ -33,6 +34,7 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
     overdraft_fee_is_percentage: settings.overdraft_fee_is_percentage,
     overdraft_fee_daily: settings.overdraft_fee_daily,
     currency_symbol: settings.currency_symbol,
+    public_registration_disabled: settings.public_registration_disabled,
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,6 +58,7 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
         overdraft_fee_is_percentage: form.overdraft_fee_is_percentage,
         overdraft_fee_daily: form.overdraft_fee_daily,
         currency_symbol: form.currency_symbol,
+        public_registration_disabled: form.public_registration_disabled,
       })
     })
     onSaved()
@@ -103,6 +106,14 @@ export default function EditSiteSettingsModal({ settings, token, apiUrl, onClose
           </label>
           <label>
             <input name="overdraft_fee_daily" type="checkbox" checked={form.overdraft_fee_daily} onChange={handleChange} /> Charge daily?
+          </label>
+          <label>
+            <input
+              name="public_registration_disabled"
+              type="checkbox"
+              checked={form.public_registration_disabled}
+              onChange={handleChange}
+            /> Disable Public Registration?
           </label>
           <div className="modal-actions">
             <button type="submit">Save</button>

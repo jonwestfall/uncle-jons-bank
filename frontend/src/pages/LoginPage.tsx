@@ -1,11 +1,14 @@
 import { useState } from 'react'
 
+import { Link } from 'react-router-dom'
+
 interface Props {
   onLogin: (token: string, isChild: boolean) => void
   siteName: string
+  allowRegister?: boolean
 }
 
-export default function LoginPage({ onLogin, siteName }: Props) {
+export default function LoginPage({ onLogin, siteName, allowRegister = false }: Props) {
   const [isChild, setIsChild] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -70,6 +73,11 @@ export default function LoginPage({ onLogin, siteName }: Props) {
         <button type="submit">Login</button>
       </form>
       {error && <p style={{ color: 'red' }}>{error}</p>}
+      {allowRegister && (
+        <p>
+          <Link to="/register">Request a parent account</Link>
+        </p>
+      )}
        <button onClick={() => setIsChild(!isChild)} className="mb-1">
         {isChild ? 'Parent Login' : 'Account Holder (Child) Login'}
       </button>

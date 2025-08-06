@@ -55,18 +55,13 @@ def test_admin_permission_assignment_and_role_update():
             assert resp.status_code == 200
             user_id = resp.json()["id"]
 
-            # Promote first user to admin and assign permissions to second user
+            # Promote first user to admin
             async with TestSession() as session:
                 admin = await session.get(User, admin_id)
+                user = await session.get(User, user_id)
                 admin.role = "admin"
-                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                    result = await session.execute(
-                        select(Permission).where(Permission.name == perm_name)
-                    )
-                    perm = result.scalar_one()
-                    session.add(
-                        UserPermissionLink(user_id=user_id, permission_id=perm.id)
-                    )
+                admin.status = "active"
+                user.status = "active"
                 await session.commit()
 
             # Login admin
@@ -145,16 +140,10 @@ def test_admin_child_transaction_crud_and_promotion():
             async with TestSession() as session:
                 # Promote admin
                 admin = await session.get(User, admin_id)
+                parent = await session.get(User, parent_id)
                 admin.role = "admin"
-                # Give parent default permissions
-                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                    result = await session.execute(
-                        select(Permission).where(Permission.name == perm_name)
-                    )
-                    perm = result.scalar_one()
-                    session.add(
-                        UserPermissionLink(user_id=parent_id, permission_id=perm.id)
-                    )
+                admin.status = "active"
+                parent.status = "active"
                 await session.commit()
 
             # Login both users

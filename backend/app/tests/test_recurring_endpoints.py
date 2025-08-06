@@ -14,7 +14,7 @@ sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
 
 from app.main import app
 from app.database import get_session
-from app.models import Permission, UserPermissionLink
+from app.models import User
 from app.crud import ensure_permissions_exist
 from app.acl import ROLE_DEFAULT_PERMISSIONS, ALL_PERMISSIONS
 
@@ -59,12 +59,8 @@ def test_recurring_charge_endpoints():
             # Grant default permissions to both parents
             async with TestSession() as session:
                 for uid in (p1_id, p2_id):
-                    for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                        result = await session.execute(
-                            select(Permission).where(Permission.name == perm_name)
-                        )
-                        perm = result.scalar_one()
-                        session.add(UserPermissionLink(user_id=uid, permission_id=perm.id))
+                    user = await session.get(User, uid)
+                    user.status = "active"
                 await session.commit()
 
             # Login

@@ -8,6 +8,7 @@ from app.database import get_session
 from app.auth import require_role, get_password_hash
 from app.models import User, Child, Transaction, Permission, UserPermissionLink
 from app.schemas import (
+    UserCreate,
     UserResponse,
     UserUpdate,
     ChildRead,
@@ -23,6 +24,8 @@ from app.crud import (
     get_user,
     save_user,
     delete_user,
+    create_user,
+    get_user_by_email,
     get_all_children,
     get_child,
     save_child,
@@ -47,6 +50,26 @@ async def admin_list_users(
     current_user: User = Depends(require_role("admin")),
 ):
     return await get_all_users(db)
+
+
+@router.post("/users", response_model=UserResponse)
+async def admin_create_parent(
+    user_in: UserCreate,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    existing = await get_user_by_email(db, user_in.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    new_user = User(
+        name=user_in.name,
+        email=user_in.email,
+        password_hash=user_in.password,
+        role="parent",
+        status="active",
+    )
+    created = await create_user(db, new_user)
+    return created
 
 
 @router.get("/permissions", response_model=list[PermissionRead])
@@ -132,6 +155,20 @@ async def admin_update_user(
         )
         defaults = get_default_permissions_for_role(updated.role)
         await assign_permissions_by_names(db, updated, defaults)
+    return updated
+
+
+@router.post("/users/{user_id}/approve", response_model=UserResponse)
+async def admin_approve_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_role("admin")),
+):
+    user = await get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.status = "active"
+    updated = await save_user(db, user)
     return updated
 
 
