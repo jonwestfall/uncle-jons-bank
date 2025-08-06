@@ -108,6 +108,8 @@ async def run_all_tests(persist: bool = False) -> dict:
 
             perms = ROLE_DEFAULT_PERMISSIONS["parent"]
             async with TestSession() as session:
+                user = await session.get(User, uid)
+                user.status = "active"
                 for name in perms:
                     result = await session.execute(
                         select(Permission).where(Permission.name == name)

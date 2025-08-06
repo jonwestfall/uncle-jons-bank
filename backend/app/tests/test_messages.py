@@ -56,13 +56,10 @@ def test_basic_messaging_flow():
             # Promote first user to admin and give parent default permissions
             async with TestSession() as session:
                 admin = await session.get(User, admin_id)
+                parent = await session.get(User, parent_id)
                 admin.role = "admin"
-                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                    result = await session.execute(
-                        select(Permission).where(Permission.name == perm_name)
-                    )
-                    perm = result.scalar_one()
-                    session.add(UserPermissionLink(user_id=parent_id, permission_id=perm.id))
+                admin.status = "active"
+                parent.status = "active"
                 await session.commit()
 
             # Login users
@@ -186,14 +183,8 @@ def test_basic_messaging_flow():
             parent2_id = resp.json()["id"]
 
             async with TestSession() as session:
-                for perm_name in ROLE_DEFAULT_PERMISSIONS["parent"]:
-                    result = await session.execute(
-                        select(Permission).where(Permission.name == perm_name)
-                    )
-                    perm_obj = result.scalar_one()
-                    session.add(
-                        UserPermissionLink(user_id=parent2_id, permission_id=perm_obj.id)
-                    )
+                parent2 = await session.get(User, parent2_id)
+                parent2.status = "active"
                 session.add(
                     ChildUserLink(
                         user_id=parent2_id,

@@ -43,6 +43,7 @@ class User(SQLModel, table=True):
     email: str
     password_hash: str
     role: str  # 'viewer', 'depositor', 'withdrawer', 'admin'
+    status: str = "active"  # 'active' or 'pending'
 
     children: List["ChildUserLink"] = Relationship(back_populates="user")
     permission_links: List["UserPermissionLink"] = Relationship(
@@ -224,6 +225,7 @@ class Settings(SQLModel, table=True):
     overdraft_fee_is_percentage: bool = False
     overdraft_fee_daily: bool = False
     currency_symbol: str = "$"
+    public_registration_disabled: bool = False
 
 
 class Message(SQLModel, table=True):

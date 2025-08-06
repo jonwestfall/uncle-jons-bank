@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import ParentDashboard from './pages/ParentDashboard'
 import ParentProfile from './pages/ParentProfile'
 import ChildDashboard from './pages/ChildDashboard'
@@ -26,6 +27,7 @@ function App() {
   const [permissions, setPermissions] = useState<string[]>([])
   const [siteName, setSiteName] = useState("Uncle Jon's Bank")
   const [currencySymbol, setCurrencySymbol] = useState('$')
+  const [registrationDisabled, setRegistrationDisabled] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   )
@@ -91,6 +93,7 @@ function App() {
       const data = await resp.json()
       setSiteName(data.site_name)
       setCurrencySymbol(data.currency_symbol || '$')
+      setRegistrationDisabled(data.public_registration_disabled || false)
       document.title = data.site_name
     }
   }, [apiUrl])
@@ -101,7 +104,20 @@ function App() {
   }, [fetchMe, fetchSettings])
 
   if (!token) {
-    return <LoginPage onLogin={handleLogin} siteName={siteName} />
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/login"
+            element={<LoginPage onLogin={handleLogin} siteName={siteName} allowRegister={!registrationDisabled} />}
+          />
+          {!registrationDisabled && (
+            <Route path="/register" element={<RegisterPage apiUrl={apiUrl} siteName={siteName} />} />
+          )}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    )
   }
 
   return (

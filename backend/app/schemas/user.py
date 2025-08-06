@@ -13,6 +13,7 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     role: str
+    status: str
 
     class Config:
         model_config = {"from_attributes": True}
@@ -31,6 +32,7 @@ class UserUpdate(BaseModel):
     name: str | None = None
     email: EmailStr | None = None
     role: str | None = None
+    status: str | None = None
     password: str | None = None
 
 

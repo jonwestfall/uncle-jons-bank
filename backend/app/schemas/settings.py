@@ -16,6 +16,7 @@ class SettingsRead(BaseModel):
     overdraft_fee_is_percentage: bool
     overdraft_fee_daily: bool
     currency_symbol: str
+    public_registration_disabled: bool
 
 
 class SettingsUpdate(BaseModel):
@@ -29,3 +30,4 @@ class SettingsUpdate(BaseModel):
     overdraft_fee_is_percentage: bool | None = None
     overdraft_fee_daily: bool | None = None
     currency_symbol: str | None = None
+    public_registration_disabled: bool | None = None
