@@ -108,6 +108,15 @@ def test_share_and_unshare():
                 },
             )
             assert resp.status_code == 200
+            # Shared parent lacks manage-child-settings permission
+            resp = await client.get(
+                f"/children/{child_id}/parents", headers=headers2
+            )
+            assert resp.status_code == 403
+            resp = await client.delete(
+                f"/children/{child_id}/parents/{p1_id}", headers=headers2
+            )
+            assert resp.status_code == 403
             resp = await client.get(
                 f"/children/{child_id}/parents", headers=headers1
             )

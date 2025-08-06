@@ -15,7 +15,11 @@ from app.main import app
 from app.database import get_session
 from app.models import Permission, UserPermissionLink
 from app.crud import ensure_permissions_exist
-from app.acl import ROLE_DEFAULT_PERMISSIONS, ALL_PERMISSIONS
+from app.acl import (
+    ROLE_DEFAULT_PERMISSIONS,
+    ALL_PERMISSIONS,
+    PERM_MANAGE_CHILD_SETTINGS,
+)
 
 
 async def _setup_test_db():
@@ -194,5 +198,30 @@ def test_child_management_endpoints():
                 json={"cd_penalty_rate": 0.25},
             )
             assert resp.status_code == 404
+
+            # Revoking manage-child-settings permission prevents updates
+            async with TestSession() as session:
+                result = await session.execute(
+                    select(Permission).where(
+                        Permission.name == PERM_MANAGE_CHILD_SETTINGS
+                    )
+                )
+                perm = result.scalar_one()
+                result = await session.execute(
+                    select(UserPermissionLink).where(
+                        (UserPermissionLink.user_id == p1_id)
+                        & (UserPermissionLink.permission_id == perm.id)
+                    )
+                )
+                link = result.scalar_one()
+                await session.delete(link)
+                await session.commit()
+
+            resp = await client.put(
+                f"/children/{child_id}/interest-rate",
+                headers=headers1,
+                json={"interest_rate": 0.02},
+            )
+            assert resp.status_code == 403
 
     asyncio.run(run())
