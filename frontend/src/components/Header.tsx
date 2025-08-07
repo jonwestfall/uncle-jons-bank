@@ -21,6 +21,7 @@ export default function Header({ onLogout, isAdmin, isChild, siteName, onToggleT
                 <li><NavLink to="/child" className={({isActive}) => isActive ? 'active' : undefined}>Ledger</NavLink></li>
                 <li><NavLink to="/child/loans" className={({isActive}) => isActive ? 'active' : undefined}>Loans</NavLink></li>
                 <li><NavLink to="/child/coupons" className={({isActive}) => isActive ? 'active' : undefined}>Coupons</NavLink></li>
+                <li><NavLink to="/child/bank101" className={({isActive}) => isActive ? 'active' : undefined}>Bank 101</NavLink></li>
                 <li><NavLink to="/child/messages" className={({isActive}) => isActive ? 'active' : undefined}>Messages</NavLink></li>
                 <li><NavLink to="/child/profile" className={({isActive}) => isActive ? 'active' : undefined}>Profile</NavLink></li>
               </>

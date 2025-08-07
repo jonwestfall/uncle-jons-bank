@@ -46,6 +46,14 @@ from .coupon import (
     CouponRedeem,
     CouponRedemptionRead,
 )
+from .education import (
+    QuizQuestionRead,
+    ModuleRead,
+    QuizSubmission,
+    QuizResult,
+    BadgeRead,
+    ModuleUpdate,
+)
 
 __all__ = [
     "UserCreate",
@@ -93,4 +101,10 @@ __all__ = [
     "CouponRead",
     "CouponRedeem",
     "CouponRedemptionRead",
+    "QuizQuestionRead",
+    "ModuleRead",
+    "QuizSubmission",
+    "QuizResult",
+    "BadgeRead",
+    "ModuleUpdate",
 ]

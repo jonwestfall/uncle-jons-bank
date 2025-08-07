@@ -28,6 +28,10 @@ from app.models import (
     Message,
     Coupon,
     CouponRedemption,
+    EducationModule,
+    QuizQuestion,
+    Badge,
+    ChildBadge,
 )
 from app.auth import get_password_hash, get_child_by_id
 from app.acl import get_default_permissions_for_role, ALL_PERMISSIONS
@@ -1171,3 +1175,95 @@ async def list_redemptions_by_child(
         .order_by(CouponRedemption.redeemed_at.desc())
     )
     return result.scalars().all()
+
+
+async def ensure_education_content(db: AsyncSession) -> None:
+    """Seed the database with built-in educational modules and badges."""
+
+    from app.education_content import EDUCATION_MODULES
+
+    for data in EDUCATION_MODULES:
+        result = await db.execute(
+            select(EducationModule).where(EducationModule.slug == data["slug"])
+        )
+        module = result.scalar_one_or_none()
+        if not module:
+            module = EducationModule(
+                slug=data["slug"], title=data["title"], content=data["content"], enabled=True
+            )
+            db.add(module)
+            await db.flush()
+            badge = Badge(name=data["badge"], module_id=module.id)
+            db.add(badge)
+            for q in data["questions"]:
+                db.add(
+                    QuizQuestion(
+                        module_id=module.id,
+                        prompt=q["prompt"],
+                        options=q["options"],
+                        answer_index=q["answer"],
+                    )
+                )
+    await db.commit()
+
+
+async def get_enabled_modules(db: AsyncSession) -> list[EducationModule]:
+    result = await db.execute(
+        select(EducationModule)
+        .where(EducationModule.enabled == True)  # noqa: E712
+        .options(selectinload(EducationModule.questions))
+        .order_by(EducationModule.id)
+    )
+    return result.scalars().all()
+
+
+async def get_questions_for_module(db: AsyncSession, module_id: int) -> list[QuizQuestion]:
+    result = await db.execute(
+        select(QuizQuestion).where(QuizQuestion.module_id == module_id).order_by(QuizQuestion.id)
+    )
+    return result.scalars().all()
+
+
+async def get_badge_for_module(db: AsyncSession, module_id: int) -> Badge | None:
+    result = await db.execute(select(Badge).where(Badge.module_id == module_id))
+    return result.scalar_one_or_none()
+
+
+async def get_child_badges(db: AsyncSession, child_id: int) -> list[Badge]:
+    result = await db.execute(
+        select(Badge)
+        .join(ChildBadge, ChildBadge.badge_id == Badge.id)
+        .where(ChildBadge.child_id == child_id)
+        .order_by(Badge.id)
+    )
+    return result.scalars().all()
+
+
+async def award_badge_for_module(
+    db: AsyncSession,
+    child_id: int,
+    module_id: int,
+    awarded_by: int | None = None,
+    source: str = "quiz",
+) -> bool:
+    badge = await get_badge_for_module(db, module_id)
+    if not badge:
+        return False
+    result = await db.execute(
+        select(ChildBadge).where(
+            ChildBadge.child_id == child_id, ChildBadge.badge_id == badge.id
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return False
+    db.add(
+        ChildBadge(
+            child_id=child_id,
+            badge_id=badge.id,
+            awarded_by_user_id=awarded_by,
+            source=source,
+        )
+    )
+    await db.commit()
+    return True

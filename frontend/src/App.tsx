@@ -15,6 +15,7 @@ import ParentCoupons from './pages/ParentCoupons'
 import ChildCoupons from './pages/ChildCoupons'
 import AdminCoupons from './pages/AdminCoupons'
 import MessagesPage from './pages/Messages'
+import ChildBank101 from './pages/ChildBank101'
 import Header from './components/Header'
 import './App.css'
 import { ToastProvider } from './components/ToastProvider'
@@ -154,6 +155,10 @@ function App() {
               <Route
                 path="/child/coupons"
                 element={<ChildCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              />
+              <Route
+                path="/child/bank101"
+                element={<ChildBank101 token={token} apiUrl={apiUrl} />}
               />
               <Route
                 path="/child/messages"
