@@ -279,3 +279,53 @@ class CouponRedemption(SQLModel, table=True):
     coupon: Coupon = Relationship(back_populates="redemptions")
     child: Child = Relationship()
 
+
+class EducationModule(SQLModel, table=True):
+    """Self-contained educational module with quiz questions."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True)
+    title: str
+    content: str
+    enabled: bool = True
+
+    questions: List["QuizQuestion"] = Relationship(back_populates="module")
+    badge: Optional["Badge"] = Relationship(back_populates="module")
+
+
+class QuizQuestion(SQLModel, table=True):
+    """Multiple-choice question belonging to a module."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    module_id: int = Field(foreign_key="educationmodule.id")
+    prompt: str
+    options: List[str] = Field(sa_column=Column(JSON))
+    answer_index: int
+
+    module: EducationModule = Relationship(back_populates="questions")
+
+
+class Badge(SQLModel, table=True):
+    """Badge that can be earned or awarded to children."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    module_id: Optional[int] = Field(default=None, foreign_key="educationmodule.id")
+
+    module: Optional[EducationModule] = Relationship(back_populates="badge")
+    child_links: List["ChildBadge"] = Relationship(back_populates="badge")
+
+
+class ChildBadge(SQLModel, table=True):
+    """Association between a child and a badge they've earned."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="child.id")
+    badge_id: int = Field(foreign_key="badge.id")
+    awarded_by_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    source: str = "quiz"  # quiz or manual
+    awarded_at: datetime = Field(default_factory=datetime.utcnow)
+
+    child: Child = Relationship()
+    badge: Badge = Relationship(back_populates="child_links")
+

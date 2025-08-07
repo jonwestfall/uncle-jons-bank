@@ -27,6 +27,7 @@ from app.routes import (
     loans,
     messages,
     coupons,
+    education,
 )
 from app.database import create_db_and_tables, async_session
 from app.crud import (
@@ -92,6 +93,9 @@ async def on_startup():
     async with async_session() as session:
         # Ensure any new permissions are inserted into the database on startup.
         await ensure_permissions_exist(session, ALL_PERMISSIONS)
+        from app.crud import ensure_education_content
+
+        await ensure_education_content(session)
     # Run the long‑lived interest calculation loop in the background.
     asyncio.create_task(daily_interest_task())
 
@@ -140,6 +144,7 @@ app.include_router(recurring.router)
 app.include_router(loans.router)
 app.include_router(messages.router)
 app.include_router(coupons.router)
+app.include_router(education.router)
 
 
 @app.get("/docs", include_in_schema=False)

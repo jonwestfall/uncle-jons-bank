@@ -22,9 +22,16 @@ interface WithdrawalRequest {
   denial_reason?: string | null
 }
 
+interface Badge {
+  id: number
+  name: string
+  module_id?: number | null
+}
+
 export default function ChildProfile({ token, apiUrl, currencySymbol }: Props) {
   const [data, setData] = useState<ChildProfileData | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
+  const [badges, setBadges] = useState<Badge[]>([])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,8 +42,13 @@ export default function ChildProfile({ token, apiUrl, currencySymbol }: Props) {
       const resp = await fetch(`${apiUrl}/withdrawals/mine`, { headers: { Authorization: `Bearer ${token}` } })
       if (resp.ok) setWithdrawals(await resp.json())
     }
+    const fetchBadges = async () => {
+      const resp = await fetch(`${apiUrl}/education/badges/me`, { headers: { Authorization: `Bearer ${token}` } })
+      if (resp.ok) setBadges(await resp.json())
+    }
     fetchData()
     fetchWithdrawals()
+    fetchBadges()
   }, [token, apiUrl])
 
   if (!data) return <p>Loading...</p>
@@ -62,6 +74,16 @@ export default function ChildProfile({ token, apiUrl, currencySymbol }: Props) {
                 {formatCurrency(w.amount, currencySymbol)}{w.memo ? ` (${w.memo})` : ''} - {w.status}
                 {w.denial_reason ? ` (Reason: ${w.denial_reason})` : ''}
               </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {badges.length > 0 && (
+        <div>
+          <h3>Your Badges</h3>
+          <ul className="list">
+            {badges.map(b => (
+              <li key={b.id}>{b.name}</li>
             ))}
           </ul>
         </div>
