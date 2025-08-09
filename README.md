@@ -53,14 +53,28 @@ can adjust interest rates, record payments, or close loans early.
 - Parents can generate printable coupons that deposit a set amount when redeemed.
 - Coupons support optional expiration dates, usage limits, and child or system-wide scopes.
 - Shareable links and QR codes make it easy for kids to claim rewards through the app.
+
+### 📋 Chores & Allowances
+- Parents can assign chores with payout amounts and optional recurring schedules.
+- Children can propose new chores and mark them complete for approval.
+- Approved chores automatically credit the child's account.
+
+### 💬 Messaging
+- In-app messaging between parents and children.
+- Inbox, sent, and archive views keep conversations organized.
+- Admins can broadcast announcements to all users.
+
+### 📚 Education Modules & Badges
+- Interactive learning modules with quiz questions.
+- Passing quizzes awards badges; parents or admins can award badges manually.
+- Children can view earned badges and track progress.
 ### 🔐 Permissions & Controls
 - Withdrawals are **requested** by the child, and **approved/denied** by guardians
 - Accounts can be **frozen**.
 - Penalty interest can apply to negative balances
 
 ### 🧠 Educational & Fun
-- **Gamified** goals, achievements, and badges
-- Personalized messages from parents
+- **Gamified** goals and achievements
 - Exportable account summary (PDF/image)
 - Educational tools integrated into child UI
 
@@ -90,6 +104,12 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - `Loan`: Parent-approved loans for children
 - `LoanTransaction`: Payment and interest ledger for loans
 - `ShareCode`: One-time code to link additional guardians
+- `Chore`: Assignable task with optional recurrence and payout
+- `Message`: Parent/child communications and admin broadcasts
+- `EducationModule`: Learning content with quiz questions
+- `QuizQuestion`: Question belonging to an education module
+- `Badge`: Reward granted for completing modules
+- `ChildBadge`: Association of a child with an earned badge
 
 ### 📡 API Endpoints (sample MVP endpoints)
 - `POST /register`: Create parent account
@@ -109,6 +129,13 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - `POST /coupons/redeem`: Child redeems a coupon code
 - `GET /settings`: Retrieve site-wide settings
 - `PUT /settings`: Update site-wide settings (admin only)
+- `POST /chores/child/{child_id}`: Assign a chore to a child
+- `POST /chores/propose`: Child proposes a chore
+- `POST /chores/{id}/complete`: Mark a chore complete
+- `POST /messages`: Send a message
+- `GET /messages/inbox`: List messages for the current user or child
+- `GET /education/modules`: List educational modules
+- `POST /education/modules/{id}/quiz`: Submit quiz answers and earn badges
 
 ---
 
@@ -129,6 +156,9 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - Nginx config serving the single page app
 - Coupon creation and redemption with optional QR codes
 - Admin-editable site settings including site name, URL, currency, and fees
+- Chore assignments with optional recurrence and payouts
+- In-app messaging between parents and children
+- Education modules with quizzes and badge awards
 
 🛠️ In development:
 - Bucket-based budgeting support
