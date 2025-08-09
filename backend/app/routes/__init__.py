@@ -15,6 +15,7 @@ from . import (
     messages,
     coupons,
     education,
+    chores,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "messages",
     "coupons",
     "education",
+    "chores",
 ]
