@@ -170,7 +170,7 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Docker + Docker Compose (If you're new to the Docker ecosystem, download [https://www.docker.com/products/docker-desktop](Docker Desktop) for your platform to get up and running.
+- Docker + Docker Compose (If you're new to the Docker ecosystem, download Docker Desktop at https://www.docker.com/products/docker-desktop/ for your platform to get up and running.
 - GitHub account (for cloning and pushing; alternatively you could just download this repository as a ZIP file, and unzip it to a directory of your choosing).
 
 ### Clone the Repo
