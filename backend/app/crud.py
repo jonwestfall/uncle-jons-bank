@@ -19,6 +19,7 @@ from app.models import (
     Account,
     CertificateDeposit,
     RecurringCharge,
+    Chore,
     Permission,
     UserPermissionLink,
     Settings,
@@ -1036,6 +1037,40 @@ async def process_loan_interest(db: AsyncSession) -> None:
     loans = await get_active_loans(db)
     for loan in loans:
         await recalc_loan_interest(db, loan)
+
+
+# --- Chore helpers ------------------------------------------------------
+
+
+async def create_chore(db: AsyncSession, chore: Chore) -> Chore:
+    """Persist a new chore."""
+
+    db.add(chore)
+    await db.commit()
+    await db.refresh(chore)
+    return chore
+
+
+async def get_chore(db: AsyncSession, chore_id: int) -> Chore | None:
+    result = await db.execute(select(Chore).where(Chore.id == chore_id))
+    return result.scalar_one_or_none()
+
+
+async def get_chores_by_child(db: AsyncSession, child_id: int) -> list[Chore]:
+    result = await db.execute(select(Chore).where(Chore.child_id == child_id))
+    return result.scalars().all()
+
+
+async def save_chore(db: AsyncSession, chore: Chore) -> Chore:
+    db.add(chore)
+    await db.commit()
+    await db.refresh(chore)
+    return chore
+
+
+async def delete_chore(db: AsyncSession, chore: Chore) -> None:
+    await db.delete(chore)
+    await db.commit()
 
 
 # --- Messaging helpers ----------------------------------------------------

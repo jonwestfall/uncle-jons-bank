@@ -16,6 +16,8 @@ import ChildCoupons from './pages/ChildCoupons'
 import AdminCoupons from './pages/AdminCoupons'
 import MessagesPage from './pages/Messages'
 import ChildBank101 from './pages/ChildBank101'
+import ParentChores from './pages/ParentChores'
+import ChildChores from './pages/ChildChores'
 import Header from './components/Header'
 import './App.css'
 import { ToastProvider } from './components/ToastProvider'
@@ -153,6 +155,10 @@ function App() {
                 element={<ChildLoans token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
               />
               <Route
+                path="/child/chores"
+                element={<ChildChores token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              />
+              <Route
                 path="/child/coupons"
                 element={<ChildCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
               />
@@ -175,6 +181,10 @@ function App() {
             <Route
               path="/"
               element={<ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} currencySymbol={currencySymbol} />}
+            />
+            <Route
+              path="/parent/chores"
+              element={<ParentChores token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
             />
             <Route
               path="/parent/loans"

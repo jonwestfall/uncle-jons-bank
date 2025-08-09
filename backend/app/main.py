@@ -28,6 +28,7 @@ from app.routes import (
     messages,
     coupons,
     education,
+    chores,
 )
 from app.database import create_db_and_tables, async_session
 from app.crud import (
@@ -145,6 +146,7 @@ app.include_router(loans.router)
 app.include_router(messages.router)
 app.include_router(coupons.router)
 app.include_router(education.router)
+app.include_router(chores.router)
 
 
 @app.get("/docs", include_in_schema=False)

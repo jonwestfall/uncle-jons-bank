@@ -212,6 +212,22 @@ class LoanTransaction(SQLModel, table=True):
     loan: Loan = Relationship(back_populates="transactions")
 
 
+class Chore(SQLModel, table=True):
+    """Task that can earn a child money when completed."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="child.id")
+    description: str
+    amount: float
+    interval_days: Optional[int] = None
+    next_due: Optional[date] = None
+    status: str = "pending"  # pending, awaiting_approval, completed, proposed, rejected
+    active: bool = True
+    created_by_child: bool = False
+
+    child: Child = Relationship()
+
+
 class Settings(SQLModel, table=True):
     """Singleton table storing site‑wide configuration values."""
     id: Optional[int] = Field(default=1, primary_key=True)

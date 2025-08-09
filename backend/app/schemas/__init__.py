@@ -36,6 +36,11 @@ from .recurring import (
     RecurringChargeRead,
     RecurringChargeUpdate,
 )
+from .chore import (
+    ChoreCreate,
+    ChoreRead,
+    ChoreUpdate,
+)
 from .promotion import Promotion
 from .share import ShareCodeCreate, ShareCodeRead, ParentAccess
 from .loan import LoanCreate, LoanRead, LoanApprove, LoanPayment, LoanRateUpdate
@@ -85,6 +90,9 @@ __all__ = [
     "RecurringChargeCreate",
     "RecurringChargeRead",
     "RecurringChargeUpdate",
+    "ChoreCreate",
+    "ChoreRead",
+    "ChoreUpdate",
     "Promotion",
     "ShareCodeCreate",
     "ShareCodeRead",
