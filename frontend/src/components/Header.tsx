@@ -14,7 +14,7 @@ export default function Header({ onLogout, isAdmin, isChild, siteName, onToggleT
   return (
     <header className="header">
       <img src="/unclejon.jpg" alt={`${siteName} Logo`} className="logo" />
-      <nav>
+      <nav aria-label="Main navigation">
         <ul>
           {isChild ? (
               <>
@@ -42,7 +42,14 @@ export default function Header({ onLogout, isAdmin, isChild, siteName, onToggleT
               <li><NavLink to="/admin/coupons" className={({isActive}) => isActive ? 'active' : undefined}>Admin Coupons</NavLink></li>
             </>
           )}
-          <li><button onClick={onToggleTheme}>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button></li>
+          <li>
+            <button
+              onClick={onToggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </button>
+          </li>
           <li><button onClick={onLogout}>Logout</button></li>
         </ul>
       </nav>
