@@ -1007,23 +1007,33 @@ async def record_loan_transaction(db: AsyncSession, tx: LoanTransaction) -> Loan
 
 
 async def recalc_loan_interest(db: AsyncSession, loan: Loan) -> None:
-    """Accrue one day of interest on a loan if due."""
+    """Accrue interest on a loan for any missed days."""
 
     today = date.today()
-    if loan.status != "active" or loan.last_interest_applied == today:
+    if loan.status != "active":
         return
-    interest = round(loan.principal_remaining * loan.interest_rate, 2)
-    if interest != 0:
-        loan.principal_remaining += interest
-        await record_loan_transaction(
-            db,
-            LoanTransaction(
-                loan_id=loan.id,
-                type="interest",
-                amount=interest,
-                memo="Interest",
-            ),
-        )
+
+    start_day = loan.last_interest_applied or loan.created_at.date()
+    if start_day >= today:
+        return
+
+    day = start_day
+    while day < today:
+        interest = round(loan.principal_remaining * loan.interest_rate, 2)
+        if interest != 0:
+            loan.principal_remaining += interest
+            await record_loan_transaction(
+                db,
+                LoanTransaction(
+                    loan_id=loan.id,
+                    type="interest",
+                    amount=interest,
+                    memo="Interest",
+                    timestamp=datetime.combine(day + timedelta(days=1), time.min),
+                ),
+            )
+        day += timedelta(days=1)
+
     loan.last_interest_applied = today
     await save_loan(db, loan)
 
