@@ -195,6 +195,9 @@ docker compose up -d
 Visit [http://localhost](http://localhost) for the frontend. *On the first load of the page, since there are no users, it will prompt you to create a super admin account*.
 
 FastAPI's interactive docs are available at [http://localhost/api/docs](http://localhost/api/docs).
+You can access the backend API through the web interface at
+[http://localhost/api/docs#](http://localhost/api/docs#), where you can inspect
+routes and run API requests directly from your browser.
 
 **The eaiest way to get data to play with is to use the API's interactive docs and run the /tests/run test with Persist = True.** This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab.
 
