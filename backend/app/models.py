@@ -97,6 +97,18 @@ class ShareCode(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class RevokedToken(SQLModel, table=True):
+    """Server-side JWT revocation record keyed by token id (jti)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    jti: str = Field(unique=True, index=True)
+    subject: str = Field(index=True)
+    token_type: str
+    reason: str = "manual"
+    revoked_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime = Field(index=True)
+
+
 class Account(SQLModel, table=True):
     """Per‑child ledger account storing running balances and rates."""
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -344,4 +356,3 @@ class ChildBadge(SQLModel, table=True):
 
     child: Child = Relationship()
     badge: Badge = Relationship(back_populates="child_links")
-

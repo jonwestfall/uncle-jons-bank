@@ -254,12 +254,18 @@ tests in two ways:
 Create a `.env` file inside the `backend` directory with at least:
 
 ```env
-SECRET_KEY=your-secret-key
-ALGORITHM=HS256
+SECRET_KEY=replace-with-long-random-secret
+JWT_ALGORITHM=HS256
+JWT_ISSUER=uncle-jons-bank
+JWT_AUDIENCE=uncle-jons-bank-api
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_MINUTES=20160
 ```
 
-These are used for JWT authentication.
+`SECRET_KEY` is required; backend startup fails fast if it is missing.
+
+For operational guidance on secret rotation and token revocation, see
+`backend/docs/security-operations.md`.
 
 ## Bringing up backend / frontend separately
 

@@ -39,7 +39,7 @@ from app.crud import (
 from app.auth import (
     get_current_user,
     require_role,
-    create_access_token,
+    create_token_pair,
     require_permissions,
     get_current_identity,
 )
@@ -469,5 +469,4 @@ async def child_login(
         raise HTTPException(status_code=401, detail="Invalid access code")
     if child.account_frozen:
         raise HTTPException(status_code=403, detail="Account is frozen")
-    token = create_access_token(data={"sub": f"child:{child.id}"})
-    return {"access_token": token, "token_type": "bearer"}
+    return create_token_pair(subject=f"child:{child.id}")

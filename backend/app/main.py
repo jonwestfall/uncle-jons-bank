@@ -43,6 +43,7 @@ from app.crud import (
 )
 from app.models import Child
 from app.acl import ALL_PERMISSIONS
+from app.auth import purge_expired_revoked_tokens
 from sqlmodel import select
 import asyncio
 from datetime import date
@@ -94,6 +95,7 @@ async def on_startup():
     async with async_session() as session:
         # Ensure any new permissions are inserted into the database on startup.
         await ensure_permissions_exist(session, ALL_PERMISSIONS)
+        await purge_expired_revoked_tokens(session)
         from app.crud import ensure_education_content
 
         await ensure_education_content(session)
