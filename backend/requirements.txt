@@ -8,6 +8,7 @@ uvicorn
 # Database layer
 sqlmodel
 sqlalchemy
+greenlet
 aiosqlite
 httpx
 email-validator
