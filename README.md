@@ -179,6 +179,8 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 git clone https://github.com/jonwestfall/uncle-jons-bank.git
 cd uncle-jons-bank
 ```
+### Set the Environmental Variables in /backend/.env (See Below)
+See the section below on what to set.
 
 ### Start the App
 
