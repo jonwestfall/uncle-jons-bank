@@ -41,8 +41,9 @@ debits the CD amount from the child’s balance and locks it until maturity. Whe
 the term ends the principal plus interest is automatically deposited. Admins may
 force a redemption early via `POST /cds/{cd_id}/redeem`; children can redeem
 early themselves using `POST /cds/{cd_id}/redeem-early`. Early redemptions return
-the principal and charge a 10% penalty. The `/tests/cd-issue` and
-`/tests/cd-redeem` endpoints help generate and redeem CDs for integration tests.
+the principal and charge a 10% penalty. Non-production helper endpoints like
+`/tests/cd-issue` and `/tests/cd-redeem` are available only when
+`ENABLE_TEST_ROUTES=true`.
 
 ### 🏦 Loans
 Children can request loans that parents approve or deny. Approved loans disburse
@@ -201,7 +202,7 @@ You can access the backend API through the web interface at
 [http://localhost/api/docs#](http://localhost/api/docs#), where you can inspect
 routes and run API requests directly from your browser.
 
-**The eaiest way to get data to play with is to use the API's interactive docs and run the /tests/run test with Persist = True.** This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab.
+**The easiest way to get data to play with is to temporarily set `ENABLE_TEST_ROUTES=true` and run the `/tests/run` route (Persist = True) from API docs.** This will create admin@example.com / adminpass as well as 2 example parents and 4 example children. You can then login as admin@example.com and update things as you like in the Admin tab. Disable test routes again after setup.
 
 ## Admin Login
 
@@ -232,7 +233,8 @@ tests in two ways:
 
 2. **Through the running API**
 
-   Start the backend with `uvicorn app.main:app` (or `docker compose up`) and
+   Start the backend with `ENABLE_TEST_ROUTES=true uvicorn app.main:app` (or set
+   `ENABLE_TEST_ROUTES=true` in your environment before `docker compose up`) and
    POST to `/tests/run`:
 
    ```bash
@@ -249,6 +251,9 @@ tests in two ways:
    curl -X POST "http://localhost:8000/tests/run?persist=true"
    ```
 
+   After setup/testing is complete, disable these endpoints by removing the
+   variable or setting `ENABLE_TEST_ROUTES=false`, then restart the backend.
+
 ---
 
 ## 🔐 Environment Variables
@@ -262,9 +267,12 @@ JWT_ISSUER=uncle-jons-bank
 JWT_AUDIENCE=uncle-jons-bank-api
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_MINUTES=20160
+ENABLE_TEST_ROUTES=false
 ```
 
 `SECRET_KEY` is required; backend startup fails fast if it is missing.
+`ENABLE_TEST_ROUTES` is optional and defaults to `false`. Set it to `true` only
+for controlled non-production setup/testing sessions.
 
 For operational guidance on secret rotation and token revocation, see
 `backend/docs/security-operations.md`.

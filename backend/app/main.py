@@ -59,6 +59,15 @@ logger = logging.getLogger(__name__)
 app = FastAPI(docs_url=None)
 
 
+def _env_flag_enabled(name: str, default: bool = False) -> bool:
+    """Parse common truthy env values for feature flags."""
+
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _parse_allowed_origins(raw_origins: str) -> list[str]:
     """Parse comma-separated origins and drop empty entries."""
 
@@ -107,6 +116,7 @@ def _build_cors_config() -> dict:
 
 
 cors_config = _build_cors_config()
+test_routes_enabled = _env_flag_enabled("ENABLE_TEST_ROUTES", default=False)
 
 
 def custom_openapi():
@@ -150,6 +160,10 @@ async def on_startup():
         cors_config["allow_methods"],
         cors_config["allow_headers"],
     )
+    if test_routes_enabled:
+        logger.warning(
+            "ENABLE_TEST_ROUTES is enabled. Development-only /tests endpoints are available and should not be exposed in production."
+        )
 
     await create_db_and_tables()
     async with async_session() as session:
@@ -201,7 +215,8 @@ app.include_router(transactions.router)
 app.include_router(withdrawals.router)
 app.include_router(cds.router)
 app.include_router(admin.router)
-app.include_router(tests.router)
+if test_routes_enabled:
+    app.include_router(tests.router)
 app.include_router(settings.router)
 app.include_router(recurring.router)
 app.include_router(loans.router)
