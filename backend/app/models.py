@@ -345,3 +345,15 @@ class ChildBadge(SQLModel, table=True):
     child: Child = Relationship()
     badge: Badge = Relationship(back_populates="child_links")
 
+
+
+class RevokedToken(SQLModel, table=True):
+    """Server-side revocation record for JWT access/refresh tokens."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    jti: str = Field(unique=True, index=True)
+    token_type: str
+    subject: str
+    reason: Optional[str] = None
+    revoked_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime

@@ -43,6 +43,7 @@ from app.crud import (
 )
 from app.models import Child
 from app.acl import ALL_PERMISSIONS
+from app.auth import validate_auth_settings
 from sqlmodel import select
 import asyncio
 from datetime import date
@@ -90,6 +91,7 @@ app.add_middleware(
 async def on_startup():
     """Initialize the database and kick off background tasks."""
 
+    validate_auth_settings()
     await create_db_and_tables()
     async with async_session() as session:
         # Ensure any new permissions are inserted into the database on startup.

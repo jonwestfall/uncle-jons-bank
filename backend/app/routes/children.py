@@ -40,6 +40,7 @@ from app.auth import (
     get_current_user,
     require_role,
     create_access_token,
+    create_refresh_token,
     require_permissions,
     get_current_identity,
 )
@@ -469,5 +470,10 @@ async def child_login(
         raise HTTPException(status_code=401, detail="Invalid access code")
     if child.account_frozen:
         raise HTTPException(status_code=403, detail="Account is frozen")
-    token = create_access_token(data={"sub": f"child:{child.id}"})
-    return {"access_token": token, "token_type": "bearer"}
+    access_token = create_access_token(subject=f"child:{child.id}")
+    refresh_token = create_refresh_token(subject=f"child:{child.id}")
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }

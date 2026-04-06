@@ -2,24 +2,49 @@
 import logging
 """Authentication endpoints: login, token generation and registration."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+from sqlalchemy import func
+
 from app.auth import (
-    create_access_token,
-    verify_password,
     authenticate_user,
+    create_access_token,
+    create_refresh_token,
+    decode_and_validate_token,
+    revoke_token,
+    verify_password,
+    oauth2_scheme,
 )
 from app.database import get_session
 from app.models import User
 from app.crud import get_settings, create_user
-
-from sqlmodel import select
-from sqlalchemy import func
 from app.schemas.user import UserCreate, UserResponse, UserLogin
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
+
+
+def _token_pair_for_subject(subject: str) -> dict[str, str]:
+    access_token = create_access_token(subject=subject)
+    refresh_token = create_refresh_token(subject=subject)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
 
 
 @router.post("/token")
@@ -49,9 +74,7 @@ async def login_for_access_token(
             },
         )
     logger.info("User %s logged in via OAuth form", user.email)
-    access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
-
+    return _token_pair_for_subject(f"user:{user.id}")
 
 
 @router.post("/login")
@@ -79,8 +102,80 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_session)):
             },
         )
     logger.info("User %s logged in", user.email)
-    access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return _token_pair_for_subject(f"user:{user.id}")
+
+
+@router.post("/refresh")
+async def refresh_access_token(
+    payload: RefreshRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    """Rotate refresh tokens and issue a new access/refresh token pair."""
+
+    refresh_payload = await decode_and_validate_token(
+        db,
+        payload.refresh_token,
+        expected_type="refresh",
+    )
+    await revoke_token(
+        db,
+        jti=refresh_payload["jti"],
+        token_type="refresh",
+        subject=refresh_payload["sub"],
+        expires_at=datetime.fromtimestamp(refresh_payload["exp"], tz=timezone.utc),
+        reason="rotated",
+    )
+    return _token_pair_for_subject(refresh_payload["sub"])
+
+
+@router.post("/logout")
+async def logout(
+    request: LogoutRequest | None = Body(default=None),
+    access_token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_session),
+):
+    """Revoke current access token and optionally the provided refresh token."""
+
+    access_payload = await decode_and_validate_token(
+        db,
+        access_token,
+        expected_type="access",
+    )
+    await revoke_token(
+        db,
+        jti=access_payload["jti"],
+        token_type="access",
+        subject=access_payload["sub"],
+        expires_at=datetime.fromtimestamp(access_payload["exp"], tz=timezone.utc),
+        reason="logout",
+    )
+
+    if request and request.refresh_token:
+        refresh_payload = await decode_and_validate_token(
+            db,
+            request.refresh_token,
+            expected_type="refresh",
+        )
+        if refresh_payload["sub"] != access_payload["sub"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "auth_subject_mismatch",
+                    "message": "Refresh token does not belong to current subject",
+                },
+            )
+        await revoke_token(
+            db,
+            jti=refresh_payload["jti"],
+            token_type="refresh",
+            subject=refresh_payload["sub"],
+            expires_at=datetime.fromtimestamp(
+                refresh_payload["exp"], tz=timezone.utc
+            ),
+            reason="logout",
+        )
+
+    return {"detail": "Logged out"}
 
 
 @router.get("/needs-admin")
@@ -89,6 +184,7 @@ async def needs_admin(db: AsyncSession = Depends(get_session)):
 
     result = await db.execute(select(func.count()).select_from(User))
     return {"needs_admin": result.scalar() == 0}
+
 
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
@@ -130,4 +226,3 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_session))
         " as initial admin" if is_first_user else "",
     )
     return new_user
-
