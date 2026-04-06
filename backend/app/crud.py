@@ -34,7 +34,7 @@ from app.models import (
     Badge,
     ChildBadge,
 )
-from app.auth import get_password_hash, get_child_by_id
+from app.auth import get_password_hash, get_child_by_id, is_password_hash
 from app.acl import get_default_permissions_for_role, ALL_PERMISSIONS
 import uuid
 
@@ -128,7 +128,7 @@ async def save_settings(db: AsyncSession, settings: Settings) -> Settings:
 async def create_user(db: AsyncSession, user: User):
     """Create a new user, hashing the password and assigning defaults."""
 
-    if not user.password_hash.startswith("$2b$"):
+    if not is_password_hash(user.password_hash):
         user.password_hash = get_password_hash(user.password_hash)
     db.add(user)
     await db.commit()

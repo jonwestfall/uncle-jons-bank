@@ -6,9 +6,11 @@ here are used across route handlers to ensure consistent security
 behavior.
 """
 
+import base64
+import hashlib
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.models import User, Child
@@ -25,20 +27,48 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 )
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
+
+
+def _to_bytes(value: str) -> bytes:
+    return value.encode("utf-8")
+
+
+def _prehash_password(password: str) -> bytes:
+    """Pre-hash plaintext so bcrypt can support long passwords safely."""
+
+    digest = hashlib.sha256(_to_bytes(password)).digest()
+    return base64.b64encode(digest)
+
+
+def is_password_hash(value: str) -> bool:
+    """Return True when value looks like a bcrypt hash."""
+
+    return value.startswith("$2")
 
 
 def verify_password(plain_password, hashed_password):
     """Verify a plaintext password against a stored hash."""
 
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        hashed_bytes = _to_bytes(hashed_password)
+        # Preferred verification path for newly-created hashes.
+        if bcrypt.checkpw(_prehash_password(plain_password), hashed_bytes):
+            return True
+        # Legacy compatibility for older hashes stored from raw bcrypt input.
+        legacy_plain = _to_bytes(plain_password)[:72]
+        return bcrypt.checkpw(legacy_plain, hashed_bytes)
+    except (ValueError, TypeError):
+        return False
 
 
 def get_password_hash(password):
     """Hash a password for storage."""
 
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(
+        _prehash_password(password),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
 
 
 from sqlmodel import select

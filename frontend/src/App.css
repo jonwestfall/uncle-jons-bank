@@ -256,6 +256,7 @@
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 2000;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
@@ -263,6 +264,8 @@
 }
 
 .modal {
+  position: relative;
+  z-index: 2001;
   background: var(--container-bg);
   padding: 1rem;
   border-radius: 8px;
