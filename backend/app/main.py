@@ -8,6 +8,7 @@ application flow easier for new developers to follow.
 
 import os
 import logging
+from urllib.parse import urlparse
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -58,6 +59,56 @@ logger = logging.getLogger(__name__)
 app = FastAPI(docs_url=None)
 
 
+def _parse_allowed_origins(raw_origins: str) -> list[str]:
+    """Parse comma-separated origins and drop empty entries."""
+
+    return [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
+
+def _validate_strict_origin(origin: str) -> bool:
+    """Require explicit scheme, host, and port for strict environments."""
+
+    parsed = urlparse(origin)
+    return bool(parsed.scheme and parsed.hostname and parsed.port)
+
+
+def _build_cors_config() -> dict:
+    """Build CORS policy from environment with strict non-dev defaults."""
+
+    env = os.getenv("ENV", "production").strip().lower()
+    raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    parsed_origins = _parse_allowed_origins(raw_origins)
+
+    if env == "development":
+        allow_origins = parsed_origins or ["*"]
+    else:
+        if any(origin == "*" for origin in parsed_origins):
+            raise RuntimeError(
+                "CORS_ALLOWED_ORIGINS cannot include '*' when ENV is not development."
+            )
+
+        invalid_origins = [
+            origin for origin in parsed_origins if not _validate_strict_origin(origin)
+        ]
+        if invalid_origins:
+            raise RuntimeError(
+                "Invalid CORS_ALLOWED_ORIGINS entries for strict mode "
+                f"(must include scheme, host, and port): {invalid_origins}"
+            )
+        allow_origins = parsed_origins
+
+    return {
+        "env": env,
+        "allow_origins": allow_origins,
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+
+
+cors_config = _build_cors_config()
+
+
 def custom_openapi():
     """Generate an OpenAPI schema that is aware of our `/api` proxy prefix."""
 
@@ -80,16 +131,25 @@ app.openapi = custom_openapi
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_config["allow_origins"],
+    allow_credentials=cors_config["allow_credentials"],
+    allow_methods=cors_config["allow_methods"],
+    allow_headers=cors_config["allow_headers"],
 )
 
 
 @app.on_event("startup")
 async def on_startup():
     """Initialize the database and kick off background tasks."""
+
+    logger.info(
+        "CORS policy active: env=%s allow_origins=%s allow_credentials=%s allow_methods=%s allow_headers=%s",
+        cors_config["env"],
+        cors_config["allow_origins"],
+        cors_config["allow_credentials"],
+        cors_config["allow_methods"],
+        cors_config["allow_headers"],
+    )
 
     await create_db_and_tables()
     async with async_session() as session:

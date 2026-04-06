@@ -10,6 +10,8 @@ Set these for every backend deployment:
 - `JWT_AUDIENCE`: Expected JWT audience claim. Default: `uncle-jons-bank-api`.
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: Access token lifetime in minutes. Default: `30`.
 - `REFRESH_TOKEN_EXPIRE_MINUTES`: Refresh token lifetime in minutes. Default: `20160` (14 days).
+- `ENV`: Runtime environment (`development`, `staging`, `production`). Default: `production`.
+- `CORS_ALLOWED_ORIGINS`: Comma-separated allowed origins (for example: `https://app.example.com:443,https://admin.example.com:443`).
 
 Example (`backend/.env`):
 
@@ -21,6 +23,32 @@ JWT_AUDIENCE=uncle-jons-bank-api
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_MINUTES=20160
 ```
+
+## CORS Configuration by Environment
+
+The backend reads allowed CORS origins from `CORS_ALLOWED_ORIGINS` as a comma-separated list.
+
+- In `production` and `staging` (`ENV` not equal to `development`):
+  - Wildcard origins are rejected.
+  - Every origin must include explicit scheme, host, and port.
+  - Example:
+
+    ```env
+    ENV=production
+    CORS_ALLOWED_ORIGINS=https://app.example.com:443,https://admin.example.com:443
+    ```
+
+- In `development`:
+  - If `CORS_ALLOWED_ORIGINS` is omitted, CORS falls back to permissive local-dev mode (`*`).
+  - You can still provide explicit dev origins if preferred.
+  - Example:
+
+    ```env
+    ENV=development
+    CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+    ```
+
+On startup, the backend logs the effective CORS policy (environment and resolved origin list) to help verify deployment configuration.
 
 ## JWT Claims in Use
 
