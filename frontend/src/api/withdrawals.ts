@@ -1,15 +1,6 @@
 import type { ApiClient } from './client'
-
-export interface WithdrawalRequest {
-  id: number
-  child_id: number
-  amount: number
-  memo?: string | null
-  status: string
-  requested_at: string
-  responded_at?: string | null
-  denial_reason?: string | null
-}
+import type { WithdrawalRequest } from '../types/domain'
+export type { WithdrawalRequest }
 
 export const listPendingWithdrawals = (client: ApiClient) =>
   client.get<WithdrawalRequest[]>('/withdrawals/')

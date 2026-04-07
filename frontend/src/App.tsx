@@ -1,26 +1,29 @@
 // Root React component responsible for routing and global state.
 // It handles authentication, theme switching and basic layout.
 import { useState, useEffect, useCallback } from 'react'
+import { lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import ParentDashboard from './pages/ParentDashboard'
-import ParentProfile from './pages/ParentProfile'
-import ChildDashboard from './pages/ChildDashboard'
-import ChildProfile from './pages/ChildProfile'
-import AdminPanel from './pages/AdminPanel'
-import ChildLoans from './pages/ChildLoans'
-import ParentLoans from './pages/ParentLoans'
-import ParentCoupons from './pages/ParentCoupons'
-import ChildCoupons from './pages/ChildCoupons'
-import AdminCoupons from './pages/AdminCoupons'
-import MessagesPage from './pages/Messages'
-import ChildBank101 from './pages/ChildBank101'
-import ParentChores from './pages/ParentChores'
-import ChildChores from './pages/ChildChores'
 import Header from './components/Header'
 import './App.css'
 import { ToastProvider } from './components/ToastProvider'
+import RouteBoundary from './components/RouteBoundary'
+
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const ParentDashboard = lazy(() => import('./pages/ParentDashboard'))
+const ParentProfile = lazy(() => import('./pages/ParentProfile'))
+const ChildDashboard = lazy(() => import('./pages/ChildDashboard'))
+const ChildProfile = lazy(() => import('./pages/ChildProfile'))
+const AdminPanel = lazy(() => import('./pages/AdminPanel'))
+const ChildLoans = lazy(() => import('./pages/ChildLoans'))
+const ParentLoans = lazy(() => import('./pages/ParentLoans'))
+const ParentCoupons = lazy(() => import('./pages/ParentCoupons'))
+const ChildCoupons = lazy(() => import('./pages/ChildCoupons'))
+const AdminCoupons = lazy(() => import('./pages/AdminCoupons'))
+const MessagesPage = lazy(() => import('./pages/Messages'))
+const ChildBank101 = lazy(() => import('./pages/ChildBank101'))
+const ParentChores = lazy(() => import('./pages/ParentChores'))
+const ChildChores = lazy(() => import('./pages/ChildChores'))
 
 function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
@@ -121,10 +124,21 @@ function App() {
         <Routes>
           <Route
             path="/login"
-            element={<LoginPage onLogin={handleLogin} siteName={siteName} allowRegister={!registrationDisabled} />}
+            element={
+              <RouteBoundary>
+                <LoginPage onLogin={handleLogin} siteName={siteName} allowRegister={!registrationDisabled} />
+              </RouteBoundary>
+            }
           />
           {!registrationDisabled && (
-            <Route path="/register" element={<RegisterPage apiUrl={apiUrl} siteName={siteName} />} />
+            <Route
+              path="/register"
+              element={
+                <RouteBoundary>
+                  <RegisterPage apiUrl={apiUrl} siteName={siteName} />
+                </RouteBoundary>
+              }
+            />
           )}
           <Route path="*" element={<Navigate to={`/login${window.location.search}`} replace />} />
         </Routes>
@@ -148,31 +162,59 @@ function App() {
             <>
               <Route
                 path="/child"
-                element={<ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} currencySymbol={currencySymbol} />}
+                element={
+                  <RouteBoundary>
+                    <ChildDashboard token={token} childId={childId} apiUrl={apiUrl} onLogout={handleLogout} currencySymbol={currencySymbol} />
+                  </RouteBoundary>
+                }
               />
               <Route
                 path="/child/loans"
-                element={<ChildLoans token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+                element={
+                  <RouteBoundary>
+                    <ChildLoans token={token} childId={childId} apiUrl={apiUrl} currencySymbol={currencySymbol} />
+                  </RouteBoundary>
+                }
               />
               <Route
                 path="/child/chores"
-                element={<ChildChores token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+                element={
+                  <RouteBoundary>
+                    <ChildChores token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />
+                  </RouteBoundary>
+                }
               />
               <Route
                 path="/child/coupons"
-                element={<ChildCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+                element={
+                  <RouteBoundary>
+                    <ChildCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />
+                  </RouteBoundary>
+                }
               />
               <Route
                 path="/child/bank101"
-                element={<ChildBank101 token={token} apiUrl={apiUrl} />}
+                element={
+                  <RouteBoundary>
+                    <ChildBank101 token={token} apiUrl={apiUrl} />
+                  </RouteBoundary>
+                }
               />
               <Route
                 path="/child/messages"
-                element={<MessagesPage token={token} apiUrl={apiUrl} isChild={true} isAdmin={false} />}
+                element={
+                  <RouteBoundary>
+                    <MessagesPage token={token} apiUrl={apiUrl} isChild={true} isAdmin={false} />
+                  </RouteBoundary>
+                }
               />
               <Route
                 path="/child/profile"
-                element={<ChildProfile token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+                element={
+                  <RouteBoundary>
+                    <ChildProfile token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />
+                  </RouteBoundary>
+                }
               />
             </>
           )}
@@ -180,27 +222,51 @@ function App() {
           <>
             <Route
               path="/"
-              element={<ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} currencySymbol={currencySymbol} />}
+              element={
+                <RouteBoundary>
+                  <ParentDashboard token={token} apiUrl={apiUrl} permissions={permissions} onLogout={handleLogout} currencySymbol={currencySymbol} />
+                </RouteBoundary>
+              }
             />
             <Route
               path="/parent/chores"
-              element={<ParentChores token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              element={
+                <RouteBoundary>
+                  <ParentChores token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />
+                </RouteBoundary>
+              }
             />
             <Route
               path="/parent/loans"
-              element={<ParentLoans token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              element={
+                <RouteBoundary>
+                  <ParentLoans token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />
+                </RouteBoundary>
+              }
             />
             <Route
               path="/parent/coupons"
-              element={<ParentCoupons token={token} apiUrl={apiUrl} isAdmin={isAdmin} currencySymbol={currencySymbol} />}
+              element={
+                <RouteBoundary>
+                  <ParentCoupons token={token} apiUrl={apiUrl} isAdmin={isAdmin} currencySymbol={currencySymbol} />
+                </RouteBoundary>
+              }
             />
             <Route
               path="/messages"
-              element={<MessagesPage token={token} apiUrl={apiUrl} isChild={false} isAdmin={isAdmin} />}
+              element={
+                <RouteBoundary>
+                  <MessagesPage token={token} apiUrl={apiUrl} isChild={false} isAdmin={isAdmin} />
+                </RouteBoundary>
+              }
             />
             <Route
               path="/parent/profile"
-              element={<ParentProfile token={token} apiUrl={apiUrl} />}
+              element={
+                <RouteBoundary>
+                  <ParentProfile token={token} apiUrl={apiUrl} />
+                </RouteBoundary>
+              }
             />
           </>
         )}
@@ -208,11 +274,19 @@ function App() {
           <>
             <Route
               path="/admin"
-              element={<AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} siteName={siteName} currencySymbol={currencySymbol} onSettingsChange={fetchSettings} />}
+              element={
+                <RouteBoundary>
+                  <AdminPanel token={token} apiUrl={apiUrl} onLogout={handleLogout} siteName={siteName} currencySymbol={currencySymbol} onSettingsChange={fetchSettings} />
+                </RouteBoundary>
+              }
             />
             <Route
               path="/admin/coupons"
-              element={<AdminCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />}
+              element={
+                <RouteBoundary>
+                  <AdminCoupons token={token} apiUrl={apiUrl} currencySymbol={currencySymbol} />
+                </RouteBoundary>
+              }
             />
           </>
         )}

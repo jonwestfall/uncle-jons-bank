@@ -1,16 +1,6 @@
 import React, { useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { formatCurrency } from '../utils/currency'
-
-export interface Transaction {
-  id: number
-  child_id: number
-  type: string
-  amount: number
-  memo?: string | null
-  initiated_by: string
-  initiator_id: number
-  timestamp: string
-}
+import type { Transaction } from '../types/domain'
 
 export default function LedgerTable({
   transactions,

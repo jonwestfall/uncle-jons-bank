@@ -1,10 +1,6 @@
-import type { Transaction } from '../components/LedgerTable'
+import type { LedgerResponse, Transaction } from '../types/domain'
 import type { ApiClient } from './client'
-
-export interface LedgerResponse {
-  balance: number
-  transactions: Transaction[]
-}
+export type { LedgerResponse, Transaction }
 
 export interface CreateTransactionPayload {
   child_id: number

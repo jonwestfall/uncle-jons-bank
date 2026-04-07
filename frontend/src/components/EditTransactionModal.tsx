@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Transaction } from "./LedgerTable";
+import type { Transaction } from '../types/domain'
 
 interface Props {
   transaction: Transaction;

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import ConfirmModal from '../components/ConfirmModal'
 import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
 import EditTransactionModal from '../components/EditTransactionModal'
-import LedgerTable, { type Transaction } from '../components/LedgerTable'
+import LedgerTable from '../components/LedgerTable'
 import RunPromotionModal from '../components/RunPromotionModal'
 import AddParentModal from '../components/AddParentModal'
 import { formatCurrency } from '../utils/currency'
@@ -24,6 +24,7 @@ import {
 } from '../api/admin'
 import { getSettings, type SiteSettings } from '../api/settings'
 import { toastApiError } from '../utils/apiError'
+import type { Transaction } from '../types/domain'
 
 interface Props {
   token: string

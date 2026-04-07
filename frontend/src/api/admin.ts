@@ -1,4 +1,4 @@
-import type { Transaction } from '../components/LedgerTable'
+import type { Transaction } from '../types/domain'
 import type { ApiClient } from './client'
 
 export interface AdminUser {

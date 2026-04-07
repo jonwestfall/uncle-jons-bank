@@ -1,4 +1,5 @@
 import type { ApiClient } from './client'
+import type { ChildParentInfo } from '../types/domain'
 
 export interface ChildApi {
   id: number
@@ -11,13 +12,7 @@ export interface ChildApi {
   total_interest_earned?: number
 }
 
-export interface ChildParentInfo {
-  user_id: number
-  name: string
-  email: string
-  permissions: string[]
-  is_owner: boolean
-}
+export type { ChildParentInfo }
 
 export interface ShareCodeResponse {
   code: string

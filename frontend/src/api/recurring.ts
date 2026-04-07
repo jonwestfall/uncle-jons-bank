@@ -1,15 +1,6 @@
 import type { ApiClient } from './client'
-
-export interface RecurringCharge {
-  id: number
-  child_id: number
-  amount: number
-  type: string
-  memo?: string | null
-  interval_days: number
-  next_run: string
-  active: boolean
-}
+import type { RecurringCharge } from '../types/domain'
+export type { RecurringCharge }
 
 export interface CreateRecurringPayload {
   amount: number

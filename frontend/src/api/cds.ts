@@ -1,13 +1,6 @@
 import type { ApiClient } from './client'
-
-export interface CdOffer {
-  id: number
-  amount: number
-  interest_rate: number
-  term_days: number
-  status: string
-  matures_at?: string | null
-}
+import type { CdOffer } from '../types/domain'
+export type { CdOffer }
 
 export interface CreateCdPayload {
   child_id: number
