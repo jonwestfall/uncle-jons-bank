@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import EditRatesModal from "../components/EditRatesModal";
 import type { Transaction } from "../components/LedgerTable";
 import LedgerTable from "../components/LedgerTable";
@@ -11,6 +11,40 @@ import ManageAccessModal from "../components/ManageAccessModal";
 import ShareChildModal from "../components/ShareChildModal";
 import TextPromptModal from "../components/TextPromptModal";
 import { useToast } from "../components/ToastProvider";
+import { createApiClient } from "../api/client";
+import {
+  createChild,
+  createChildShareCode,
+  freezeChild,
+  getChildParents,
+  listChildren,
+  redeemShareCode,
+  removeChildParentAccess,
+  unfreezeChild,
+  updateChildAccessCode,
+  type ChildApi,
+  type ChildParentInfo,
+} from "../api/children";
+import {
+  createTransaction,
+  deleteTransaction,
+  getChildLedger,
+  type LedgerResponse,
+} from "../api/transactions";
+import {
+  createRecurringForChild,
+  deleteRecurring,
+  listChildRecurring,
+  type RecurringCharge,
+} from "../api/recurring";
+import {
+  approveWithdrawal,
+  denyWithdrawal,
+  listPendingWithdrawals,
+  type WithdrawalRequest,
+} from "../api/withdrawals";
+import { createCdOffer } from "../api/cds";
+import { toastApiError, mapApiErrorMessage } from "../utils/apiError";
 
 interface Child {
   id: number;
@@ -22,52 +56,6 @@ interface Child {
   total_interest_earned?: number;
   balance?: number;
   last_activity?: string;
-}
-
-interface ParentInfo {
-  user_id: number;
-  name: string;
-  email: string;
-  permissions: string[];
-  is_owner: boolean;
-}
-
-interface ChildApi {
-  id: number;
-  first_name: string;
-  account_frozen?: boolean;
-  frozen?: boolean;
-  interest_rate?: number;
-  penalty_interest_rate?: number;
-  cd_penalty_rate?: number;
-  total_interest_earned?: number;
-}
-
-interface LedgerResponse {
-  balance: number;
-  transactions: Transaction[];
-}
-
-interface WithdrawalRequest {
-  id: number;
-  child_id: number;
-  amount: number;
-  memo?: string | null;
-  status: string;
-  requested_at: string;
-  responded_at?: string | null;
-  denial_reason?: string | null;
-}
-
-interface RecurringCharge {
-  id: number;
-  child_id: number;
-  amount: number;
-  type: string;
-  memo?: string | null;
-  interval_days: number;
-  next_run: string;
-  active: boolean;
 }
 
 interface Props {
@@ -116,7 +104,7 @@ export default function ParentDashboard({
   const [sharingChild, setSharingChild] = useState<Child | null>(null);
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [accessChild, setAccessChild] = useState<Child | null>(null);
-  const [accessParents, setAccessParents] = useState<ParentInfo[]>([]);
+  const [accessParents, setAccessParents] = useState<ChildParentInfo[]>([]);
   const [actionChild, setActionChild] = useState<Child | null>(null);
   const [editingCharge, setEditingCharge] = useState<RecurringCharge | null>(null);
   const [actionTab, setActionTab] = useState<'account' | 'share' | 'ledger'>('account');
@@ -131,6 +119,10 @@ export default function ParentDashboard({
   const [rcInterval, setRcInterval] = useState("");
   const [rcNext, setRcNext] = useState("");
   const { showToast } = useToast();
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  );
 
   const getChildName = useCallback(
     (id: number) => children.find((c) => c.id === id)?.first_name || `Child ${id}`,
@@ -146,89 +138,71 @@ export default function ParentDashboard({
   const fetchChildren = useCallback(async () => {
     setLoadingChildren(true);
     try {
-      const resp = await fetch(`${apiUrl}/children/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (resp.ok) {
-        const data: ChildApi[] = await resp.json();
-        const enriched = await Promise.all(
-          data.map(async (c) => {
-            let balance: number | undefined;
-            let last_activity: string | undefined;
-            try {
-              const l = await fetch(`${apiUrl}/transactions/child/${c.id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              if (l.ok) {
-                const lr: LedgerResponse = await l.json();
-                balance = lr.balance;
-                last_activity = lr.transactions[0]?.timestamp;
-              }
-            } catch {
-              /* ignore */
-            }
-            return {
-              id: c.id,
-              first_name: c.first_name,
-              frozen: c.frozen ?? c.account_frozen ?? false,
-              interest_rate: c.interest_rate,
-              penalty_interest_rate: c.penalty_interest_rate,
-              cd_penalty_rate: c.cd_penalty_rate,
-              total_interest_earned: c.total_interest_earned,
-              balance,
-              last_activity,
-            } as Child;
-          }),
-        );
-        setChildren(enriched);
-      } else {
-        showToast("Failed to load children", "error");
-      }
-    } catch {
-      showToast("Failed to load children", "error");
+      const data = await listChildren(client);
+      const enriched = await Promise.all(
+        data.map(async (c: ChildApi) => {
+          let balance: number | undefined;
+          let last_activity: string | undefined;
+          try {
+            const lr = await getChildLedger(client, c.id);
+            balance = lr.balance;
+            last_activity = lr.transactions[0]?.timestamp;
+          } catch {
+            /* ignore */
+          }
+          return {
+            id: c.id,
+            first_name: c.first_name,
+            frozen: c.frozen ?? c.account_frozen ?? false,
+            interest_rate: c.interest_rate,
+            penalty_interest_rate: c.penalty_interest_rate,
+            cd_penalty_rate: c.cd_penalty_rate,
+            total_interest_earned: c.total_interest_earned,
+            balance,
+            last_activity,
+          } as Child;
+        }),
+      );
+      setChildren(enriched);
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to load children");
     } finally {
       setLoadingChildren(false);
     }
-  }, [apiUrl, token, showToast]);
+  }, [client, showToast]);
 
   const fetchLedger = useCallback(
     async (cid: number) => {
-      const resp = await fetch(`${apiUrl}/transactions/child/${cid}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (resp.ok) setLedger(await resp.json());
+      try {
+        setLedger(await getChildLedger(client, cid));
+      } catch (error) {
+        toastApiError(showToast, error, "Failed to load ledger");
+      }
     },
-    [apiUrl, token],
+    [client, showToast],
   );
 
   const fetchCharges = useCallback(
     async (cid: number) => {
-      const resp = await fetch(`${apiUrl}/recurring/child/${cid}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (resp.ok) setCharges(await resp.json());
-      else setCharges([]);
+      try {
+        setCharges(await listChildRecurring(client, cid));
+      } catch {
+        setCharges([]);
+      }
     },
-    [apiUrl, token],
+    [client],
   );
 
   const fetchPendingWithdrawals = useCallback(async () => {
     setLoadingWithdrawals(true);
     try {
-      const resp = await fetch(`${apiUrl}/withdrawals/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (resp.ok) {
-        setPendingWithdrawals(await resp.json());
-      } else {
-        showToast("Failed to load withdrawals", "error");
-      }
-    } catch {
-      showToast("Failed to load withdrawals", "error");
+      setPendingWithdrawals(await listPendingWithdrawals(client));
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to load withdrawals");
     } finally {
       setLoadingWithdrawals(false);
     }
-  }, [apiUrl, token, showToast]);
+  }, [client, showToast]);
 
   useEffect(() => {
     fetchChildren();
@@ -237,28 +211,24 @@ export default function ParentDashboard({
 
 
   const toggleFreeze = async (childId: number, frozen: boolean) => {
-    const endpoint = frozen ? "unfreeze" : "freeze";
-    const resp = await fetch(`${apiUrl}/children/${childId}/${endpoint}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => null);
-      showToast(data?.detail || "Action failed", "error");
+    try {
+      if (frozen) {
+        await unfreezeChild(client, childId);
+      } else {
+        await freezeChild(client, childId);
+      }
+      await fetchChildren();
+    } catch (error) {
+      toastApiError(showToast, error, "Action failed");
     }
-    fetchChildren();
   };
 
   const openAccess = async (child: Child) => {
-    const resp = await fetch(`${apiUrl}/children/${child.id}/parents`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
-      setAccessParents(await resp.json());
+    try {
+      setAccessParents(await getChildParents(client, child.id));
       setAccessChild(child);
-    } else {
-      const data = await resp.json().catch(() => null);
-      showToast(data?.detail || "Failed to load access", "error");
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to load access");
     }
   };
 
@@ -277,13 +247,15 @@ export default function ParentDashboard({
                   {w.memo ? ` (${w.memo})` : ""} on {new Date(w.requested_at).toLocaleDateString()}
                   <button
                     onClick={async () => {
-                      await fetch(`${apiUrl}/withdrawals/${w.id}/approve`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}` },
-                      });
-                      await fetchPendingWithdrawals();
-                      if (selectedChild === w.child_id)
-                        await fetchLedger(w.child_id);
+                      try {
+                        await approveWithdrawal(client, w.id);
+                        await fetchPendingWithdrawals();
+                        if (selectedChild === w.child_id) {
+                          await fetchLedger(w.child_id);
+                        }
+                      } catch (error) {
+                        toastApiError(showToast, error, "Failed to approve withdrawal");
+                      }
                     }}
                     className="ml-1"
                   >
@@ -482,15 +454,13 @@ export default function ParentDashboard({
                       setConfirmAction({
                         message: "Delete transaction?",
                         onConfirm: async () => {
-                          const resp = await fetch(
-                            `${apiUrl}/transactions/${tx.id}`,
-                            {
-                              method: "DELETE",
-                              headers: { Authorization: `Bearer ${token}` },
-                            },
-                          );
-                          if (resp.ok && selectedChild !== null) {
-                            await fetchLedger(selectedChild);
+                          try {
+                            await deleteTransaction(client, tx.id);
+                            if (selectedChild !== null) {
+                              await fetchLedger(selectedChild);
+                            }
+                          } catch (error) {
+                            toastApiError(showToast, error, "Failed to delete transaction");
                           }
                         },
                       })
@@ -523,11 +493,12 @@ export default function ParentDashboard({
                       setConfirmAction({
                         message: "Delete charge?",
                         onConfirm: async () => {
-                          await fetch(`${apiUrl}/recurring/${c.id}`, {
-                            method: "DELETE",
-                            headers: { Authorization: `Bearer ${token}` },
-                          });
-                          fetchCharges(selectedChild);
+                          try {
+                            await deleteRecurring(client, c.id);
+                            fetchCharges(selectedChild);
+                          } catch (error) {
+                            toastApiError(showToast, error, "Failed to delete charge");
+                          }
                         },
                       })
                     }
@@ -550,23 +521,16 @@ export default function ParentDashboard({
           showToast("Next run cannot be in the past", "error");
                   return;
                 }
-                const resp = await fetch(`${apiUrl}/recurring/child/${selectedChild}`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
+                try {
+                  await createRecurringForChild(client, selectedChild, {
                     amount: Number(rcAmount),
                     memo: rcMemo || null,
                     interval_days: Number(rcInterval),
                     next_run: rcNext,
                     type: rcType,
-                  }),
-                });
-                if (!resp.ok) {
-                  const data = await resp.json().catch(() => null);
-                  showToast(data?.detail || "Action failed", "error");
+                  });
+                } catch (error) {
+                  toastApiError(showToast, error, "Action failed");
                   return;
                 }
                 setRcAmount("");
@@ -628,29 +592,24 @@ export default function ParentDashboard({
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              const resp = await fetch(`${apiUrl}/transactions/`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
+              try {
+                await createTransaction(client, {
                   child_id: selectedChild,
                   type: txType,
                   amount: Number(txAmount),
                   memo: txMemo || null,
                   initiated_by: "parent",
                   initiator_id: 0,
-                }),
-              });
+                });
+              } catch (error) {
+                toastApiError(showToast, error, "Action failed");
+                return;
+              }
               setTxAmount("");
               setTxMemo("");
               setTxType("credit");
-              if (resp.ok && selectedChild !== null) {
+              if (selectedChild !== null) {
                 await fetchLedger(selectedChild);
-              } else if (!resp.ok) {
-                const data = await resp.json().catch(() => null);
-                showToast(data?.detail || "Action failed", "error");
               }
             }}
             className="form"
@@ -688,30 +647,16 @@ export default function ParentDashboard({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const resp = await fetch(`${apiUrl}/cds/`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
+            try {
+              await createCdOffer(client, {
                 child_id: selectedChild,
                 amount: Number(cdAmount),
                 interest_rate: Number(cdRate),
                 term_days: Number(cdDays),
-              }),
-            });
-            if (resp.ok) {
-              alert("CD offer sent!");
-            } else {
-              let msg = "Failed to send CD offer";
-              try {
-                const data = await resp.json();
-                if (data.detail) msg = data.detail;
-              } catch {
-                // ignore
-              }
-              alert(msg);
+              });
+              showToast("CD offer sent!");
+            } catch (error) {
+              toastApiError(showToast, error, "Failed to send CD offer");
             }
             setCdAmount("");
             setCdRate("");
@@ -759,30 +704,15 @@ export default function ParentDashboard({
           e.preventDefault();
           setErrorMessage(null);
           try {
-            const resp = await fetch(`${apiUrl}/children/`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                first_name: firstName,
-                access_code: accessCode,
-              }),
+            await createChild(client, {
+              first_name: firstName,
+              access_code: accessCode,
             });
-            if (resp.ok) {
-              setFirstName("");
-              setAccessCode("");
-              fetchChildren();
-            } else {
-              const errorData = await resp.json();
-              setErrorMessage(
-                errorData.message || "Failed to add child. Please try again.",
-              );
-            }
+            setFirstName("");
+            setAccessCode("");
+            fetchChildren();
           } catch (error) {
-            console.error(error);
-            setErrorMessage("An unexpected error occurred. Please try again.");
+            setErrorMessage(mapApiErrorMessage(error, "Failed to add child. Please try again."));
           }
         }}
         className="form"
@@ -825,26 +755,11 @@ export default function ParentDashboard({
       {sharingChild && (
         <ShareChildModal
           onSubmit={async (perms) => {
-            const resp = await fetch(
-              `${apiUrl}/children/${sharingChild.id}/sharecode`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ permissions: perms }),
-              },
-            );
-            if (resp.ok) {
-              const data = await resp.json();
+            try {
+              const data = await createChildShareCode(client, sharingChild.id, perms);
               showToast(`Share code: ${data.code}`);
-            } else {
-              const data = await resp.json().catch(() => null);
-              showToast(
-                data?.detail || "Failed to generate code",
-                "error",
-              );
+            } catch (error) {
+              toastApiError(showToast, error, "Failed to generate code");
             }
             setSharingChild(null);
           }}
@@ -855,21 +770,11 @@ export default function ParentDashboard({
         <ManageAccessModal
           parents={accessParents}
           onRemove={async (pid) => {
-            const resp = await fetch(
-              `${apiUrl}/children/${accessChild.id}/parents/${pid}`,
-              {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-              },
-            );
-            if (resp.ok) {
+            try {
+              await removeChildParentAccess(client, accessChild.id, pid);
               openAccess(accessChild);
-            } else {
-              const data = await resp.json().catch(() => null);
-              showToast(
-                data?.detail || "Failed to remove access",
-                "error",
-              );
+            } catch (error) {
+              toastApiError(showToast, error, "Failed to remove access");
             }
           }}
           onClose={() => setAccessChild(null)}
@@ -881,18 +786,12 @@ export default function ParentDashboard({
           label="Code"
           onCancel={() => setRedeemOpen(false)}
           onSubmit={async (value) => {
-            const resp = await fetch(
-              `${apiUrl}/children/sharecode/${value}`,
-              {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-              },
-            );
-            if (resp.ok) {
+            try {
+              await redeemShareCode(client, value);
               showToast("Child linked");
               fetchChildren();
-            } else {
-              showToast("Invalid code", "error");
+            } catch (error) {
+              toastApiError(showToast, error, "Invalid code");
             }
             setRedeemOpen(false);
           }}
@@ -904,25 +803,11 @@ export default function ParentDashboard({
           label="Access Code"
           onCancel={() => setCodeChild(null)}
           onSubmit={async (value) => {
-            const resp = await fetch(
-              `${apiUrl}/children/${codeChild.id}/access-code`,
-              {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ access_code: value }),
-              },
-            );
-            if (!resp.ok) {
-              const data = await resp.json().catch(() => null);
-              showToast(
-                data?.message || "Failed to update access code",
-                "error",
-              );
-            } else {
+            try {
+              await updateChildAccessCode(client, codeChild.id, value);
               showToast("Access code updated");
+            } catch (error) {
+              toastApiError(showToast, error, "Failed to update access code");
             }
             setCodeChild(null);
             fetchChildren();
@@ -936,15 +821,12 @@ export default function ParentDashboard({
           label="Reason"
           onCancel={() => setDenyRequest(null)}
           onSubmit={async (reason) => {
-            await fetch(`${apiUrl}/withdrawals/${denyRequest.id}/deny`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ reason }),
-            });
-            await fetchPendingWithdrawals();
+            try {
+              await denyWithdrawal(client, denyRequest.id, reason);
+              await fetchPendingWithdrawals();
+            } catch (error) {
+              toastApiError(showToast, error, "Failed to deny withdrawal");
+            }
             setDenyRequest(null);
           }}
         />

@@ -1,40 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToast } from '../components/ToastProvider'
+import { createApiClient } from '../api/client'
+import { listEducationModules, submitModuleQuiz, type EducationModule } from '../api/education'
+import { toastApiError } from '../utils/apiError'
 
 interface Props {
   token: string
   apiUrl: string
 }
 
-interface QuizQuestion {
-  id: number
-  prompt: string
-  options: string[]
-}
-
-interface Module {
-  id: number
-  title: string
-  content: string
-  questions: QuizQuestion[]
-  badge_earned: boolean
-}
-
 export default function ChildBank101({ token, apiUrl }: Props) {
-  const [modules, setModules] = useState<Module[]>([])
+  const [modules, setModules] = useState<EducationModule[]>([])
   const [answers, setAnswers] = useState<Record<number, number[]>>({})
   const [results, setResults] = useState<Record<number, { score: number; passed: boolean }>>({})
   const { showToast } = useToast()
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
+
+  const fetchModules = useCallback(async () => {
+    try {
+      setModules(await listEducationModules(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load modules')
+    }
+  }, [client, showToast])
 
   useEffect(() => {
-    const fetchModules = async () => {
-      const resp = await fetch(`${apiUrl}/education/modules`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (resp.ok) setModules(await resp.json())
-    }
     fetchModules()
-  }, [apiUrl, token])
+  }, [fetchModules])
 
   const setAnswer = (moduleId: number, qIndex: number, option: number) => {
     setAnswers(prev => {
@@ -44,17 +39,9 @@ export default function ChildBank101({ token, apiUrl }: Props) {
     })
   }
 
-  const submitQuiz = async (module: Module) => {
-    const resp = await fetch(`${apiUrl}/education/modules/${module.id}/quiz`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ answers: answers[module.id] || [] }),
-    })
-    if (resp.ok) {
-      const data = await resp.json()
+  const submitQuiz = async (module: EducationModule) => {
+    try {
+      const data = await submitModuleQuiz(client, module.id, answers[module.id] || [])
       setResults(r => ({ ...r, [module.id]: { score: data.score, passed: data.passed } }))
       if (data.badge_awarded) {
         setModules(ms => ms.map(m => (m.id === module.id ? { ...m, badge_earned: true } : m)))
@@ -64,6 +51,8 @@ export default function ChildBank101({ token, apiUrl }: Props) {
       } else {
         showToast('Try again', 'error')
       }
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to submit quiz')
     }
   }
 

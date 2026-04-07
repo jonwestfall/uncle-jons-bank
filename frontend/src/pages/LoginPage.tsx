@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 import { Link } from 'react-router-dom'
 import CreateAdminModal from '../components/CreateAdminModal'
+import { createApiClient } from '../api/client'
+import { loginChild, loginParent, needsAdmin as checkNeedsAdmin, registerParent } from '../api/auth'
+import { mapApiErrorMessage } from '../utils/apiError'
 
 interface Props {
   onLogin: (token: string, isChild: boolean) => void
@@ -17,49 +20,28 @@ export default function LoginPage({ onLogin, siteName, allowRegister = false }: 
   const [error, setError] = useState('')
   const [needsAdmin, setNeedsAdmin] = useState(false)
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const client = useMemo(() => createApiClient({ baseUrl: apiUrl }), [apiUrl])
 
   useEffect(() => {
     const check = async () => {
       try {
-        const resp = await fetch(`${apiUrl}/needs-admin`)
-        if (resp.ok) {
-          const data = await resp.json()
-          if (data.needs_admin) setNeedsAdmin(true)
-        }
+        const data = await checkNeedsAdmin(client)
+        if (data.needs_admin) setNeedsAdmin(true)
       } catch {
         /* ignore */
       }
     }
     check()
-  }, [apiUrl])
+  }, [client])
 
   const handleCreateAdmin = async (name: string, email: string, password: string) => {
     setError('')
     try {
-      const resp = await fetch(`${apiUrl}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
-      })
-      if (!resp.ok) {
-        throw new Error('Admin creation failed')
-      }
-      const loginResp = await fetch(`${apiUrl}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-      if (!loginResp.ok) {
-        throw new Error('Login failed')
-      }
-      const data = await loginResp.json()
+      await registerParent(client, { name, email, password })
+      const data = await loginParent(client, { email, password })
       onLogin(data.access_token, false)
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('Admin setup failed')
-      }
+      setError(mapApiErrorMessage(err, 'Admin setup failed'))
     }
   }
 
@@ -67,27 +49,12 @@ export default function LoginPage({ onLogin, siteName, allowRegister = false }: 
     e.preventDefault()
     setError('')
     try {
-      const url = apiUrl + (isChild ? '/children/login' : '/login')
-      const body = isChild ? { access_code: accessCode } : { email, password }
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-      if (!resp.ok) {
-        if (resp.status === 403) {
-          throw new Error('Account frozen')
-        }
-        throw new Error('Login failed')
-      }
-      const data = await resp.json()
+      const data = isChild
+        ? await loginChild(client, { access_code: accessCode })
+        : await loginParent(client, { email, password })
       onLogin(data.access_token, isChild)
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('Invalid credentials')
-      }
+      setError(mapApiErrorMessage(err, 'Invalid credentials'))
     }
   }
 

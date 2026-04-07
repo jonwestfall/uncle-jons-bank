@@ -1,17 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "../components/ToastProvider";
-
-interface Coupon {
-  id: number
-  code: string
-  amount: number
-  memo?: string | null
-  expiration?: string | null
-  max_uses: number
-  uses_remaining: number
-  scope: string
-  created_by: number
-}
+import { createApiClient } from "../api/client";
+import { deleteCoupon, listAllCoupons, type Coupon } from "../api/coupons";
+import { toastApiError } from "../utils/apiError";
 
 interface Props {
   token: string
@@ -24,34 +15,33 @@ export default function AdminCoupons({ token, apiUrl, currencySymbol }: Props) {
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState("all");
   const { showToast } = useToast();
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  );
 
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (scope !== "all") params.set("scope", scope);
-    const resp = await fetch(`${apiUrl}/coupons/all?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
-      setCoupons(await resp.json());
+    try {
+      setCoupons(await listAllCoupons(client, params));
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to load coupons");
     }
-  };
+  }, [client, scope, search, showToast]);
 
   useEffect(() => {
     fetchCoupons();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, scope]);
+  }, [fetchCoupons]);
 
   async function handleDelete(id: number) {
-    const resp = await fetch(`${apiUrl}/coupons/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
+    try {
+      await deleteCoupon(client, id);
       showToast("Coupon removed");
       fetchCoupons();
-    } else {
-      showToast("Failed to remove coupon");
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to remove coupon");
     }
   }
 

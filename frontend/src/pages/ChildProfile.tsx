@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency } from '../utils/currency'
+import { createApiClient } from '../api/client'
+import { listMyBadges, type Badge } from '../api/education'
+import { listMyWithdrawals, type WithdrawalRequest } from '../api/withdrawals'
+import { mapApiErrorMessage } from '../utils/apiError'
 
 interface Props {
   token: string
@@ -13,45 +17,49 @@ interface ChildProfileData {
   cd_penalty_rate: number
 }
 
-interface WithdrawalRequest {
-  id: number
-  child_id: number
-  amount: number
-  memo?: string | null
-  status: string
-  denial_reason?: string | null
-}
-
-interface Badge {
-  id: number
-  name: string
-  module_id?: number | null
-}
-
 export default function ChildProfile({ token, apiUrl, currencySymbol }: Props) {
   const [data, setData] = useState<ChildProfileData | null>(null)
+  const [profileError, setProfileError] = useState<string | null>(null)
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
   const [badges, setBadges] = useState<Badge[]>([])
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
+
+  const fetchData = useCallback(async () => {
+    try {
+      const profile = await client.get<ChildProfileData>('/children/me')
+      setData(profile)
+      setProfileError(null)
+    } catch (error) {
+      setProfileError(mapApiErrorMessage(error, 'Failed to load profile.'))
+    }
+  }, [client])
+
+  const fetchWithdrawals = useCallback(async () => {
+    try {
+      setWithdrawals(await listMyWithdrawals(client))
+    } catch {
+      // keep page usable even if secondary data fails
+    }
+  }, [client])
+
+  const fetchBadges = useCallback(async () => {
+    try {
+      setBadges(await listMyBadges(client))
+    } catch {
+      // keep page usable even if secondary data fails
+    }
+  }, [client])
 
   useEffect(() => {
-    const fetchData = async () => {
-      const resp = await fetch(`${apiUrl}/children/me`, { headers: { Authorization: `Bearer ${token}` } })
-      if (resp.ok) setData((await resp.json()) as ChildProfileData)
-    }
-    const fetchWithdrawals = async () => {
-      const resp = await fetch(`${apiUrl}/withdrawals/mine`, { headers: { Authorization: `Bearer ${token}` } })
-      if (resp.ok) setWithdrawals(await resp.json())
-    }
-    const fetchBadges = async () => {
-      const resp = await fetch(`${apiUrl}/education/badges/me`, { headers: { Authorization: `Bearer ${token}` } })
-      if (resp.ok) setBadges(await resp.json())
-    }
     fetchData()
     fetchWithdrawals()
     fetchBadges()
-  }, [token, apiUrl])
+  }, [fetchBadges, fetchData, fetchWithdrawals])
 
-  if (!data) return <p>Loading...</p>
+  if (!data) return <p>{profileError ?? 'Loading...'}</p>
 
   return (
     <div className="container">

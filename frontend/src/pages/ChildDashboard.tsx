@@ -1,47 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ConfirmModal from '../components/ConfirmModal'
 import LedgerTable from '../components/LedgerTable'
 import { formatCurrency } from '../utils/currency'
 import { useToast } from '../components/ToastProvider'
-
-interface Transaction {
-  id: number
-  child_id: number
-  type: string
-  amount: number
-  memo?: string | null
-  initiated_by: string
-  initiator_id: number
-  timestamp: string
-}
-
-interface LedgerResponse {
-  balance: number
-  transactions: Transaction[]
-}
-
-interface WithdrawalRequest {
-  id: number
-  child_id: number
-  amount: number
-  memo?: string | null
-  status: string
-  requested_at: string
-  responded_at?: string | null
-  denial_reason?: string | null
-}
-
-interface RecurringCharge {
-  id: number
-  child_id: number
-  amount: number
-  type: string
-  memo?: string | null
-  interval_days: number
-  next_run: string
-  active: boolean
-}
+import { createApiClient } from '../api/client'
+import { getChildLedger, type LedgerResponse } from '../api/transactions'
+import {
+  cancelWithdrawal as cancelWithdrawalRequest,
+  createWithdrawal,
+  listMyWithdrawals,
+  type WithdrawalRequest,
+} from '../api/withdrawals'
+import { listMyRecurring, type RecurringCharge } from '../api/recurring'
+import { acceptCd, listChildCds, redeemCdEarly, rejectCd, type CdOffer } from '../api/cds'
+import { getChild } from '../api/children'
+import { toastApiError } from '../utils/apiError'
 
 interface Props {
   token: string
@@ -49,15 +23,6 @@ interface Props {
   apiUrl: string
   onLogout: () => void
   currencySymbol: string
-}
-
-interface CdOffer {
-  id: number
-  amount: number
-  interest_rate: number
-  term_days: number
-  status: string
-  matures_at?: string | null
 }
 
 export default function ChildDashboard({ token, childId, apiUrl, onLogout, currencySymbol }: Props) {
@@ -72,63 +37,64 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
   const [tableWidth, setTableWidth] = useState<number>()
   const { showToast } = useToast()
   const [loadingLedger, setLoadingLedger] = useState(false)
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
   const fetchLedger = useCallback(async () => {
     setLoadingLedger(true)
     try {
-      const resp = await fetch(`${apiUrl}/transactions/child/${childId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (resp.ok) setLedger(await resp.json())
-      else showToast('Failed to load ledger', 'error')
+      setLedger(await getChildLedger(client, childId))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load ledger')
     } finally {
       setLoadingLedger(false)
     }
-  }, [apiUrl, childId, token, showToast])
+  }, [childId, client, showToast])
 
   const fetchMyWithdrawals = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/withdrawals/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setWithdrawals(await resp.json())
-  }, [apiUrl, token])
+    try {
+      setWithdrawals(await listMyWithdrawals(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load withdrawals')
+    }
+  }, [client, showToast])
 
   const cancelWithdrawal = async (id: number) => {
-    const resp = await fetch(`${apiUrl}/withdrawals/${id}/cancel`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) {
+    try {
+      await cancelWithdrawalRequest(client, id)
       showToast('Withdrawal cancelled')
       fetchMyWithdrawals()
-    } else {
-      showToast('Failed to cancel', 'error')
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to cancel')
     }
   }
 
   const fetchCds = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/cds/child`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setCds((await resp.json()) as CdOffer[])
-  }, [apiUrl, token])
+    try {
+      setCds(await listChildCds(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load CD offers')
+    }
+  }, [client, showToast])
 
   const fetchChildName = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/children/${childId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) {
-      const data = await resp.json()
+    try {
+      const data = await getChild(client, childId)
       setChildName(data.first_name)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load child profile')
     }
-  }, [apiUrl, childId, token])
+  }, [childId, client, showToast])
 
   const fetchCharges = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/recurring/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setCharges(await resp.json())
-  }, [apiUrl, token])
+    try {
+      setCharges(await listMyRecurring(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load recurring charges')
+    }
+  }, [client, showToast])
 
   useEffect(() => {
     fetchLedger()
@@ -205,12 +171,13 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
                           message:
                             'Take out this CD early? A 10% fee will be taken.',
                           onConfirm: async () => {
-                            await fetch(`${apiUrl}/cds/${cd.id}/redeem-early`, {
-                              method: 'POST',
-                              headers: { Authorization: `Bearer ${token}` },
-                            })
-                            fetchCds()
-                            fetchLedger()
+                            try {
+                              await redeemCdEarly(client, cd.id)
+                              fetchCds()
+                              fetchLedger()
+                            } catch (error) {
+                              toastApiError(showToast, error, 'Failed to redeem CD early')
+                            }
                           },
                         })
                       }
@@ -223,12 +190,13 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
                     <>
                       <button
                         onClick={async () => {
-                          await fetch(`${apiUrl}/cds/${cd.id}/accept`, {
-                            method: 'POST',
-                            headers: { Authorization: `Bearer ${token}` },
-                          })
-                          fetchCds()
-                          fetchLedger()
+                          try {
+                            await acceptCd(client, cd.id)
+                            fetchCds()
+                            fetchLedger()
+                          } catch (error) {
+                            toastApiError(showToast, error, 'Failed to accept CD')
+                          }
                         }}
                         className="ml-1"
                       >
@@ -236,11 +204,12 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
                       </button>
                       <button
                         onClick={async () => {
-                          await fetch(`${apiUrl}/cds/${cd.id}/reject`, {
-                            method: 'POST',
-                            headers: { Authorization: `Bearer ${token}` },
-                          })
-                          fetchCds()
+                          try {
+                            await rejectCd(client, cd.id)
+                            fetchCds()
+                          } catch (error) {
+                            toastApiError(showToast, error, 'Failed to reject CD')
+                          }
                         }}
                         className="ml-05"
                       >
@@ -258,21 +227,14 @@ export default function ChildDashboard({ token, childId, apiUrl, onLogout, curre
         onSubmit={async e => {
           e.preventDefault()
           if (!withdrawAmount) return
-          const resp = await fetch(`${apiUrl}/withdrawals/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ amount: Number(withdrawAmount), memo: withdrawMemo || null }),
-          })
-          if (resp.ok) {
+          try {
+            await createWithdrawal(client, { amount: Number(withdrawAmount), memo: withdrawMemo || null })
             showToast('Withdrawal requested')
             setWithdrawAmount('')
             setWithdrawMemo('')
             fetchMyWithdrawals()
-          } else {
-            showToast('Failed to send request', 'error')
+          } catch (error) {
+            toastApiError(showToast, error, 'Failed to send request')
           }
         }}
         className="form"

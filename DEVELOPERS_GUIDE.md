@@ -17,6 +17,9 @@ The project is composed of a **FastAPI** backend and a **React** frontend.
 ### Frontend
 - `frontend/src/main.tsx` mounts the React application and manages global theming.
 - `frontend/src/App.tsx` maintains authentication state and sets up client-side routing.
+- `frontend/src/api/client.ts` is the shared HTTP client for auth header injection, JSON handling, and normalized API errors.
+- `frontend/src/api/*.ts` modules contain endpoint-specific calls by feature (children, transactions, recurring, messages, etc.).
+- `frontend/src/utils/apiError.ts` maps normalized API errors to user-facing toast messages.
 
 ## Startup Sequence
 
@@ -62,3 +65,45 @@ Run the Python test suite:
 - Use asynchronous database sessions from `app.database.get_session` in route handlers.
 - Add permissions in `app/acl.py` and seed them via `ensure_permissions_exist` on startup.
 - Follow the module docstring style used throughout the repository for clarity.
+
+## Frontend Endpoint Workflow
+
+Use this flow when adding a new frontend endpoint:
+
+1. Add a typed function in the correct feature module under `frontend/src/api/` (or create a new module if needed).
+2. Keep page/component code free of raw `fetch`; create a client once per component via:
+   - `const client = useMemo(() => createApiClient({ baseUrl: apiUrl, getToken: () => token }), [apiUrl, token])`
+3. Call your feature function with that client, and wrap failures with:
+   - `toastApiError(showToast, error, 'Fallback message')`
+4. If the endpoint is public, create a client without `getToken`.
+5. Keep response/payload types in the feature module so endpoint contracts stay centralized.
+
+Example:
+
+```ts
+// frontend/src/api/widgets.ts
+import type { ApiClient } from './client'
+
+export interface Widget {
+  id: number
+  name: string
+}
+
+export const listWidgets = (client: ApiClient) =>
+  client.get<Widget[]>('/widgets')
+```
+
+```ts
+// in a page/component
+const client = useMemo(
+  () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+  [apiUrl, token],
+)
+
+try {
+  const widgets = await listWidgets(client)
+  setWidgets(widgets)
+} catch (error) {
+  toastApiError(showToast, error, 'Failed to load widgets')
+}
+```

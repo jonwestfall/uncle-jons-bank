@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../components/ToastProvider";
+import { createApiClient } from "../api/client";
+import { listCouponRedemptions, redeemCoupon, type CouponRedemption } from "../api/coupons";
+import { mapApiErrorMessage, toastApiError } from "../utils/apiError";
 
 interface DetectedCode {
   rawValue: string;
@@ -13,16 +16,6 @@ interface BDConstructor {
   new (options: { formats: string[] }): BarcodeDetector;
 }
 
-interface CouponInfo {
-  id: number;
-  redeemed_at: string;
-  coupon: {
-    code: string;
-    amount: number;
-    memo?: string | null;
-  };
-}
-
 interface Props {
   token: string;
   apiUrl: string;
@@ -31,23 +24,26 @@ interface Props {
 
 export default function ChildCoupons({ token, apiUrl, currencySymbol }: Props) {
   const [code, setCode] = useState(() => new URLSearchParams(window.location.search).get("code") || "");
-  const [history, setHistory] = useState<CouponInfo[]>([]);
+  const [history, setHistory] = useState<CouponRedemption[]>([]);
   const [scanning, setScanning] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const { showToast } = useToast();
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  );
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      setHistory(await listCouponRedemptions(client));
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to load coupon history");
+    }
+  }, [client, showToast]);
 
   useEffect(() => {
     fetchHistory();
-  }, []);
-
-  async function fetchHistory() {
-    const resp = await fetch(`${apiUrl}/coupons/redemptions`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
-      setHistory(await resp.json());
-    }
-  }
+  }, [fetchHistory]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -93,28 +89,13 @@ export default function ChildCoupons({ token, apiUrl, currencySymbol }: Props) {
 
   const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
-    const resp = await fetch(`${apiUrl}/coupons/redeem`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ code }),
-    });
-    if (resp.ok) {
-      const data = await resp.json();
+    try {
+      const data = await redeemCoupon(client, code);
       showToast(`Coupon redeemed for ${currencySymbol}${data.coupon.amount.toFixed(2)}`);
       setCode("");
       fetchHistory();
-    } else {
-        let msg = "Invalid coupon";
-        try {
-          const err = await resp.json();
-          if (err.detail) msg = err.detail;
-        } catch {
-          /* ignore */
-        }
-        showToast(msg);
+    } catch (error) {
+      showToast(mapApiErrorMessage(error, "Invalid coupon"));
     }
   };
 

@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency } from '../utils/currency'
+import { useToast } from '../components/ToastProvider'
+import { createApiClient } from '../api/client'
+import { listChildren } from '../api/children'
+import {
+  approveLoan as approveLoanRequest,
+  closeLoan as closeLoanRequest,
+  denyLoan as denyLoanRequest,
+  listLoansForChild,
+  recordLoanPayment,
+  updateLoanInterest,
+  type Loan,
+} from '../api/loans'
+import { toastApiError } from '../utils/apiError'
 
 interface Child {
   id: number
   first_name: string
-}
-
-interface Loan {
-  id: number
-  amount: number
-  purpose?: string | null
-  interest_rate: number
-  status: string
-  principal_remaining: number
-  terms?: string | null
 }
 
 interface Props {
@@ -30,22 +33,29 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
   const [approveTerms, setApproveTerms] = useState<Record<number, string>>({})
   const [paymentAmount, setPaymentAmount] = useState<Record<number, string>>({})
   const [newRate, setNewRate] = useState<Record<number, string>>({})
+  const { showToast } = useToast()
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
   const fetchChildren = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/children/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setChildren(await resp.json())
-  }, [apiUrl, token])
+    try {
+      setChildren(await listChildren(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load children')
+    }
+  }, [client, showToast])
 
   const fetchLoans = useCallback(
     async (cid: number) => {
-      const resp = await fetch(`${apiUrl}/loans/child/${cid}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (resp.ok) setLoans(await resp.json())
+      try {
+        setLoans(await listLoansForChild(client, cid))
+      } catch (error) {
+        toastApiError(showToast, error, 'Failed to load loans')
+      }
     },
-    [apiUrl, token],
+    [client, showToast],
   )
 
   useEffect(() => {
@@ -57,61 +67,53 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
   }, [selectedChild, fetchLoans])
 
   const approveLoan = async (loanId: number) => {
-    const body = {
-      interest_rate: parseFloat(approveRate[loanId] || '0') / 100,
-      terms: approveTerms[loanId] || undefined,
+    try {
+      await approveLoanRequest(client, loanId, {
+        interest_rate: parseFloat(approveRate[loanId] || '0') / 100,
+        terms: approveTerms[loanId] || undefined,
+      })
+      fetchLoans(selectedChild!)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to approve loan')
     }
-    await fetch(`${apiUrl}/loans/${loanId}/approve`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-    fetchLoans(selectedChild!)
   }
 
   const denyLoan = async (loanId: number) => {
-    await fetch(`${apiUrl}/loans/${loanId}/deny`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchLoans(selectedChild!)
+    try {
+      await denyLoanRequest(client, loanId)
+      fetchLoans(selectedChild!)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to deny loan')
+    }
   }
 
   const recordPayment = async (loanId: number) => {
-    await fetch(`${apiUrl}/loans/${loanId}/payment`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ amount: parseFloat(paymentAmount[loanId] || '0') }),
-    })
-    setPaymentAmount({ ...paymentAmount, [loanId]: '' })
-    fetchLoans(selectedChild!)
+    try {
+      await recordLoanPayment(client, loanId, parseFloat(paymentAmount[loanId] || '0'))
+      setPaymentAmount({ ...paymentAmount, [loanId]: '' })
+      fetchLoans(selectedChild!)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to record payment')
+    }
   }
 
   const changeRate = async (loanId: number) => {
-    await fetch(`${apiUrl}/loans/${loanId}/interest`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ interest_rate: parseFloat(newRate[loanId] || '0') / 100 }),
-    })
-    setNewRate({ ...newRate, [loanId]: '' })
-    fetchLoans(selectedChild!)
+    try {
+      await updateLoanInterest(client, loanId, parseFloat(newRate[loanId] || '0') / 100)
+      setNewRate({ ...newRate, [loanId]: '' })
+      fetchLoans(selectedChild!)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to update interest rate')
+    }
   }
 
   const closeLoan = async (loanId: number) => {
-    await fetch(`${apiUrl}/loans/${loanId}/close`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchLoans(selectedChild!)
+    try {
+      await closeLoanRequest(client, loanId)
+      fetchLoans(selectedChild!)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to close loan')
+    }
   }
 
   return (
@@ -198,4 +200,3 @@ export default function ParentLoans({ token, apiUrl, currencySymbol }: Props) {
     </div>
   )
 }
-

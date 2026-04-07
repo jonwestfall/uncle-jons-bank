@@ -1,22 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "../components/ToastProvider";
+import { createApiClient } from "../api/client";
+import { listChildren } from "../api/children";
+import { createCoupon, deleteCoupon, listCoupons, type Coupon } from "../api/coupons";
+import { toastApiError } from "../utils/apiError";
 
 interface Child {
   id: number;
   first_name: string;
-}
-
-interface Coupon {
-  id: number;
-  code: string;
-  amount: number;
-  memo?: string | null;
-  expiration?: string | null;
-  max_uses: number;
-  uses_remaining: number;
-  scope: string;
-  child_id?: number | null;
-  qr_code?: string | null;
 }
 
 interface Props {
@@ -37,35 +28,37 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
   const [expiration, setExpiration] = useState("");
   const [uses, setUses] = useState("1");
   const { showToast } = useToast();
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  );
 
-  useEffect(() => {
-    fetchChildren();
-    fetchCoupons();
-  }, []);
-
-  async function fetchChildren() {
-    const resp = await fetch(`${apiUrl}/children/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
-      setChildren(await resp.json());
+  const fetchChildren = useCallback(async () => {
+    try {
+      setChildren(await listChildren(client));
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to load children");
     }
-  }
+  }, [client, showToast]);
 
-  async function fetchCoupons(showId?: number) {
-    const resp = await fetch(`${apiUrl}/coupons`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
-      const data: Coupon[] = await resp.json();
+  const fetchCoupons = useCallback(async (showId?: number) => {
+    try {
+      const data = await listCoupons(client);
       setCoupons(data);
       const vis: Record<number, boolean> = {};
       for (const c of data) {
         vis[c.id] = c.id === showId;
       }
       setQrVisible(vis);
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to load coupons");
     }
-  }
+  }, [client, showToast]);
+
+  useEffect(() => {
+    fetchChildren();
+    fetchCoupons();
+  }, [fetchChildren, fetchCoupons]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,16 +92,15 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
       body.child_id = Number(childId);
     }
     body.scope = scope;
-    const resp = await fetch(`${apiUrl}/coupons`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-    if (resp.ok) {
-      const newCoupon: Coupon = await resp.json();
+    try {
+      const newCoupon = await createCoupon(client, body as {
+        amount: number;
+        memo?: string;
+        max_uses: number;
+        expiration?: string;
+        scope: string;
+        child_id?: number;
+      });
       showToast("Coupon created");
       setAmount("");
       setMemo("");
@@ -117,8 +109,8 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
       setChildId("");
       setTarget("all");
       fetchCoupons(newCoupon.id);
-    } else {
-      showToast("Failed to create coupon");
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to create coupon");
     }
   };
 
@@ -130,15 +122,12 @@ export default function ParentCoupons({ token, apiUrl, isAdmin, currencySymbol }
   }
 
   async function handleDelete(id: number) {
-    const resp = await fetch(`${apiUrl}/coupons/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
+    try {
+      await deleteCoupon(client, id);
       showToast("Coupon removed");
       fetchCoupons();
-    } else {
-      showToast("Failed to remove coupon");
+    } catch (error) {
+      toastApiError(showToast, error, "Failed to remove coupon");
     }
   }
 

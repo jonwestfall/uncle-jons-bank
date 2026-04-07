@@ -1,18 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency } from '../utils/currency'
 import { useToast } from '../components/ToastProvider'
+import { createApiClient } from '../api/client'
+import { listChildren } from '../api/children'
+import {
+  approveChore,
+  createChildChore,
+  deleteChore,
+  listChildChores,
+  rejectChore,
+  type Chore,
+} from '../api/chores'
+import { toastApiError } from '../utils/apiError'
 
 interface Child {
   id: number
   first_name: string
-}
-
-interface Chore {
-  id: number
-  description: string
-  amount: number
-  status: string
-  interval_days?: number | null
 }
 
 interface Props {
@@ -29,76 +32,80 @@ export default function ParentChores({ token, apiUrl, currencySymbol }: Props) {
   const [amount, setAmount] = useState('')
   const [interval, setInterval] = useState('')
   const { showToast } = useToast()
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
-  const fetchChildren = async () => {
-    const resp = await fetch(`${apiUrl}/children/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setChildren(await resp.json())
-  }
+  const fetchChildren = useCallback(async () => {
+    try {
+      setChildren(await listChildren(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load children')
+    }
+  }, [client, showToast])
 
-  const fetchChores = async (cid: number) => {
-    const resp = await fetch(`${apiUrl}/chores/child/${cid}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setChores(await resp.json())
-  }
+  const fetchChores = useCallback(async (cid: number) => {
+    try {
+      setChores(await listChildChores(client, cid))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load chores')
+    }
+  }, [client, showToast])
 
   useEffect(() => {
     fetchChildren()
-  }, [])
+  }, [fetchChildren])
 
   useEffect(() => {
     if (selected !== null) fetchChores(selected)
-  }, [selected])
+  }, [fetchChores, selected])
 
   const addChore = async () => {
     if (selected === null) return
-    const resp = await fetch(`${apiUrl}/chores/child/${selected}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ description: desc, amount: parseFloat(amount), interval_days: interval ? parseInt(interval) : null }),
-    })
-    if (resp.ok) {
+    try {
+      await createChildChore(client, selected, {
+        description: desc,
+        amount: parseFloat(amount),
+        interval_days: interval ? parseInt(interval) : null,
+      })
       showToast('Chore added')
       setDesc('')
       setAmount('')
       setInterval('')
       fetchChores(selected)
-    } else showToast('Failed to add chore', 'error')
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to add chore')
+    }
   }
 
   const approve = async (id: number) => {
-    const resp = await fetch(`${apiUrl}/chores/${id}/approve`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) {
+    try {
+      await approveChore(client, id)
       showToast('Chore approved')
       if (selected !== null) fetchChores(selected)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to approve chore')
     }
   }
 
   const reject = async (id: number) => {
-    const resp = await fetch(`${apiUrl}/chores/${id}/reject`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) {
+    try {
+      await rejectChore(client, id)
       showToast('Chore updated')
       if (selected !== null) fetchChores(selected)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to reject chore')
     }
   }
 
   const remove = async (id: number) => {
-    const resp = await fetch(`${apiUrl}/chores/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok && selected !== null) fetchChores(selected)
+    try {
+      await deleteChore(client, id)
+      if (selected !== null) fetchChores(selected)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to delete chore')
+    }
   }
 
   return (

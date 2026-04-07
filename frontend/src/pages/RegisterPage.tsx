@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { createApiClient } from '../api/client'
+import { registerParent } from '../api/auth'
+import { mapApiErrorMessage } from '../utils/apiError'
 
 interface Props {
   apiUrl: string
@@ -12,22 +15,19 @@ export default function RegisterPage({ apiUrl, siteName }: Props) {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
+  const client = useMemo(() => createApiClient({ baseUrl: apiUrl }), [apiUrl])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage('')
-    const resp = await fetch(`${apiUrl}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    })
-    if (resp.ok) {
+    try {
+      await registerParent(client, { name, email, password })
       setMessage('Registration submitted. Await admin approval.')
       setName('')
       setEmail('')
       setPassword('')
-    } else {
-      setMessage('Registration failed')
+    } catch (error) {
+      setMessage(mapApiErrorMessage(error, 'Registration failed'))
     }
   }
 

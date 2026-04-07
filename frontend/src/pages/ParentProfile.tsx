@@ -1,15 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { createApiClient } from '../api/client'
+import { getMe, updateMyPassword, type UserData } from '../api/users'
+import { mapApiErrorMessage } from '../utils/apiError'
 
 interface Props {
   token: string
   apiUrl: string
-}
-
-interface UserData {
-  name: string
-  email: string
-  permissions: string[]
 }
 
 export default function ParentProfile({ token, apiUrl }: Props) {
@@ -18,16 +15,22 @@ export default function ParentProfile({ token, apiUrl }: Props) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState(false)
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
   useEffect(() => {
     const fetchData = async () => {
-      const resp = await fetch(`${apiUrl}/users/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (resp.ok) setData(await resp.json())
+      try {
+        setData(await getMe(client))
+      } catch {
+        setError(true)
+        setMessage('Failed to load profile.')
+      }
     }
     fetchData()
-  }, [token, apiUrl])
+  }, [client])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -36,21 +39,14 @@ export default function ParentProfile({ token, apiUrl }: Props) {
       setError(true)
       return
     }
-    const resp = await fetch(`${apiUrl}/users/me/password`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ password: newPassword }),
-    })
-    if (resp.ok) {
+    try {
+      await updateMyPassword(client, newPassword)
       setMessage('Password updated successfully.')
       setError(false)
       setNewPassword('')
       setConfirmPassword('')
-    } else {
-      setMessage('Failed to update password.')
+    } catch (err) {
+      setMessage(mapApiErrorMessage(err, 'Failed to update password.'))
       setError(true)
     }
   }
@@ -93,4 +89,3 @@ export default function ParentProfile({ token, apiUrl }: Props) {
     </div>
   )
 }
-

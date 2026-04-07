@@ -1,18 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import MessageDetail from '../components/MessageDetail'
 import ComposeMessage from '../components/ComposeMessage'
-
-interface Message {
-  id: number
-  subject: string
-  body: string
-  created_at: string
-  sender_user_id?: number
-  sender_child_id?: number
-  recipient_user_id?: number
-  recipient_child_id?: number
-  read: boolean
-}
+import { useToast } from '../components/ToastProvider'
+import { createApiClient } from '../api/client'
+import { archiveMessage, getMessage, listMessages, type Message, type MessageTab } from '../api/messages'
+import { listAdminChildren, listAdminUsers } from '../api/admin'
+import { getMyParents, listChildren } from '../api/children'
+import { toastApiError } from '../utils/apiError'
 
 interface Props {
   token: string
@@ -22,7 +16,7 @@ interface Props {
 }
 
 export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props) {
-  const [tab, setTab] = useState<'inbox' | 'sent' | 'archive'>('inbox')
+  const [tab, setTab] = useState<MessageTab>('inbox')
   const [messages, setMessages] = useState<Message[]>([])
   const [options, setOptions] = useState<{ id: number; label: string }[]>([])
   const [userNames, setUserNames] = useState<Record<number, string>>({})
@@ -30,51 +24,50 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [showCompose, setShowCompose] = useState(false)
   const [composeDefaults, setComposeDefaults] = useState<{ subject?: string; recipient?: string; target?: string }>({})
+  const { showToast } = useToast()
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
-
-  const fetchMessages = async () => {
-    const resp = await fetch(`${apiUrl}/messages/${tab}`, { headers })
-    if (resp.ok) {
-      const data: Message[] = await resp.json()
+  const fetchMessages = useCallback(async () => {
+    try {
+      const data = await listMessages(client, tab)
       setMessages(data)
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load messages')
     }
-  }
+  }, [client, showToast, tab])
 
   const openMessage = async (m: Message) => {
-    const resp = await fetch(`${apiUrl}/messages/${m.id}`, { headers })
-    if (resp.ok) {
-      const data: Message = await resp.json()
+    try {
+      const data = await getMessage(client, m.id)
       setSelectedMessage(data)
       setMessages(prev => prev.map(msg => (msg.id === m.id ? { ...msg, read: true } : msg)))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to open message')
     }
   }
 
   useEffect(() => {
     fetchMessages()
     setSelectedMessage(null)
-  }, [tab])
+  }, [fetchMessages])
 
   useEffect(() => {
     const loadOptions = async () => {
-      if (isAdmin) {
-        const [usersResp, childrenResp] = await Promise.all([
-          fetch(`${apiUrl}/admin/users`, { headers }),
-          fetch(`${apiUrl}/admin/children`, { headers })
-        ])
-        if (usersResp.ok) {
-          const users: { id: number; name: string }[] = await usersResp.json()
+      try {
+        if (isAdmin) {
+          const [users, children] = await Promise.all([
+            listAdminUsers(client),
+            listAdminChildren(client),
+          ])
           const names: Record<number, string> = {}
           users.forEach(u => {
             names[u.id] = u.name
           })
           setUserNames(names)
-        }
-        if (childrenResp.ok) {
-          const children: { id: number; first_name: string }[] = await childrenResp.json()
+
           const optionsList = children.map(c => ({
             id: c.id,
             label: c.first_name
@@ -85,11 +78,8 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
           })
           setChildNames(cNames)
           setOptions(optionsList)
-        }
-      } else if (isChild) {
-        const resp = await fetch(`${apiUrl}/children/me/parents`, { headers })
-        if (resp.ok) {
-          const data: { user_id: number; name: string }[] = await resp.json()
+        } else if (isChild) {
+          const data = await getMyParents(client)
           const names: Record<number, string> = {}
           const opts = data.map(p => {
             names[p.user_id] = p.name
@@ -97,11 +87,8 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
           })
           setUserNames(names)
           setOptions(opts)
-        }
-      } else {
-        const resp = await fetch(`${apiUrl}/children/`, { headers })
-        if (resp.ok) {
-          const data: { id: number; first_name: string }[] = await resp.json()
+        } else {
+          const data = await listChildren(client)
           const names: Record<number, string> = {}
           const opts = data.map(c => {
             names[c.id] = c.first_name
@@ -110,21 +97,22 @@ export default function MessagesPage({ token, apiUrl, isChild, isAdmin }: Props)
           setChildNames(names)
           setOptions(opts)
         }
+      } catch (error) {
+        toastApiError(showToast, error, 'Failed to load message recipients')
       }
     }
     loadOptions()
-  }, [])
+  }, [client, isAdmin, isChild, showToast])
 
   const archive = async (id: number) => {
-    const resp = await fetch(`${apiUrl}/messages/${id}/archive`, {
-      method: 'POST',
-      headers
-    })
-    if (resp.ok) {
+    try {
+      await archiveMessage(client, id)
       fetchMessages()
       if (selectedMessage?.id === id) {
         setSelectedMessage(null)
       }
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to archive message')
     }
   }
 

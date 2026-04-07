@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency } from '../utils/currency'
-
-interface Loan {
-  id: number
-  amount: number
-  purpose?: string | null
-  interest_rate: number
-  status: string
-  principal_remaining: number
-  terms?: string | null
-}
+import { useToast } from '../components/ToastProvider'
+import { createApiClient } from '../api/client'
+import {
+  acceptLoan as acceptLoanRequest,
+  applyForLoan,
+  declineLoan as declineLoanRequest,
+  listMyLoans,
+  type Loan,
+} from '../api/loans'
+import { toastApiError } from '../utils/apiError'
 
 interface Props {
   token: string
@@ -22,48 +22,51 @@ export default function ChildLoans({ token, childId, apiUrl, currencySymbol }: P
   const [loans, setLoans] = useState<Loan[]>([])
   const [amount, setAmount] = useState('')
   const [purpose, setPurpose] = useState('')
+  const { showToast } = useToast()
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
   const fetchLoans = useCallback(async () => {
-    const resp = await fetch(`${apiUrl}/loans/child`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setLoans(await resp.json())
-  }, [apiUrl, token])
+    try {
+      setLoans(await listMyLoans(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load loans')
+    }
+  }, [client, showToast])
 
   useEffect(() => {
     fetchLoans()
   }, [fetchLoans])
 
   const applyLoan = async () => {
-    const resp = await fetch(`${apiUrl}/loans/`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ child_id: childId, amount: parseFloat(amount), purpose }),
-    })
-    if (resp.ok) {
+    try {
+      await applyForLoan(client, { child_id: childId, amount: parseFloat(amount), purpose })
       setAmount('')
       setPurpose('')
       fetchLoans()
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to apply for loan')
     }
   }
 
   const acceptLoan = async (id: number) => {
-    await fetch(`${apiUrl}/loans/${id}/accept`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchLoans()
+    try {
+      await acceptLoanRequest(client, id)
+      fetchLoans()
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to accept loan')
+    }
   }
 
   const declineLoan = async (id: number) => {
-    await fetch(`${apiUrl}/loans/${id}/decline`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    fetchLoans()
+    try {
+      await declineLoanRequest(client, id)
+      fetchLoans()
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to decline loan')
+    }
   }
 
   return (
@@ -113,4 +116,3 @@ export default function ChildLoans({ token, childId, apiUrl, currencySymbol }: P
     </div>
   )
 }
-

@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useToast } from './ToastProvider'
+import { createApiClient } from '../api/client'
+import { sendBroadcastMessage, sendDirectMessage } from '../api/messages'
+import { toastApiError } from '../utils/apiError'
 
 interface Option {
   id: number
@@ -36,59 +39,41 @@ export default function ComposeMessage({
   const [body, setBody] = useState('')
   const [recipient, setRecipient] = useState(initialRecipient)
   const [target, setTarget] = useState(initialTarget)
-
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
   const send = async () => {
-    let resp: Response | undefined
-    if (isAdmin) {
-      if (recipient) {
-        resp = await fetch(`${apiUrl}/messages/`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ subject, body, recipient_user_id: Number(recipient) })
-        })
-      } else if (target.startsWith('child:')) {
-        const childId = Number(target.split(':')[1])
-        resp = await fetch(`${apiUrl}/messages/`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ subject, body, recipient_child_id: childId })
-        })
+    try {
+      if (isAdmin) {
+        if (recipient) {
+          await sendDirectMessage(client, { subject, body, recipient_user_id: Number(recipient) })
+        } else if (target.startsWith('child:')) {
+          const childId = Number(target.split(':')[1])
+          await sendDirectMessage(client, { subject, body, recipient_child_id: childId })
+        } else {
+          await sendBroadcastMessage(client, { subject, body, target })
+        }
       } else {
-        resp = await fetch(`${apiUrl}/messages/broadcast`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ subject, body, target })
-        })
+        const payload: {
+          subject: string
+          body: string
+          recipient_user_id?: number
+          recipient_child_id?: number
+        } = { subject, body }
+        if (isChild) {
+          payload.recipient_user_id = Number(recipient)
+        } else {
+          payload.recipient_child_id = Number(recipient)
+        }
+        await sendDirectMessage(client, payload)
       }
-    } else {
-      const payload: {
-        subject: string
-        body: string
-        recipient_user_id?: number
-        recipient_child_id?: number
-      } = { subject, body }
-      if (isChild) {
-        payload.recipient_user_id = Number(recipient)
-      } else {
-        payload.recipient_child_id = Number(recipient)
-      }
-      resp = await fetch(`${apiUrl}/messages/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      })
-    }
-    if (resp?.ok) {
       showToast('Message sent')
       onSent()
       onClose()
-    } else {
-      showToast('Failed to send message', 'error')
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to send message')
     }
   }
 
@@ -152,4 +137,3 @@ export default function ComposeMessage({
     </div>
   )
 }
-

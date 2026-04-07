@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ConfirmModal from '../components/ConfirmModal'
 import EditSiteSettingsModal from '../components/EditSiteSettingsModal'
 import EditTransactionModal from '../components/EditTransactionModal'
@@ -7,6 +7,23 @@ import RunPromotionModal from '../components/RunPromotionModal'
 import AddParentModal from '../components/AddParentModal'
 import { formatCurrency } from '../utils/currency'
 import { useToast } from '../components/ToastProvider'
+import { createApiClient } from '../api/client'
+import {
+  approveAdminUser,
+  createParentUser,
+  deleteAdminChild,
+  deleteAdminTransaction,
+  deleteAdminUser,
+  listAdminChildren,
+  listAdminTransactions,
+  listAdminUsers,
+  updateAdminChild,
+  updateAdminUser,
+  type AdminChild,
+  type AdminUser,
+} from '../api/admin'
+import { getSettings, type SiteSettings } from '../api/settings'
+import { toastApiError } from '../utils/apiError'
 
 interface Props {
   token: string
@@ -17,50 +34,18 @@ interface Props {
   onSettingsChange?: () => void
 }
 
-interface User {
-  id: number
-  name: string
-  email: string
-  role: string
-  status: string
-}
-
-interface Child {
-  id: number
-  first_name: string
-  account_frozen: boolean
-  access_code?: string
-  interest_rate?: number
-  total_interest_earned?: number
-}
-
-interface SiteSettings {
-  site_name: string
-  site_url: string
-  default_interest_rate: number
-  default_penalty_interest_rate: number
-  default_cd_penalty_rate: number
-  service_fee_amount: number
-  service_fee_is_percentage: boolean
-  overdraft_fee_amount: number
-  overdraft_fee_is_percentage: boolean
-  overdraft_fee_daily: boolean
-  currency_symbol: string
-  public_registration_disabled: boolean
-}
-
 export default function AdminPanel({ token, apiUrl, onLogout, siteName, currencySymbol, onSettingsChange }: Props) {
-  const [users, setUsers] = useState<User[]>([])
-  const [children, setChildren] = useState<Child[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [children, setChildren] = useState<AdminChild[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showPromoModal, setShowPromoModal] = useState(false)
   const [showAddParent, setShowAddParent] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [userName, setUserName] = useState('')
   const [userRole, setUserRole] = useState('')
-  const [selectedChild, setSelectedChild] = useState<Child | null>(null)
+  const [selectedChild, setSelectedChild] = useState<AdminChild | null>(null)
   const [childName, setChildName] = useState('')
   const [accessCode, setAccessCode] = useState('')
   const [childFrozen, setChildFrozen] = useState(false)
@@ -69,22 +54,29 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
   const [confirm, setConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const { showToast } = useToast()
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
-  const fetchData = async () => {
-    const uh = { Authorization: `Bearer ${token}` }
-    const u = await fetch(`${apiUrl}/admin/users`, { headers: uh })
-    if (u.ok) setUsers(await u.json())
-    const c = await fetch(`${apiUrl}/admin/children`, { headers: uh })
-    if (c.ok) setChildren(await c.json())
-    const t = await fetch(`${apiUrl}/admin/transactions`, { headers: uh })
-    if (t.ok) setTransactions(await t.json())
-    const s = await fetch(`${apiUrl}/settings/`)
-    if (s.ok) {
-      const data = (await s.json()) as SiteSettings
+  const fetchData = useCallback(async () => {
+    try {
+      const [usersData, childrenData, transactionsData, settingsData] = await Promise.all([
+        listAdminUsers(client),
+        listAdminChildren(client),
+        listAdminTransactions(client),
+        getSettings(client),
+      ])
+      setUsers(usersData)
+      setChildren(childrenData)
+      setTransactions(transactionsData)
+      const data = settingsData as SiteSettings
       setSettings(data)
       if (onSettingsChange) onSettingsChange()
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load admin data')
     }
-  }
+  }, [client, onSettingsChange, showToast])
 
   useEffect(() => {
     fetchData()
@@ -177,16 +169,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
             {selectedUser.status === 'pending' && (
               <button
                 onClick={async () => {
-                  const resp = await fetch(`${apiUrl}/admin/users/${selectedUser.id}/approve`, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                  })
-                  if (resp.ok) {
+                  try {
+                    await approveAdminUser(client, selectedUser.id)
                     showToast('User approved')
                     setSelectedUser(null)
                     fetchData()
-                  } else {
-                    showToast('Failed to approve user', 'error')
+                  } catch (error) {
+                    toastApiError(showToast, error, 'Failed to approve user')
                   }
                 }}
               >
@@ -195,20 +184,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
             )}
             <button
               onClick={async () => {
-                const resp = await fetch(`${apiUrl}/admin/users/${selectedUser.id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({ name: userName, role: userRole }),
-                })
-                if (resp.ok) {
+                try {
+                  await updateAdminUser(client, selectedUser.id, { name: userName, role: userRole })
                   showToast('User updated')
                   setSelectedUser(null)
                   fetchData()
-                } else {
-                  showToast('Failed to update user', 'error')
+                } catch (error) {
+                  toastApiError(showToast, error, 'Failed to update user')
                 }
               }}
             >
@@ -223,12 +205,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                 setConfirm({
                   message: 'Delete user?',
                   onConfirm: async () => {
-                    await fetch(`${apiUrl}/admin/users/${selectedUser.id}`, {
-                      method: 'DELETE',
-                      headers: { Authorization: `Bearer ${token}` },
-                    })
-                    showToast('User deleted')
-                    fetchData()
+                    try {
+                      await deleteAdminUser(client, selectedUser.id)
+                      showToast('User deleted')
+                      fetchData()
+                    } catch (error) {
+                      toastApiError(showToast, error, 'Failed to delete user')
+                    }
                   },
                 })
               }
@@ -241,20 +224,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
       {showAddParent && (
         <AddParentModal
           onSubmit={async (name, email, password) => {
-            const resp = await fetch(`${apiUrl}/admin/users`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ name, email, password }),
-            })
-            if (resp.ok) {
+            try {
+              await createParentUser(client, { name, email, password })
               showToast('Parent added')
               setShowAddParent(false)
               fetchData()
-            } else {
-              showToast('Failed to add parent', 'error')
+            } catch (error) {
+              toastApiError(showToast, error, 'Failed to add parent')
             }
           }}
           onCancel={() => setShowAddParent(false)}
@@ -309,20 +285,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                   frozen: childFrozen,
                 }
                 if (accessCode) body.access_code = accessCode
-                const resp = await fetch(`${apiUrl}/admin/children/${selectedChild.id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify(body),
-                })
-                if (resp.ok) {
+                try {
+                  await updateAdminChild(client, selectedChild.id, body as { first_name: string; frozen: boolean; access_code?: string })
                   showToast('Child updated')
                   setSelectedChild(null)
                   fetchData()
-                } else {
-                  showToast('Failed to update child', 'error')
+                } catch (error) {
+                  toastApiError(showToast, error, 'Failed to update child')
                 }
               }}
             >
@@ -337,12 +306,13 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                 setConfirm({
                   message: 'Delete child?',
                   onConfirm: async () => {
-                    await fetch(`${apiUrl}/admin/children/${selectedChild.id}`, {
-                      method: 'DELETE',
-                      headers: { Authorization: `Bearer ${token}` },
-                    })
-                    showToast('Child deleted')
-                    fetchData()
+                    try {
+                      await deleteAdminChild(client, selectedChild.id)
+                      showToast('Child deleted')
+                      fetchData()
+                    } catch (error) {
+                      toastApiError(showToast, error, 'Failed to delete child')
+                    }
                   },
                 })
               }
@@ -384,15 +354,12 @@ export default function AdminPanel({ token, apiUrl, onLogout, siteName, currency
                 setConfirm({
                   message: 'Delete transaction?',
                   onConfirm: async () => {
-                    const resp = await fetch(`${apiUrl}/admin/transactions/${t.id}`, {
-                      method: 'DELETE',
-                      headers: { Authorization: `Bearer ${token}` },
-                    })
-                    if (resp.ok) {
+                    try {
+                      await deleteAdminTransaction(client, t.id)
                       showToast('Transaction deleted')
                       fetchData()
-                    } else {
-                      showToast('Failed to delete transaction', 'error')
+                    } catch (error) {
+                      toastApiError(showToast, error, 'Failed to delete transaction')
                     }
                   },
                 })

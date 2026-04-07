@@ -1,13 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency } from '../utils/currency'
 import { useToast } from '../components/ToastProvider'
-
-interface Chore {
-  id: number
-  description: string
-  amount: number
-  status: string
-}
+import { createApiClient } from '../api/client'
+import { completeChore, listMyChores, proposeChore, type Chore } from '../api/chores'
+import { toastApiError } from '../utils/apiError'
 
 interface Props {
   token: string
@@ -20,44 +16,43 @@ export default function ChildChores({ token, apiUrl, currencySymbol }: Props) {
   const [desc, setDesc] = useState('')
   const [amount, setAmount] = useState('')
   const { showToast } = useToast()
+  const client = useMemo(
+    () => createApiClient({ baseUrl: apiUrl, getToken: () => token }),
+    [apiUrl, token],
+  )
 
-  const fetchChores = async () => {
-    const resp = await fetch(`${apiUrl}/chores/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) setChores(await resp.json())
-  }
+  const fetchChores = useCallback(async () => {
+    try {
+      setChores(await listMyChores(client))
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to load chores')
+    }
+  }, [client, showToast])
 
   useEffect(() => {
     fetchChores()
-  }, [])
+  }, [fetchChores])
 
   const markDone = async (id: number) => {
-    const resp = await fetch(`${apiUrl}/chores/${id}/complete`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (resp.ok) {
+    try {
+      await completeChore(client, id)
       showToast('Chore marked complete')
       fetchChores()
-    } else showToast('Failed to mark complete', 'error')
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to mark complete')
+    }
   }
 
   const propose = async () => {
-    const resp = await fetch(`${apiUrl}/chores/propose`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ description: desc, amount: parseFloat(amount) }),
-    })
-    if (resp.ok) {
+    try {
+      await proposeChore(client, { description: desc, amount: parseFloat(amount) })
       showToast('Chore proposed')
       setDesc('')
       setAmount('')
       fetchChores()
-    } else showToast('Failed to propose', 'error')
+    } catch (error) {
+      toastApiError(showToast, error, 'Failed to propose')
+    }
   }
 
   return (
