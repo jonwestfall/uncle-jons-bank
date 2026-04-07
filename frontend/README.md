@@ -1,69 +1,91 @@
-# React + TypeScript + Vite
+# Uncle Jon's Bank Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite single-page app for parents, children, and admins.
 
-Currently, two official plugins are available:
+## What this app contains
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Role-aware routes in `src/App.tsx` for:
+  - Parent experience (`/`, `/parent/*`, `/messages`)
+  - Child experience (`/child/*`)
+  - Admin experience (`/admin*`)
+- Feature API modules in `src/api/*`.
+- Shared route-level fallback/error handling with `src/components/RouteBoundary.tsx`.
+- Domain-focused dashboard hooks under `src/hooks/parentDashboard` and `src/hooks/childDashboard`.
 
-## Expanding the ESLint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node 20+
+- npm 10+
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Local development
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+Install dependencies:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Start dev server:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+Build production bundle:
+
+```bash
+npm run build
+```
+
+Preview production build locally:
+
+```bash
+npm run preview
+```
+
+Run lint checks:
+
+```bash
+npm run lint
+```
+
+## Environment configuration
+
+The frontend reads API base URL from `VITE_API_URL`.
+
+- Docker compose build sets `VITE_API_URL=/api` and expects Caddy proxy.
+- Local direct backend runs typically use `VITE_API_URL=http://localhost:8000`.
+
+Example:
+
+```bash
+VITE_API_URL=http://localhost:8000 npm run dev
+```
+
+## Everyday workflows
+
+### Add a new API integration
+
+1. Add typed request/response functions under `src/api/<feature>.ts`.
+2. Reuse `createApiClient` from `src/api/client.ts`.
+3. Handle failures with `toastApiError` from `src/utils/apiError.ts`.
+4. Use the API function from page-level hook/component.
+
+### Add a new route/page
+
+1. Create page under `src/pages`.
+2. Add lazy import + route in `src/App.tsx`.
+3. Wrap route element with `RouteBoundary`.
+4. Ensure route is exposed only to intended role(s).
+
+### Update dashboard behavior
+
+- Parent dashboard orchestration: `src/pages/ParentDashboard.tsx`
+- Child dashboard orchestration: `src/pages/ChildDashboard.tsx`
+- Keep heavy side-effect/data logic in hooks, not in large page JSX blocks.
+
+## Related documentation
+
+- Architecture and maps: `../docs/developer/architecture.md`
+- Local setup and contributor flow: `../docs/developer/`
+- API contract details: `../docs/api/`
