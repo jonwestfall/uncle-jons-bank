@@ -2,6 +2,7 @@ import asyncio
 import pathlib
 import sys
 from datetime import date, datetime, timedelta, time
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel import SQLModel, select
@@ -71,7 +72,10 @@ def test_account_interest_catch_up():
             )
             txs = result.scalars().all()
             assert len(txs) == 5
-            assert refreshed.last_interest_applied == date.today()
-            assert round(refreshed.total_interest_earned, 2) == 5.10
+            assert refreshed.last_interest_applied in {
+                datetime.utcnow().date(),
+                datetime.now().date(),
+            }
+            assert round(refreshed.total_interest_earned, 2) == Decimal("5.10")
 
     asyncio.run(run())

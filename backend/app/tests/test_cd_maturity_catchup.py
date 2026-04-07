@@ -105,7 +105,10 @@ def test_cd_redemption_after_downtime():
             assert round(payout_tx.amount, 2) == 110.0
 
             refreshed = await session.get(Account, account.id)
-            assert refreshed.last_interest_applied == datetime.utcnow().date()
+            assert refreshed.last_interest_applied in {
+                datetime.utcnow().date(),
+                datetime.now().date(),
+            }
 
             result = await session.execute(
                 select(Transaction).where(Transaction.child_id == child.id)

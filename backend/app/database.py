@@ -186,6 +186,17 @@ async def create_db_and_tables() -> None:
                 text(f"ALTER TABLE {q(table)} RENAME TO {q(legacy_table)}")
             )
 
+            # SQLite keeps named indexes after table rename. Drop legacy
+            # non-auto indexes so recreated target indexes can reuse names.
+            legacy_indexes = await conn.execute(
+                text(f"PRAGMA index_list('{legacy_table}')")
+            )
+            for index_row in legacy_indexes.fetchall():
+                index_name = index_row[1]
+                if index_name.startswith("sqlite_autoindex"):
+                    continue
+                await conn.execute(text(f"DROP INDEX IF EXISTS {q(index_name)}"))
+
             def _create_target(sync_conn):
                 SQLModel.metadata.tables[table].create(sync_conn)
 
