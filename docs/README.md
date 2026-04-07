@@ -6,6 +6,7 @@ This folder contains product, engineering, API, and operations documentation for
 
 - `docs/user-guide/`: end-user docs for parents, children, and admins.
 - `docs/developer/`: architecture, setup, standards, and contribution flow.
+- `docs/qa/`: test strategy artifacts, environment matrix, release verification.
 - `docs/api/`: auth model, endpoint conventions, error model, and examples.
 - `docs/ops/`: deployment, environment config, backups, and incident playbooks.
 

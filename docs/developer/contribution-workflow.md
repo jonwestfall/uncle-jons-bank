@@ -4,9 +4,16 @@
 
 1. Create a branch from latest `main`.
 2. Implement change + tests.
-3. Run checks locally (`./tests/run`, frontend lint/build as needed).
+3. Run checks locally (`./tests/run`, frontend format/lint/type-check/tests as needed).
 4. Update docs (see checklist below).
 5. Open PR with summary, risk notes, and test evidence.
+
+CI quality gates on PRs:
+
+- Formatting
+- Lint
+- Type-check
+- Automated tests with minimum coverage thresholds
 
 ## PR template guidance
 

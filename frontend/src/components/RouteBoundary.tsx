@@ -1,4 +1,4 @@
-import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react'
+import { Component, Suspense, type ReactNode } from 'react'
 
 interface RouteErrorBoundaryState {
   hasError: boolean
@@ -11,7 +11,7 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, RouteErrorBo
     return { hasError: true }
   }
 
-  componentDidCatch(_error: Error, _errorInfo: ErrorInfo) {
+  componentDidCatch() {
     // Intentionally swallow and present route-level fallback UI.
   }
 

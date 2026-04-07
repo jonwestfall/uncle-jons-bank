@@ -45,9 +45,20 @@ Set `VITE_API_URL=http://localhost:8000` if frontend is run outside Docker.
 ./tests/run
 ```
 
-- Frontend lint:
+- Frontend formatting/lint/type-check/component tests:
 
 ```bash
 cd frontend
+npm run format:check
 npm run lint
+npm run typecheck
+npm run test:component
+```
+
+- Frontend e2e smoke tests (against built app):
+
+```bash
+cd frontend
+npm run build
+npm run test:smoke
 ```

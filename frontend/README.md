@@ -49,6 +49,25 @@ Run lint checks:
 npm run lint
 ```
 
+Run type-check:
+
+```bash
+npm run typecheck
+```
+
+Run component tests with coverage thresholds:
+
+```bash
+npm run test:component
+```
+
+Run smoke e2e tests:
+
+```bash
+npm run build
+npm run test:smoke
+```
+
 ## Environment configuration
 
 The frontend reads API base URL from `VITE_API_URL`.
