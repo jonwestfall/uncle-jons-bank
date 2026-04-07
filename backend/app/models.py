@@ -345,6 +345,30 @@ class CouponRedemption(SQLModel, table=True):
     child: Child = Relationship()
 
 
+class SchedulerLock(SQLModel, table=True):
+    """Distributed lock row used by scheduler workers for leader election."""
+
+    __tablename__ = "scheduler_locks"
+
+    name: str = Field(primary_key=True)
+    owner_id: str
+    locked_until: datetime = Field(index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class JobRun(SQLModel, table=True):
+    """Audit trail for scheduler and background job execution."""
+
+    __tablename__ = "job_runs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    job_name: str = Field(index=True)
+    started_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    finished_at: Optional[datetime] = Field(default=None, index=True)
+    status: str = Field(default="running", index=True)
+    error: Optional[str] = None
+
+
 class EducationModule(SQLModel, table=True):
     """Self-contained educational module with quiz questions."""
 

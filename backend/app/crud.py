@@ -637,8 +637,8 @@ async def apply_service_fee(
         initiator_id=0,
         timestamp=datetime.combine(today, time.min),
     )
-    await create_transaction(db, tx)
     account.service_fee_last_charged = today
+    db.add(tx)
     db.add(account)
     await db.commit()
 
@@ -665,7 +665,7 @@ async def apply_overdraft_fee(
                         initiated_by="system",
                         initiator_id=0,
                     )
-                    await create_transaction(db, tx)
+                    db.add(tx)
                     account.overdraft_fee_last_charged = today
             else:
                 if not account.overdraft_fee_charged:
@@ -677,7 +677,7 @@ async def apply_overdraft_fee(
                         initiated_by="system",
                         initiator_id=0,
                     )
-                    await create_transaction(db, tx)
+                    db.add(tx)
                     account.overdraft_fee_charged = True
                     account.overdraft_fee_last_charged = today
     else:
@@ -850,7 +850,7 @@ async def redeem_cd(
     the testing helper.
     """
 
-    from .crud import create_transaction, recalc_interest  # avoid circular
+    from .crud import recalc_interest  # avoid circular
 
     if cd.status != "accepted":
         return cd
@@ -866,47 +866,73 @@ async def redeem_cd(
         payout_time = (
             cd.matures_at if cd.matures_at and cd.matures_at <= datetime.utcnow() else datetime.utcnow()
         )
-        await create_transaction(
-            db,
-            Transaction(
-                child_id=cd.child_id,
-                type="credit",
-                amount=payout,
-                memo=f"CD #{cd.id} maturity",
-                initiated_by="system",
-                initiator_id=0,
-                timestamp=payout_time,
-            ),
+        result = await db.execute(
+            select(Transaction).where(
+                Transaction.child_id == cd.child_id,
+                Transaction.type == "credit",
+                Transaction.memo == f"CD #{cd.id} maturity",
+            )
         )
+        existing = result.scalar_one_or_none()
+        if not existing:
+            db.add(
+                Transaction(
+                    child_id=cd.child_id,
+                    type="credit",
+                    amount=payout,
+                    memo=f"CD #{cd.id} maturity",
+                    initiated_by="system",
+                    initiator_id=0,
+                    timestamp=payout_time,
+                )
+            )
     else:
-        await create_transaction(
-            db,
-            Transaction(
-                child_id=cd.child_id,
-                type="credit",
-                amount=cd.amount,
-                memo=f"CD #{cd.id} early withdrawal",
-                initiated_by="system",
-                initiator_id=0,
-            ),
+        payout_result = await db.execute(
+            select(Transaction).where(
+                Transaction.child_id == cd.child_id,
+                Transaction.type == "credit",
+                Transaction.memo == f"CD #{cd.id} early withdrawal",
+            )
         )
+        payout_existing = payout_result.scalar_one_or_none()
+        if not payout_existing:
+            db.add(
+                Transaction(
+                    child_id=cd.child_id,
+                    type="credit",
+                    amount=cd.amount,
+                    memo=f"CD #{cd.id} early withdrawal",
+                    initiated_by="system",
+                    initiator_id=0,
+                )
+            )
         account = await get_account_by_child(db, cd.child_id)
         penalty_rate = account.cd_penalty_rate if account else as_decimal("0.1")
-        await create_transaction(
-            db,
-            Transaction(
-                child_id=cd.child_id,
-                type="debit",
-                amount=percentage_of(cd.amount, penalty_rate),
-                memo=f"CD #{cd.id} early withdrawal penalty",
-                initiated_by="system",
-                initiator_id=0,
-            ),
+        penalty_result = await db.execute(
+            select(Transaction).where(
+                Transaction.child_id == cd.child_id,
+                Transaction.type == "debit",
+                Transaction.memo == f"CD #{cd.id} early withdrawal penalty",
+            )
         )
+        penalty_existing = penalty_result.scalar_one_or_none()
+        if not penalty_existing:
+            db.add(
+                Transaction(
+                    child_id=cd.child_id,
+                    type="debit",
+                    amount=percentage_of(cd.amount, penalty_rate),
+                    memo=f"CD #{cd.id} early withdrawal penalty",
+                    initiated_by="system",
+                    initiator_id=0,
+                )
+            )
 
     cd.status = "redeemed"
     cd.redeemed_at = datetime.utcnow()
-    await save_cd(db, cd)
+    db.add(cd)
+    await db.commit()
+    await db.refresh(cd)
     await recalc_interest(db, cd.child_id)
     settings = await get_settings(db)
     account = await get_account_by_child(db, cd.child_id)
@@ -983,9 +1009,9 @@ async def process_due_recurring_charges(db: AsyncSession) -> None:
     )
     charges = result.scalars().all()
     for charge in charges:
+        changed = False
         while charge.next_run <= today and charge.active:
-            await create_transaction(
-                db,
+            db.add(
                 Transaction(
                     child_id=charge.child_id,
                     type=charge.type,
@@ -993,9 +1019,11 @@ async def process_due_recurring_charges(db: AsyncSession) -> None:
                     memo=charge.memo,
                     initiated_by="system",
                     initiator_id=0,
-                ),
+                )
             )
             charge.next_run = charge.next_run + timedelta(days=charge.interval_days)
+            changed = True
+        if changed:
             db.add(charge)
             await db.commit()
             await db.refresh(charge)
@@ -1062,20 +1090,24 @@ async def recalc_loan_interest(db: AsyncSession, loan: Loan) -> None:
             loan.principal_remaining = quantize_money(
                 loan.principal_remaining + interest
             )
-            await record_loan_transaction(
-                db,
+            db.add(
                 LoanTransaction(
                     loan_id=loan.id,
                     type="interest",
                     amount=interest,
                     memo="Interest",
                     timestamp=datetime.combine(day + timedelta(days=1), time.min),
-                ),
+                )
             )
         day += timedelta(days=1)
 
     loan.last_interest_applied = today
-    await save_loan(db, loan)
+    loan.amount = quantize_money(loan.amount)
+    loan.interest_rate = quantize_rate(loan.interest_rate)
+    loan.principal_remaining = quantize_money(loan.principal_remaining)
+    db.add(loan)
+    await db.commit()
+    await db.refresh(loan)
 
 
 async def get_active_loans(db: AsyncSession) -> list[Loan]:

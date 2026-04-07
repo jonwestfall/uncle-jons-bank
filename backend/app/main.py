@@ -33,21 +33,11 @@ from app.routes import (
 )
 from app.database import create_db_and_tables, async_session
 from app.crud import (
-    recalc_interest,
     ensure_permissions_exist,
-    process_due_recurring_charges,
-    get_all_accounts,
-    get_settings,
-    apply_service_fee,
-    apply_overdraft_fee,
-    process_loan_interest,
 )
-from app.models import Child
 from app.acl import ALL_PERMISSIONS
 from app.auth import purge_expired_revoked_tokens
-from sqlmodel import select
-import asyncio
-from datetime import date
+from app.services.scheduler import start_scheduler_task
 
 # Basic logging configuration.  The log level can be controlled with an
 # environment variable so deployments can adjust verbosity without code
@@ -173,39 +163,8 @@ async def on_startup():
         from app.crud import ensure_education_content
 
         await ensure_education_content(session)
-    # Run the long‑lived interest calculation loop in the background.
-    asyncio.create_task(daily_interest_task())
-
-
-async def daily_interest_task():
-    """Background coroutine that runs once per day to apply account updates."""
-
-    logger.info("Starting daily interest task")
-    while True:
-        try:
-            async with async_session() as session:
-                # Process any recurring charges that are due.
-                await process_due_recurring_charges(session)
-                settings = await get_settings(session)
-                accounts = await get_all_accounts(session)
-                # Recalculate interest for every account.
-                for account in accounts:
-                    await recalc_interest(session, account.child_id)
-                accounts = await get_all_accounts(session)
-                today = date.today()
-                # Apply monthly service fees and overdraft penalties.
-                for account in accounts:
-                    await apply_service_fee(session, account, settings, today)
-                    await apply_overdraft_fee(session, account, settings, today)
-                await process_loan_interest(session)
-                from app.crud import redeem_matured_cds
-
-                # Finally, redeem any matured certificates of deposit.
-                await redeem_matured_cds(session)
-        except Exception as exc:
-            logger.exception("Daily interest task failed: %s", exc)
-        # Sleep for roughly one day before running again.
-        await asyncio.sleep(60 * 60 * 24)
+    # Start scheduler loop (or skip when configured for external scheduling).
+    start_scheduler_task()
 
 
 app.include_router(users.router)

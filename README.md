@@ -111,6 +111,8 @@ Built with **FastAPI** and **SQLModel**, the backend provides:
 - `QuizQuestion`: Question belonging to an education module
 - `Badge`: Reward granted for completing modules
 - `ChildBadge`: Association of a child with an earned badge
+- `SchedulerLock`: Leader-election lock row for daily jobs
+- `JobRun`: Audit history for each background job run
 
 ### 📡 API Endpoints (sample MVP endpoints)
 - `POST /register`: Create parent account
@@ -274,9 +276,23 @@ ENABLE_TEST_ROUTES=false
 `SECRET_KEY` is required; backend startup fails fast if it is missing.
 `ENABLE_TEST_ROUTES` is optional and defaults to `false`. Set it to `true` only
 for controlled non-production setup/testing sessions.
+`SCHEDULER_MODE` is optional and defaults to `leader` (in-process scheduler with
+DB lock election). Set `SCHEDULER_MODE=external` to disable in-process scheduling
+and trigger `python -m app.services.scheduler` from cron/Kubernetes/ECS.
+
+Optional scheduler tuning:
+
+```env
+SCHEDULER_MODE=leader
+SCHEDULER_LOCK_NAME=daily_jobs_lock
+SCHEDULER_POLL_SECONDS=60
+SCHEDULER_LOCK_TTL_SECONDS=600
+```
 
 For operational guidance on secret rotation and token revocation, see
 `backend/docs/security-operations.md`.
+For scheduler deployment and recovery procedures, see
+`backend/docs/scheduler-operations.md`.
 
 ## Bringing up backend / frontend separately
 

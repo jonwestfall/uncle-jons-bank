@@ -7,9 +7,10 @@ This document provides a high-level overview of Uncle Jon's Bank for new contrib
 The project is composed of a **FastAPI** backend and a **React** frontend.
 
 ### Backend
-- `app/main.py` bootstraps the FastAPI application, configures middleware and background tasks, and registers route modules.
+- `app/main.py` bootstraps the FastAPI application, configures middleware and scheduler startup, and registers route modules.
 - Database models live in `app/models.py` and use [SQLModel](https://sqlmodel.tiangolo.com/). These include `Loan`, `LoanTransaction`, `ShareCode`, `Coupon`, `CouponRedemption`, and `Settings` for site configuration.
 - Business logic and data access are centralized in `app/crud.py`.
+- Background scheduling orchestration lives under `app/services/` (`daily_jobs.py` and `scheduler.py`).
 - Pydantic request/response schemas reside under `app/schemas/`.
 - Individual feature areas expose API routers in `app/routes/` (e.g. `children.py`, `transactions.py`, `loans.py`, `coupons.py`, `settings.py`).
 
@@ -21,7 +22,7 @@ The project is composed of a **FastAPI** backend and a **React** frontend.
 
 1. `app/main.py` creates the FastAPI app and configures CORS.
 2. On startup, `create_db_and_tables` ensures the SQLite database and schema exist.
-3. The background `daily_interest_task` loop recalculates interest, processes fees, accrues loan interest and redeems matured CDs once per day.
+3. The scheduler (`app/services/scheduler.py`) elects a leader using a DB lock row and runs `app/services/daily_jobs.py` once per day.
 4. Route handlers defined under `app/routes/` service HTTP requests.
 5. The React frontend authenticates against `/auth/login` or `/auth/token` and then calls other endpoints with a JWT bearer token.
 
@@ -31,6 +32,7 @@ The project is composed of a **FastAPI** backend and a **React** frontend.
 - Run tests with `./tests/run` from the repository root.
 - When modifying database models, adjust any related Pydantic schemas and run migrations if using a persistent DB.
 - Keep heavy logic in `crud.py` to simplify route handlers and aid testing.
+- See `backend/docs/scheduler-operations.md` for scheduler deployment and recovery runbooks.
 
 ## File Layout
 
@@ -60,4 +62,3 @@ Run the Python test suite:
 - Use asynchronous database sessions from `app.database.get_session` in route handlers.
 - Add permissions in `app/acl.py` and seed them via `ensure_permissions_exist` on startup.
 - Follow the module docstring style used throughout the repository for clarity.
-
