@@ -293,6 +293,8 @@ For operational guidance on secret rotation and token revocation, see
 `backend/docs/security-operations.md`.
 For scheduler deployment and recovery procedures, see
 `backend/docs/scheduler-operations.md`.
+For API error payload semantics and canonical codes, see
+`backend/docs/api-error-contract.md`.
 
 ## Bringing up backend / frontend separately
 

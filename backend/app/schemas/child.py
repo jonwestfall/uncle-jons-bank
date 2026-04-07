@@ -1,14 +1,19 @@
-from pydantic import BaseModel, Field
-from typing import Optional
 """Pydantic models for child accounts and updates."""
 
-from typing import Optional
+from typing import Annotated, Optional
+
 from pydantic import BaseModel, Field
+
+from app.schemas.validation import (
+    MAX_RATE,
+    SanitizedAccessCode,
+    SanitizedName,
+)
 
 
 class ChildCreate(BaseModel):
-    first_name: str
-    access_code: str
+    first_name: Annotated[str, SanitizedName]
+    access_code: Annotated[str, SanitizedAccessCode]
     frozen: Optional[bool] = False
 
 
@@ -26,26 +31,26 @@ class ChildRead(BaseModel):
 
 
 class ChildLogin(BaseModel):
-    access_code: str
+    access_code: Annotated[str, SanitizedAccessCode]
 
 
 class InterestRateUpdate(BaseModel):
-    interest_rate: float
+    interest_rate: float = Field(ge=0, le=MAX_RATE)
 
 
 class PenaltyRateUpdate(BaseModel):
-    penalty_interest_rate: float
+    penalty_interest_rate: float = Field(ge=0, le=MAX_RATE)
 
 
 class CDPenaltyRateUpdate(BaseModel):
-    cd_penalty_rate: float
+    cd_penalty_rate: float = Field(ge=0, le=MAX_RATE)
 
 
 class ChildUpdate(BaseModel):
-    first_name: str | None = None
-    access_code: str | None = None
+    first_name: Annotated[str, SanitizedName] | None = None
+    access_code: Annotated[str, SanitizedAccessCode] | None = None
     frozen: bool | None = None
 
 
 class AccessCodeUpdate(BaseModel):
-    access_code: str
+    access_code: Annotated[str, SanitizedAccessCode]

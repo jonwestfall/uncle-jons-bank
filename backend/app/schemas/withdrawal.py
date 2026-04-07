@@ -1,14 +1,26 @@
-from pydantic import BaseModel
 """Schemas for child withdrawal requests and admin responses."""
 
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Annotated, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.validation import (
+    MAX_MONEY_AMOUNT,
+    SanitizedLongText,
+    SanitizedMemo,
+    normalize_optional_text,
+)
 
 
 class WithdrawalRequestCreate(BaseModel):
-    amount: float
-    memo: Optional[str] = None
+    amount: float = Field(ge=0, le=MAX_MONEY_AMOUNT)
+    memo: Optional[Annotated[str, SanitizedMemo]] = None
+
+    @field_validator("memo", mode="before")
+    @classmethod
+    def _normalize_memo(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_optional_text(value)
 
 
 class WithdrawalRequestRead(BaseModel):
@@ -16,7 +28,7 @@ class WithdrawalRequestRead(BaseModel):
     child_id: int
     amount: float
     memo: Optional[str] = None
-    status: str
+    status: Literal["pending", "approved", "denied", "cancelled"]
     requested_at: datetime
     responded_at: Optional[datetime] = None
     denial_reason: Optional[str] = None
@@ -26,4 +38,9 @@ class WithdrawalRequestRead(BaseModel):
 
 
 class DenyRequest(BaseModel):
-    reason: str
+    reason: Annotated[str, SanitizedLongText]
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def _normalize_reason(cls, value: str) -> str:
+        return normalize_optional_text(value) or ""

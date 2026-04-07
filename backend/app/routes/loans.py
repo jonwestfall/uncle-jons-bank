@@ -18,6 +18,7 @@ from app.crud import (
     post_transaction_update,
 )
 from app.money import quantize_money, quantize_rate
+from app.schemas.validation import MAX_RATE
 
 router = APIRouter(prefix="/loans", tags=["loans"])
 
@@ -28,6 +29,8 @@ async def request_loan(
     child: Child = Depends(get_current_child),
     db: AsyncSession = Depends(get_session),
 ):
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Loan amount must be greater than zero")
     loan = Loan(child_id=child.id, amount=data.amount, purpose=data.purpose)
     return await create_loan(db, loan)
 
@@ -113,6 +116,10 @@ async def approve_loan_route(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_OFFER_LOAN)),
 ):
+    if not 0 <= data.interest_rate <= MAX_RATE:
+        raise HTTPException(
+            status_code=400, detail="Interest rate must be between 0 and 1"
+        )
     loan = await get_loan(db, loan_id)
     if not loan:
         raise HTTPException(status_code=404, detail="Loan not found")
@@ -188,6 +195,10 @@ async def update_interest_rate(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_MANAGE_LOAN)),
 ):
+    if not 0 <= data.interest_rate <= MAX_RATE:
+        raise HTTPException(
+            status_code=400, detail="Interest rate must be between 0 and 1"
+        )
     loan = await get_loan(db, loan_id)
     if not loan:
         raise HTTPException(status_code=404, detail="Loan not found")
@@ -216,6 +227,8 @@ async def record_payment(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_MANAGE_LOAN)),
 ):
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
     loan = await get_loan(db, loan_id)
     if not loan:
         raise HTTPException(status_code=404, detail="Loan not found")
@@ -223,6 +236,10 @@ async def record_payment(
         link = await get_child_user_link(db, current_user.id, loan.child_id)
         if not link or (PERM_MANAGE_LOAN not in link.permissions and not link.is_owner):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if data.amount > loan.principal_remaining:
+        raise HTTPException(
+            status_code=400, detail="Payment amount cannot exceed principal remaining"
+        )
     await create_transaction(
         db,
         Transaction(

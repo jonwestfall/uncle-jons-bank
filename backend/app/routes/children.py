@@ -50,6 +50,7 @@ from app.acl import (
     PERM_VIEW_TRANSACTIONS,
     PERM_MANAGE_CHILD_SETTINGS,
 )
+from app.schemas.validation import MAX_RATE
 
 router = APIRouter(prefix="/children", tags=["children"])
 
@@ -380,6 +381,10 @@ async def update_interest_rate(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
+    if not 0 <= data.interest_rate <= MAX_RATE:
+        raise HTTPException(
+            status_code=400, detail="Interest rate must be between 0 and 1"
+        )
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
@@ -408,6 +413,10 @@ async def update_penalty_interest_rate(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
+    if not 0 <= data.penalty_interest_rate <= MAX_RATE:
+        raise HTTPException(
+            status_code=400, detail="Penalty interest rate must be between 0 and 1"
+        )
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")
@@ -438,6 +447,10 @@ async def update_cd_penalty_rate(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_permissions(PERM_MANAGE_CHILD_SETTINGS)),
 ):
+    if not 0 <= data.cd_penalty_rate <= MAX_RATE:
+        raise HTTPException(
+            status_code=400, detail="CD penalty rate must be between 0 and 1"
+        )
     child = await get_child_by_id(db, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="Child not found")

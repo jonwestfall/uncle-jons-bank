@@ -1,12 +1,16 @@
 """Pydantic models for user-related API schemas."""
 
-from pydantic import BaseModel, EmailStr
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, EmailStr, StringConstraints
+
+from app.schemas.validation import SanitizedName
 
 
 class UserCreate(BaseModel):
-    name: str
+    name: Annotated[str, SanitizedName]
     email: EmailStr
-    password: str
+    password: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=256)]
 
 class UserResponse(BaseModel):
     id: int
@@ -29,12 +33,14 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: str | None = None
+    name: Annotated[str, SanitizedName] | None = None
     email: EmailStr | None = None
-    role: str | None = None
-    status: str | None = None
-    password: str | None = None
+    role: Literal["parent", "admin"] | None = None
+    status: Literal["active", "pending"] | None = None
+    password: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=256)
+    ] | None = None
 
 
 class PasswordChange(BaseModel):
-    password: str
+    password: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=256)]

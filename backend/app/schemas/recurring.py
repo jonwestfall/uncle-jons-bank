@@ -1,17 +1,28 @@
 """Schemas for recurring charges applied to child accounts."""
 
 from datetime import date
-from typing import Optional
+from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.validation import (
+    MAX_MONEY_AMOUNT,
+    SanitizedMemo,
+    normalize_optional_text,
+)
 
 
 class RecurringChargeBase(BaseModel):
-    amount: float
-    type: str = "debit"
-    memo: Optional[str] = None
-    interval_days: int
+    amount: float = Field(ge=0, le=MAX_MONEY_AMOUNT)
+    type: Literal["credit", "debit"] = "debit"
+    memo: Optional[Annotated[str, SanitizedMemo]] = None
+    interval_days: int = Field(ge=1, le=3650)
     next_run: date
+
+    @field_validator("memo", mode="before")
+    @classmethod
+    def _normalize_memo(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_optional_text(value)
 
 
 class RecurringChargeCreate(RecurringChargeBase):
@@ -27,9 +38,14 @@ class RecurringChargeRead(RecurringChargeBase):
 
 
 class RecurringChargeUpdate(BaseModel):
-    amount: float | None = None
-    type: str | None = None
-    memo: str | None = None
-    interval_days: int | None = None
+    amount: float | None = Field(default=None, ge=0, le=MAX_MONEY_AMOUNT)
+    type: Literal["credit", "debit"] | None = None
+    memo: Annotated[str, SanitizedMemo] | None = None
+    interval_days: int | None = Field(default=None, ge=1, le=3650)
     next_run: date | None = None
     active: bool | None = None
+
+    @field_validator("memo", mode="before")
+    @classmethod
+    def _normalize_memo(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_optional_text(value)

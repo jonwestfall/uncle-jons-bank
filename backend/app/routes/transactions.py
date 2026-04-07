@@ -45,6 +45,11 @@ async def add_transaction(
     current_user: User = Depends(require_permissions(PERM_ADD_TRANSACTION)),
 ):
     """Create a new credit or debit transaction."""
+    if transaction.amount <= 0:
+        raise HTTPException(
+            status_code=400, detail="Transaction amount must be greater than zero"
+        )
+
     user_perm_names = {p.name for p in current_user.permissions}
     if current_user.role != "admin":
         if transaction.type == "credit" and PERM_DEPOSIT not in user_perm_names:
@@ -94,6 +99,10 @@ async def update_transaction_route(
     tx = await get_transaction(db, transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    if data.amount is not None and data.amount <= 0:
+        raise HTTPException(
+            status_code=400, detail="Transaction amount must be greater than zero"
+        )
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(tx, field, value)
     updated = await save_transaction(db, tx)

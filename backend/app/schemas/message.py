@@ -1,11 +1,23 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel
+from typing import Annotated, Literal, Optional
+
+from pydantic import BaseModel, field_validator
+
+from app.schemas.validation import (
+    SanitizedMessageBody,
+    SanitizedShortText,
+    normalize_optional_text,
+)
 
 
 class MessageBase(BaseModel):
-    subject: str
-    body: str
+    subject: Annotated[str, SanitizedShortText]
+    body: Annotated[str, SanitizedMessageBody]
+
+    @field_validator("subject", "body", mode="before")
+    @classmethod
+    def _normalize_text_fields(cls, value: str) -> str:
+        return normalize_optional_text(value) or ""
 
 
 class MessageCreate(MessageBase):
@@ -14,7 +26,7 @@ class MessageCreate(MessageBase):
 
 
 class BroadcastMessageCreate(MessageBase):
-    target: str  # 'all', 'parents', 'children'
+    target: Literal["all", "parents", "children"]
 
 
 class MessageRead(MessageBase):

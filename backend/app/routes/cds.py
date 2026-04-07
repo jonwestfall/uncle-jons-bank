@@ -19,6 +19,7 @@ from app.crud import (
     post_transaction_update,
 )
 from app.acl import PERM_OFFER_CD
+from app.schemas.validation import MAX_RATE
 
 router = APIRouter(prefix="/cds", tags=["cds"])
 
@@ -29,6 +30,12 @@ async def create_cd_offer(
     db: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_role("parent", "admin")),
 ):
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="CD amount must be greater than zero")
+    if not 0 <= data.interest_rate <= MAX_RATE:
+        raise HTTPException(
+            status_code=400, detail="Interest rate must be between 0 and 1"
+        )
     if current_user.role != "admin":
         link = await get_child_user_link(db, current_user.id, data.child_id)
         if not link:

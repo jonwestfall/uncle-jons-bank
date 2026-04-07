@@ -32,6 +32,10 @@ async def request_withdrawal(
     child: Child = Depends(get_current_child),
 ):
     """Children create a withdrawal request for parent approval."""
+    if data.amount <= 0:
+        raise HTTPException(
+            status_code=400, detail="Withdrawal amount must be greater than zero"
+        )
     req = WithdrawalRequest(child_id=child.id, amount=data.amount, memo=data.memo)
     return await create_withdrawal_request(db, req)
 

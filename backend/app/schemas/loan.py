@@ -1,12 +1,26 @@
 from datetime import datetime
-from pydantic import BaseModel
-from typing import Optional
+from typing import Annotated, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.validation import (
+    MAX_MONEY_AMOUNT,
+    MAX_RATE,
+    SanitizedLongText,
+    SanitizedMemo,
+    normalize_optional_text,
+)
 
 
 class LoanCreate(BaseModel):
     child_id: int
-    amount: float
-    purpose: Optional[str] = None
+    amount: float = Field(ge=0, le=MAX_MONEY_AMOUNT)
+    purpose: Optional[Annotated[str, SanitizedMemo]] = None
+
+    @field_validator("purpose", mode="before")
+    @classmethod
+    def _normalize_purpose(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_optional_text(value)
 
 
 class LoanRead(BaseModel):
@@ -26,13 +40,18 @@ class LoanRead(BaseModel):
 
 
 class LoanApprove(BaseModel):
-    interest_rate: float
-    terms: Optional[str] = None
+    interest_rate: float = Field(ge=0, le=MAX_RATE)
+    terms: Optional[Annotated[str, SanitizedLongText]] = None
+
+    @field_validator("terms", mode="before")
+    @classmethod
+    def _normalize_terms(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_optional_text(value)
 
 
 class LoanPayment(BaseModel):
-    amount: float
+    amount: float = Field(ge=0, le=MAX_MONEY_AMOUNT)
 
 
 class LoanRateUpdate(BaseModel):
-    interest_rate: float
+    interest_rate: float = Field(ge=0, le=MAX_RATE)

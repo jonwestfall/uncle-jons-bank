@@ -1,17 +1,18 @@
-from pydantic import BaseModel, Field
-from typing import Optional
 """Schemas for certificate of deposit operations."""
 
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
+from app.schemas.validation import MAX_MONEY_AMOUNT, MAX_RATE
 
 
 class CDCreate(BaseModel):
     child_id: int
-    amount: float
-    interest_rate: float
-    term_days: int
+    amount: float = Field(ge=0, le=MAX_MONEY_AMOUNT)
+    interest_rate: float = Field(ge=0, le=MAX_RATE)
+    term_days: int = Field(ge=0, le=3650)
 
 
 class CDRead(BaseModel):
@@ -21,7 +22,7 @@ class CDRead(BaseModel):
     amount: float
     interest_rate: float
     term_days: int
-    status: str
+    status: Literal["offered", "accepted", "rejected", "redeemed"]
     created_at: datetime
     accepted_at: Optional[datetime] = None
     matures_at: Optional[datetime] = None
