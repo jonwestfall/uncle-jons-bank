@@ -1,4 +1,3 @@
-import os
 """Database configuration and helper utilities.
 
 This module configures the asynchronous SQLAlchemy engine and provides
@@ -125,6 +124,105 @@ async def create_db_and_tables() -> None:
                     "ALTER TABLE account ADD COLUMN overdraft_fee_charged BOOLEAN DEFAULT 0"
                 )
             )
+
+        monetary_columns = {
+            "account": {
+                "balance": "NUMERIC(14,2)",
+                "interest_rate": "NUMERIC(12,6)",
+                "penalty_interest_rate": "NUMERIC(12,6)",
+                "cd_penalty_rate": "NUMERIC(12,6)",
+                "total_interest_earned": "NUMERIC(14,2)",
+            },
+            "transaction": {"amount": "NUMERIC(14,2)"},
+            "withdrawalrequest": {"amount": "NUMERIC(14,2)"},
+            "recurringcharge": {"amount": "NUMERIC(14,2)"},
+            "certificatedeposit": {
+                "amount": "NUMERIC(14,2)",
+                "interest_rate": "NUMERIC(12,6)",
+            },
+            "loan": {
+                "amount": "NUMERIC(14,2)",
+                "interest_rate": "NUMERIC(12,6)",
+                "principal_remaining": "NUMERIC(14,2)",
+            },
+            "loantransaction": {"amount": "NUMERIC(14,2)"},
+            "chore": {"amount": "NUMERIC(14,2)"},
+            "settings": {
+                "default_interest_rate": "NUMERIC(12,6)",
+                "default_penalty_interest_rate": "NUMERIC(12,6)",
+                "default_cd_penalty_rate": "NUMERIC(12,6)",
+                "service_fee_amount": "NUMERIC(14,2)",
+                "overdraft_fee_amount": "NUMERIC(14,2)",
+            },
+            "coupon": {"amount": "NUMERIC(14,2)"},
+        }
+
+        async def table_info(table: str) -> list[tuple]:
+            result = await conn.execute(text(pragma.format(table=table)))
+            return result.fetchall()
+
+        async def needs_monetary_rebuild(table: str, columns: dict[str, str]) -> bool:
+            info_rows = await table_info(table)
+            if not info_rows:
+                return False
+            type_by_col = {row[1]: (row[2] or "").upper() for row in info_rows}
+            for col_name in columns:
+                declared = type_by_col.get(col_name)
+                if declared and "NUMERIC" not in declared:
+                    return True
+            return False
+
+        async def rebuild_table_with_numeric_columns(
+            table: str, cast_columns: dict[str, str]
+        ) -> None:
+            def q(identifier: str) -> str:
+                return f'"{identifier}"'
+
+            legacy_table = f"{table}__legacy_numeric"
+            info_rows = await table_info(table)
+            source_columns = {row[1] for row in info_rows}
+
+            await conn.execute(
+                text(f"ALTER TABLE {q(table)} RENAME TO {q(legacy_table)}")
+            )
+
+            def _create_target(sync_conn):
+                SQLModel.metadata.tables[table].create(sync_conn)
+
+            await conn.run_sync(_create_target)
+
+            target_columns = [
+                col.name for col in SQLModel.metadata.tables[table].columns
+            ]
+            insert_columns = [col for col in target_columns if col in source_columns]
+            select_exprs: list[str] = []
+            for col in insert_columns:
+                numeric_type = cast_columns.get(col)
+                if numeric_type:
+                    select_exprs.append(
+                        f"CAST({q(col)} AS {numeric_type}) AS {q(col)}"
+                    )
+                else:
+                    select_exprs.append(q(col))
+
+            if insert_columns:
+                quoted_columns = ", ".join(q(col) for col in insert_columns)
+                await conn.execute(
+                    text(
+                        f"INSERT INTO {q(table)} ({quoted_columns}) "
+                        f"SELECT {', '.join(select_exprs)} FROM {q(legacy_table)}"
+                    )
+                )
+
+            await conn.execute(text(f"DROP TABLE {q(legacy_table)}"))
+
+        await conn.execute(text("PRAGMA foreign_keys=OFF"))
+        try:
+            for table_name, money_cols in monetary_columns.items():
+                if await needs_monetary_rebuild(table_name, money_cols):
+                    await rebuild_table_with_numeric_columns(table_name, money_cols)
+        finally:
+            await conn.execute(text("PRAGMA foreign_keys=ON"))
 
 
 async def get_session() -> AsyncSession:

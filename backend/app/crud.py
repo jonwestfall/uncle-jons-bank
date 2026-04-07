@@ -10,6 +10,7 @@ from sqlmodel import select, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func, case
 from datetime import datetime, date, timedelta, time
+from decimal import Decimal
 from app.models import (
     User,
     Child,
@@ -36,6 +37,13 @@ from app.models import (
 )
 from app.auth import get_password_hash, get_child_by_id, is_password_hash
 from app.acl import get_default_permissions_for_role, ALL_PERMISSIONS
+from app.money import (
+    ZERO_MONEY,
+    as_decimal,
+    percentage_of,
+    quantize_money,
+    quantize_rate,
+)
 import uuid
 
 
@@ -119,6 +127,13 @@ async def get_settings(db: AsyncSession) -> Settings:
 async def save_settings(db: AsyncSession, settings: Settings) -> Settings:
     """Persist settings changes and return the refreshed object."""
 
+    settings.default_interest_rate = quantize_rate(settings.default_interest_rate)
+    settings.default_penalty_interest_rate = quantize_rate(
+        settings.default_penalty_interest_rate
+    )
+    settings.default_cd_penalty_rate = quantize_rate(settings.default_cd_penalty_rate)
+    settings.service_fee_amount = quantize_money(settings.service_fee_amount)
+    settings.overdraft_fee_amount = quantize_money(settings.overdraft_fee_amount)
     db.add(settings)
     await db.commit()
     await db.refresh(settings)
@@ -202,9 +217,9 @@ async def create_child_for_user(db: AsyncSession, child: Child, user_id: int):
     # Create an associated account with default interest settings
     account = Account(
         child_id=child.id,
-        interest_rate=settings.default_interest_rate,
-        penalty_interest_rate=settings.default_penalty_interest_rate,
-        cd_penalty_rate=settings.default_cd_penalty_rate,
+        interest_rate=quantize_rate(settings.default_interest_rate),
+        penalty_interest_rate=quantize_rate(settings.default_penalty_interest_rate),
+        cd_penalty_rate=quantize_rate(settings.default_cd_penalty_rate),
     )
     db.add(account)
 
@@ -394,7 +409,7 @@ async def set_interest_rate(
     account = await get_account_by_child(db, child_id)
     if not account:
         raise ValueError("Account not found")
-    account.interest_rate = rate
+    account.interest_rate = quantize_rate(rate)
     db.add(account)
     await db.commit()
     await db.refresh(account)
@@ -408,7 +423,7 @@ async def set_penalty_interest_rate(
     account = await get_account_by_child(db, child_id)
     if not account:
         raise ValueError("Account not found")
-    account.penalty_interest_rate = rate
+    account.penalty_interest_rate = quantize_rate(rate)
     db.add(account)
     await db.commit()
     await db.refresh(account)
@@ -422,7 +437,7 @@ async def set_cd_penalty_rate(
     account = await get_account_by_child(db, child_id)
     if not account:
         raise ValueError("Account not found")
-    account.cd_penalty_rate = rate
+    account.cd_penalty_rate = quantize_rate(rate)
     db.add(account)
     await db.commit()
     await db.refresh(account)
@@ -431,6 +446,7 @@ async def set_cd_penalty_rate(
 
 async def create_transaction(db: AsyncSession, tx: Transaction) -> Transaction:
     """Persist a ledger transaction."""
+    tx.amount = quantize_money(tx.amount)
     db.add(tx)
     await db.commit()
     await db.refresh(tx)
@@ -485,7 +501,7 @@ async def get_all_transactions(db: AsyncSession) -> list[Transaction]:
     return result.scalars().all()
 
 
-async def calculate_balance(db: AsyncSession, child_id: int) -> float:
+async def calculate_balance(db: AsyncSession, child_id: int) -> Decimal:
     """Calculate the running balance for a child's account."""
 
     total = func.coalesce(
@@ -495,12 +511,12 @@ async def calculate_balance(db: AsyncSession, child_id: int) -> float:
                 else_=-Transaction.amount,
             )
         ),
-        0.0,
+        0,
     )
     result = await db.execute(
         select(total).where(Transaction.child_id == child_id)
     )
-    return float(result.scalar_one())
+    return quantize_money(result.scalar_one())
 
 
 async def recalc_interest(db: AsyncSession, child_id: int) -> None:
@@ -542,7 +558,7 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
             Transaction.timestamp < datetime.combine(start_date, time.min),
         )
     )
-    current_balance = float(bal_before_result.scalar_one())
+    current_balance = quantize_money(bal_before_result.scalar_one())
 
     result = await db.execute(
         select(Transaction)
@@ -554,7 +570,7 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
     )
     txs = list(result.scalars().all())
 
-    total_interest = account.total_interest_earned
+    total_interest = quantize_money(account.total_interest_earned)
     tx_idx = 0
 
     day = start_date
@@ -562,22 +578,22 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
         while tx_idx < len(txs) and txs[tx_idx].timestamp.date() == day:
             tx = txs[tx_idx]
             if tx.type == "credit":
-                current_balance += tx.amount
+                current_balance = quantize_money(current_balance + tx.amount)
             else:
-                current_balance -= tx.amount
+                current_balance = quantize_money(current_balance - tx.amount)
             tx_idx += 1
 
-        rate = (
+        rate = quantize_rate(
             account.interest_rate
-            if current_balance >= 0
+            if current_balance >= ZERO_MONEY
             else account.penalty_interest_rate
         )
-        interest = current_balance * rate
-        if interest != 0:
+        interest = percentage_of(current_balance, rate)
+        if interest != ZERO_MONEY:
             tx_time = datetime.combine(day + timedelta(days=1), time.min)
             interest_tx = Transaction(
                 child_id=child_id,
-                type="credit" if interest >= 0 else "debit",
+                type="credit" if interest >= ZERO_MONEY else "debit",
                 amount=abs(interest),
                 memo="Interest",
                 initiated_by="system",
@@ -585,12 +601,12 @@ async def recalc_interest(db: AsyncSession, child_id: int) -> None:
                 timestamp=tx_time,
             )
             db.add(interest_tx)
-            current_balance += interest
-            total_interest += interest
+            current_balance = quantize_money(current_balance + interest)
+            total_interest = quantize_money(total_interest + interest)
 
         day += timedelta(days=1)
 
-    account.total_interest_earned = total_interest
+    account.total_interest_earned = quantize_money(total_interest)
     account.last_interest_applied = today
     db.add(account)
     await db.commit()
@@ -606,12 +622,11 @@ async def apply_service_fee(
         return
     balance = await calculate_balance(db, account.child_id)
     fee = (
-        abs(balance) * settings.service_fee_amount
+        percentage_of(abs(balance), settings.service_fee_amount)
         if settings.service_fee_is_percentage
-        else settings.service_fee_amount
+        else quantize_money(settings.service_fee_amount)
     )
-    fee = round(fee, 2)
-    if fee <= 0:
+    if fee <= ZERO_MONEY:
         return
     tx = Transaction(
         child_id=account.child_id,
@@ -633,14 +648,13 @@ async def apply_overdraft_fee(
 ) -> None:
     """Charge an overdraft fee when an account balance is negative."""
     balance = await calculate_balance(db, account.child_id)
-    if balance < 0:
+    if balance < ZERO_MONEY:
         fee = (
-            abs(balance) * settings.overdraft_fee_amount
+            percentage_of(abs(balance), settings.overdraft_fee_amount)
             if settings.overdraft_fee_is_percentage
-            else settings.overdraft_fee_amount
+            else quantize_money(settings.overdraft_fee_amount)
         )
-        fee = round(fee, 2)
-        if fee > 0:
+        if fee > ZERO_MONEY:
             if settings.overdraft_fee_daily:
                 if account.overdraft_fee_last_charged != today:
                     tx = Transaction(
@@ -695,14 +709,17 @@ async def apply_promotion(
     count = 0
     for account in accounts:
         balance = await calculate_balance(db, account.child_id)
-        adj = amount * balance if is_percentage else amount
-        adj = round(adj, 2)
-        if adj == 0:
+        adj = (
+            percentage_of(balance, amount)
+            if is_percentage
+            else quantize_money(amount)
+        )
+        if adj == ZERO_MONEY:
             continue
         tx = Transaction(
             child_id=account.child_id,
             type="credit" if credit else "debit",
-            amount=abs(adj),
+            amount=quantize_money(abs(adj)),
             memo=memo or "Promotion",
             initiated_by="system",
             initiator_id=0,
@@ -718,6 +735,7 @@ async def create_withdrawal_request(
 ) -> WithdrawalRequest:
     """Persist a pending withdrawal request."""
 
+    req.amount = quantize_money(req.amount)
     db.add(req)
     await db.commit()
     await db.refresh(req)
@@ -769,6 +787,7 @@ async def save_withdrawal_request(
 ) -> WithdrawalRequest:
     """Persist changes to a withdrawal request."""
 
+    req.amount = quantize_money(req.amount)
     db.add(req)
     await db.commit()
     await db.refresh(req)
@@ -780,6 +799,8 @@ async def create_cd(
 ) -> CertificateDeposit:
     """Create a certificate of deposit record."""
 
+    cd.amount = quantize_money(cd.amount)
+    cd.interest_rate = quantize_rate(cd.interest_rate)
     db.add(cd)
     await db.commit()
     await db.refresh(cd)
@@ -799,6 +820,8 @@ async def save_cd(
 ) -> CertificateDeposit:
     """Persist updates to a certificate of deposit."""
 
+    cd.amount = quantize_money(cd.amount)
+    cd.interest_rate = quantize_rate(cd.interest_rate)
     db.add(cd)
     await db.commit()
     await db.refresh(cd)
@@ -837,7 +860,9 @@ async def redeem_cd(
         matured = matured or datetime.utcnow() >= cd.matures_at
 
     if matured:
-        payout = round(cd.amount * (1 + cd.interest_rate), 2)
+        payout = quantize_money(
+            as_decimal(cd.amount) * (as_decimal("1") + as_decimal(cd.interest_rate))
+        )
         payout_time = (
             cd.matures_at if cd.matures_at and cd.matures_at <= datetime.utcnow() else datetime.utcnow()
         )
@@ -866,13 +891,13 @@ async def redeem_cd(
             ),
         )
         account = await get_account_by_child(db, cd.child_id)
-        penalty_rate = account.cd_penalty_rate if account else 0.1
+        penalty_rate = account.cd_penalty_rate if account else as_decimal("0.1")
         await create_transaction(
             db,
             Transaction(
                 child_id=cd.child_id,
                 type="debit",
-                amount=round(cd.amount * penalty_rate, 2),
+                amount=percentage_of(cd.amount, penalty_rate),
                 memo=f"CD #{cd.id} early withdrawal penalty",
                 initiated_by="system",
                 initiator_id=0,
@@ -906,6 +931,7 @@ async def redeem_matured_cds(db: AsyncSession) -> None:
 async def create_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> RecurringCharge:
     """Store a new recurring charge definition."""
 
+    rc.amount = quantize_money(rc.amount)
     db.add(rc)
     await db.commit()
     await db.refresh(rc)
@@ -931,6 +957,7 @@ async def get_recurring_charges_by_child(
 
 
 async def save_recurring_charge(db: AsyncSession, rc: RecurringCharge) -> RecurringCharge:
+    rc.amount = quantize_money(rc.amount)
     db.add(rc)
     await db.commit()
     await db.refresh(rc)
@@ -980,6 +1007,9 @@ async def process_due_recurring_charges(db: AsyncSession) -> None:
 async def create_loan(db: AsyncSession, loan: Loan) -> Loan:
     """Persist a new loan request."""
 
+    loan.amount = quantize_money(loan.amount)
+    loan.interest_rate = quantize_rate(loan.interest_rate)
+    loan.principal_remaining = quantize_money(loan.principal_remaining)
     db.add(loan)
     await db.commit()
     await db.refresh(loan)
@@ -997,6 +1027,9 @@ async def get_loans_by_child(db: AsyncSession, child_id: int) -> list[Loan]:
 
 
 async def save_loan(db: AsyncSession, loan: Loan) -> Loan:
+    loan.amount = quantize_money(loan.amount)
+    loan.interest_rate = quantize_rate(loan.interest_rate)
+    loan.principal_remaining = quantize_money(loan.principal_remaining)
     db.add(loan)
     await db.commit()
     await db.refresh(loan)
@@ -1004,6 +1037,7 @@ async def save_loan(db: AsyncSession, loan: Loan) -> Loan:
 
 
 async def record_loan_transaction(db: AsyncSession, tx: LoanTransaction) -> LoanTransaction:
+    tx.amount = quantize_money(tx.amount)
     db.add(tx)
     await db.commit()
     await db.refresh(tx)
@@ -1023,9 +1057,11 @@ async def recalc_loan_interest(db: AsyncSession, loan: Loan) -> None:
 
     day = start_day
     while day < today:
-        interest = round(loan.principal_remaining * loan.interest_rate, 2)
-        if interest != 0:
-            loan.principal_remaining += interest
+        interest = percentage_of(loan.principal_remaining, loan.interest_rate)
+        if interest != ZERO_MONEY:
+            loan.principal_remaining = quantize_money(
+                loan.principal_remaining + interest
+            )
             await record_loan_transaction(
                 db,
                 LoanTransaction(
@@ -1153,6 +1189,7 @@ async def get_all_messages(db: AsyncSession) -> list[Message]:
 # Coupon utilities
 
 async def create_coupon(db: AsyncSession, coupon: Coupon) -> Coupon:
+    coupon.amount = quantize_money(coupon.amount)
     db.add(coupon)
     await db.commit()
     await db.refresh(coupon)
@@ -1199,6 +1236,7 @@ async def list_coupons_by_creator(db: AsyncSession, user_id: int) -> list[Coupon
 
 
 async def save_coupon(db: AsyncSession, coupon: Coupon) -> Coupon:
+    coupon.amount = quantize_money(coupon.amount)
     db.add(coupon)
     await db.commit()
     await db.refresh(coupon)

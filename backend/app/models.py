@@ -7,9 +7,10 @@ definitions.
 """
 
 from typing import Optional, List
+from decimal import Decimal
 from datetime import datetime, date
 from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, Numeric
 
 
 class UserPermissionLink(SQLModel, table=True):
@@ -113,12 +114,27 @@ class Account(SQLModel, table=True):
     """Per‑child ledger account storing running balances and rates."""
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
-    balance: float = 0.0
-    interest_rate: float = 0.01  # Daily rate for positive balances
-    penalty_interest_rate: float = 0.02  # Daily rate applied when balance < 0
-    cd_penalty_rate: float = 0.1  # Penalty for early CD withdrawal
+    balance: Decimal = Field(
+        default=Decimal("0.00"),
+        sa_column=Column(Numeric(14, 2), nullable=False),
+    )
+    interest_rate: Decimal = Field(
+        default=Decimal("0.010000"),
+        sa_column=Column(Numeric(12, 6), nullable=False),
+    )  # Daily rate for positive balances
+    penalty_interest_rate: Decimal = Field(
+        default=Decimal("0.020000"),
+        sa_column=Column(Numeric(12, 6), nullable=False),
+    )  # Daily rate applied when balance < 0
+    cd_penalty_rate: Decimal = Field(
+        default=Decimal("0.100000"),
+        sa_column=Column(Numeric(12, 6), nullable=False),
+    )  # Penalty for early CD withdrawal
     last_interest_applied: Optional[date] = None
-    total_interest_earned: float = 0.0
+    total_interest_earned: Decimal = Field(
+        default=Decimal("0.00"),
+        sa_column=Column(Numeric(14, 2), nullable=False),
+    )
     service_fee_last_charged: Optional[date] = None
     overdraft_fee_last_charged: Optional[date] = None
     overdraft_fee_charged: bool = False
@@ -134,7 +150,7 @@ class Transaction(SQLModel, table=True):
     )
     child_id: int = Field(foreign_key="child.id")
     type: str  # "credit" or "debit"
-    amount: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
     memo: Optional[str] = None
     initiated_by: str  # "child" or "parent"
     initiator_id: int
@@ -147,7 +163,7 @@ class WithdrawalRequest(SQLModel, table=True):
     """Parent‑approved withdrawal initiated by a child."""
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
-    amount: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
     memo: Optional[str] = None
     status: str = "pending"  # pending, approved, denied, cancelled
     requested_at: datetime = Field(default_factory=datetime.utcnow)
@@ -163,7 +179,7 @@ class RecurringCharge(SQLModel, table=True):
     """Scheduled transaction that repeats every ``interval_days``."""
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
-    amount: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
     type: str = "debit"  # "credit" or "debit"
     memo: Optional[str] = None
     interval_days: int
@@ -178,8 +194,8 @@ class CertificateDeposit(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     parent_id: int = Field(foreign_key="user.id")
-    amount: float
-    interest_rate: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
+    interest_rate: Decimal = Field(sa_column=Column(Numeric(12, 6), nullable=False))
     term_days: int
     status: str = "offered"  # offered, accepted, rejected, redeemed
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -197,12 +213,18 @@ class Loan(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     parent_id: Optional[int] = Field(default=None, foreign_key="user.id")
-    amount: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
     purpose: Optional[str] = None
-    interest_rate: float = 0.0
+    interest_rate: Decimal = Field(
+        default=Decimal("0.000000"),
+        sa_column=Column(Numeric(12, 6), nullable=False),
+    )
     terms: Optional[str] = None
     status: str = "requested"  # requested, approved, active, denied, declined, closed
-    principal_remaining: float = 0.0
+    principal_remaining: Decimal = Field(
+        default=Decimal("0.00"),
+        sa_column=Column(Numeric(14, 2), nullable=False),
+    )
     last_interest_applied: Optional[date] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -217,7 +239,7 @@ class LoanTransaction(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     loan_id: int = Field(foreign_key="loan.id")
     type: str  # disbursement, payment, interest, fee
-    amount: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
     memo: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -230,7 +252,7 @@ class Chore(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="child.id")
     description: str
-    amount: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
     interval_days: Optional[int] = None
     next_due: Optional[date] = None
     status: str = "pending"  # pending, awaiting_approval, completed, proposed, rejected
@@ -245,12 +267,27 @@ class Settings(SQLModel, table=True):
     id: Optional[int] = Field(default=1, primary_key=True)
     site_name: str = "Uncle Jon's Bank"
     site_url: str = "http://localhost:5173"
-    default_interest_rate: float = 0.01
-    default_penalty_interest_rate: float = 0.02
-    default_cd_penalty_rate: float = 0.1
-    service_fee_amount: float = 0.0
+    default_interest_rate: Decimal = Field(
+        default=Decimal("0.010000"),
+        sa_column=Column(Numeric(12, 6), nullable=False),
+    )
+    default_penalty_interest_rate: Decimal = Field(
+        default=Decimal("0.020000"),
+        sa_column=Column(Numeric(12, 6), nullable=False),
+    )
+    default_cd_penalty_rate: Decimal = Field(
+        default=Decimal("0.100000"),
+        sa_column=Column(Numeric(12, 6), nullable=False),
+    )
+    service_fee_amount: Decimal = Field(
+        default=Decimal("0.00"),
+        sa_column=Column(Numeric(14, 2), nullable=False),
+    )
     service_fee_is_percentage: bool = False
-    overdraft_fee_amount: float = 0.0
+    overdraft_fee_amount: Decimal = Field(
+        default=Decimal("0.00"),
+        sa_column=Column(Numeric(14, 2), nullable=False),
+    )
     overdraft_fee_is_percentage: bool = False
     overdraft_fee_daily: bool = False
     currency_symbol: str = "$"
@@ -280,7 +317,7 @@ class Coupon(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     code: str = Field(unique=True, index=True)
-    amount: float
+    amount: Decimal = Field(sa_column=Column(Numeric(14, 2), nullable=False))
     memo: Optional[str] = None
     expiration: Optional[datetime] = None
     max_uses: int = 1

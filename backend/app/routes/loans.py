@@ -17,6 +17,7 @@ from app.crud import (
     create_transaction,
     post_transaction_update,
 )
+from app.money import quantize_money, quantize_rate
 
 router = APIRouter(prefix="/loans", tags=["loans"])
 
@@ -121,7 +122,7 @@ async def approve_loan_route(
             raise HTTPException(status_code=403, detail="Insufficient permissions")
     loan.status = "approved"
     loan.parent_id = current_user.id
-    loan.interest_rate = data.interest_rate
+    loan.interest_rate = quantize_rate(data.interest_rate)
     loan.terms = data.terms
     loan.principal_remaining = loan.amount
     await save_loan(db, loan)
@@ -194,7 +195,7 @@ async def update_interest_rate(
         link = await get_child_user_link(db, current_user.id, loan.child_id)
         if not link or (PERM_MANAGE_LOAN not in link.permissions and not link.is_owner):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
-    loan.interest_rate = data.interest_rate
+    loan.interest_rate = quantize_rate(data.interest_rate)
     await record_loan_transaction(
         db,
         LoanTransaction(
@@ -243,7 +244,9 @@ async def record_payment(
             memo="Payment",
         ),
     )
-    loan.principal_remaining = round(loan.principal_remaining - data.amount, 2)
+    loan.principal_remaining = quantize_money(
+        loan.principal_remaining - quantize_money(data.amount)
+    )
     if loan.principal_remaining <= 0:
         loan.status = "closed"
     await save_loan(db, loan)
